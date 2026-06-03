@@ -1,0 +1,840 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Account Settings{% endblock %}
+{% block page_title %}Account Settings{% endblock %}
+{% block breadcrumb %}Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ═══════════════════════════════════════════════
+     SETTINGS LAYOUT
+  ═══════════════════════════════════════════════ */
+  .settings-wrap {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* ─── Sidebar ─────────────────────────────────── */
+  .settings-sidebar {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    position: sticky;
+    top: 24px;
+  }
+  .settings-sidebar-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-sidebar-title {
+    font-family: 'EB Garamond', serif;
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .8px;
+  }
+  .settings-nav { padding: 10px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .settings-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 14px;
+    border-radius: 9px;
+    font-size: .855rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background .17s, color .17s;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font-family: 'Source Sans 3', sans-serif;
+    text-decoration: none;
+  }
+  .settings-nav-item i {
+    width: 18px;
+    font-size: .85rem;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .settings-nav-item:hover {
+    background: var(--green-pale);
+    color: var(--green-dark);
+  }
+  .settings-nav-item.active {
+    background: var(--green-pale);
+    color: var(--green-dark);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--green-mid);
+  }
+  .settings-nav-item.active i { color: var(--green-mid); }
+
+  /* ─── Main Panel ──────────────────────────────── */
+  .settings-panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .settings-panel-header {
+    padding: 22px 28px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .settings-panel-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--green-pale);
+    color: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .95rem;
+    border: 1px solid var(--green-light);
+    flex-shrink: 0;
+  }
+  .settings-panel-title {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+  .settings-panel-sub {
+    font-size: .77rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .settings-panel-body { padding: 28px; }
+
+  /* ─── Avatar Section ──────────────────────────── */
+  .avatar-section {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 20px 24px;
+    background: var(--green-pale);
+    border: 1px solid var(--green-light);
+    border-radius: 12px;
+    margin-bottom: 28px;
+  }
+  .avatar-display {
+    position: relative;
+    width: 88px; height: 88px;
+    flex-shrink: 0;
+  }
+  .avatar-img {
+    width: 88px; height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--white);
+    box-shadow: 0 2px 10px rgba(0,0,0,.12);
+  }
+  .avatar-initials {
+    width: 88px; height: 88px;
+    border-radius: 50%;
+    background: var(--green-mid);
+    color: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    border: 3px solid var(--white);
+    box-shadow: 0 2px 10px rgba(0,0,0,.12);
+  }
+  .avatar-cam-btn {
+    position: absolute; bottom: 2px; right: 2px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--green-mid);
+    color: var(--white);
+    border: 2px solid var(--white);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .68rem;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .avatar-cam-btn:hover { background: var(--green-dark); }
+  .avatar-actions { display: flex; flex-direction: column; gap: 8px; }
+  .avatar-name {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .avatar-role {
+    font-size: .78rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    margin-bottom: 8px;
+  }
+  .avatar-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-upload-avatar {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--green-mid); color: var(--white);
+    border: none; border-radius: 8px;
+    padding: 7px 16px; font-size: .8rem; font-weight: 600;
+    font-family: 'Source Sans 3', sans-serif;
+    cursor: pointer; transition: background .18s;
+    position: relative; overflow: hidden;
+  }
+  .btn-upload-avatar input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .btn-upload-avatar:hover { background: var(--green-dark); }
+  .btn-delete-avatar {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--white); color: #c0392b;
+    border: 1px solid #f5c6cb; border-radius: 8px;
+    padding: 7px 16px; font-size: .8rem; font-weight: 600;
+    font-family: 'Source Sans 3', sans-serif;
+    cursor: pointer; transition: background .18s, border-color .18s;
+  }
+  .btn-delete-avatar:hover { background: #fdecea; border-color: #e63946; }
+  .avatar-hint { font-size: .72rem; color: var(--text-muted); margin-top: 4px; }
+
+  /* ─── Form Grid ───────────────────────────────── */
+  .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid-1 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .form-section { margin-bottom: 24px; }
+  .form-section-label {
+    font-size: .68rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .form-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .sett-form-group { display: flex; flex-direction: column; gap: 5px; }
+  .sett-label {
+    font-size: .75rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .6px;
+  }
+  .sett-label .req { color: #dc2626; }
+  .sett-label .opt { color: var(--text-muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .sett-input {
+    border: 1px solid var(--border); border-radius: 9px;
+    padding: 9px 13px; font-size: .855rem;
+    font-family: 'Source Sans 3', sans-serif;
+    color: var(--text-primary); background: var(--white); outline: none;
+    transition: border-color .18s, box-shadow .18s;
+    width: 100%;
+  }
+  .sett-input:focus {
+    border-color: var(--green-accent);
+    box-shadow: 0 0 0 3px rgba(82,183,136,.15);
+  }
+  .sett-input:disabled {
+    background: #f4f7f4; color: #90a4ae; cursor: not-allowed;
+  }
+  .sett-hint { font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
+
+  /* Gender pill selector */
+  .gender-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .gender-option {
+    position: relative;
+  }
+  .gender-option input[type="radio"] {
+    position: absolute; opacity: 0; pointer-events: none;
+  }
+  .gender-option label {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 24px;
+    font-size: .82rem; font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color .17s, background .17s, color .17s;
+    user-select: none;
+    font-family: 'Source Sans 3', sans-serif;
+  }
+  .gender-option label i { font-size: .78rem; }
+  .gender-option input:checked + label {
+    border-color: var(--green-mid);
+    background: var(--green-pale);
+    color: var(--green-dark);
+    font-weight: 600;
+  }
+  .gender-option label:hover {
+    border-color: var(--green-accent);
+    background: var(--green-pale);
+    color: var(--green-dark);
+  }
+
+  .self-describe-field {
+    display: none;
+    margin-top: 12px;
+  }
+  .self-describe-field.visible { display: block; }
+  .self-describe-field .sett-input {
+    font-size: .9rem;
+  }
+
+  /* Password strength */
+  .pw-strength-bar {
+    height: 4px;
+    border-radius: 4px;
+    background: var(--border);
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .pw-strength-fill {
+    height: 100%;
+    border-radius: 4px;
+    width: 0;
+    transition: width .3s, background .3s;
+  }
+  .pw-strength-fill.weak   { width: 33%; background: #e63946; }
+  .pw-strength-fill.medium { width: 66%; background: #f4a261; }
+  .pw-strength-fill.strong { width: 100%; background: #40c070; }
+  .pw-strength-text { font-size: .72rem; margin-top: 4px; font-weight: 600; }
+  .pw-strength-text.weak   { color: #e63946; }
+  .pw-strength-text.medium { color: #f4a261; }
+  .pw-strength-text.strong { color: #1a7a4a; }
+
+  .pw-match { font-size: .75rem; margin-top: 3px; font-weight: 600; }
+  .pw-match.ok  { color: #1a7a4a; }
+  .pw-match.bad { color: #e63946; }
+
+  /* Current password toggle */
+  .pw-field-wrap { position: relative; }
+  .pw-field-wrap .sett-input { padding-right: 40px; }
+  .pw-toggle {
+    position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: .82rem;
+    transition: color .15s;
+    padding: 2px;
+  }
+  .pw-toggle:hover { color: var(--green-mid); }
+
+  /* Save button */
+  .settings-footer {
+    padding: 16px 28px 24px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 12px;
+  }
+  .btn-sett-save {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--green-mid); color: var(--white);
+    border: none; border-radius: 9px;
+    padding: 9px 24px; font-size: .855rem; font-weight: 600;
+    font-family: 'Source Sans 3', sans-serif;
+    cursor: pointer; transition: background .18s, box-shadow .18s;
+  }
+  .btn-sett-save:hover { background: var(--green-dark); box-shadow: var(--shadow-sm); }
+  .btn-sett-cancel {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--white); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 9px;
+    padding: 9px 20px; font-size: .855rem; font-weight: 500;
+    font-family: 'Source Sans 3', sans-serif;
+    cursor: pointer; transition: background .18s;
+    text-decoration: none;
+  }
+  .btn-sett-cancel:hover { background: var(--green-pale); }
+
+  /* ── Tab pane visibility ─────────────────────── */
+  .settings-tab-pane { display: none; }
+  .settings-tab-pane.active { display: block; }
+
+  /* ── Toast ───────────────────────────────────── */
+  .sett-toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+    background: var(--green-dark); color: var(--white);
+    border-radius: 10px; padding: 12px 20px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: .84rem; font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(20px); opacity: 0;
+    transition: transform .25s, opacity .25s;
+    pointer-events: none; max-width: 360px;
+  }
+  .sett-toast.show { transform: translateY(0); opacity: 1; }
+  .sett-toast.toast-error { background: #c0392b; }
+  .sett-toast i { font-size: 1rem; flex-shrink: 0; }
+
+  /* ── Responsive ──────────────────────────────── */
+  @media (max-width: 860px) {
+    .settings-wrap { grid-template-columns: 1fr; }
+    .settings-sidebar { position: static; }
+    .settings-nav { flex-direction: row; flex-wrap: wrap; padding: 10px; }
+    .settings-nav-item { width: auto; }
+    .form-grid-2 { grid-template-columns: 1fr; }
+    .avatar-section { flex-direction: column; text-align: center; }
+    .avatar-btns { justify-content: center; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="settings-wrap">
+
+  <!-- ══ Sidebar Nav ═════════════════════════════════════════ -->
+  <aside class="settings-sidebar">
+    <div class="settings-sidebar-header">
+      <div class="settings-sidebar-title">Settings</div>
+    </div>
+    <nav class="settings-nav">
+      <button class="settings-nav-item active" onclick="switchTab('profile', this)">
+        <i class="fa-solid fa-circle-user"></i>
+        Profile Settings
+      </button>
+      <button class="settings-nav-item" onclick="switchTab('password', this)">
+        <i class="fa-solid fa-lock"></i>
+        Password
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ══ Main Panel ══════════════════════════════════════════ -->
+  <div class="settings-panel">
+
+    <!-- ─── PROFILE SETTINGS ────────────────────────────── -->
+    <div class="settings-tab-pane active" id="tab-profile">
+      <div class="settings-panel-header">
+        <div class="settings-panel-icon"><i class="fa-solid fa-circle-user"></i></div>
+        <div>
+          <div class="settings-panel-title">Profile Settings</div>
+          <div class="settings-panel-sub">Update your personal information and how others see you.</div>
+        </div>
+      </div>
+
+      <form method="POST" action="{% url 'settings_profile' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="profile">
+
+        <div class="settings-panel-body">
+
+          <!-- Avatar -->
+          <div class="avatar-section">
+            <div class="avatar-display">
+              {% if request.user.profile.avatar %}
+                <img src="{{ request.user.profile.avatar.url }}"
+                     alt="{{ request.user.profile.get_full_name_with_middle }}"
+                     class="avatar-img" id="avatarPreviewImg">
+              {% else %}
+                <div class="avatar-initials" id="avatarInitials">
+                  {{ request.user.first_name|slice:":1"|upper }}{{ request.user.last_name|slice:":1"|upper }}
+                </div>
+                <img src="" alt="" class="avatar-img" id="avatarPreviewImg"
+                     style="display:none; position:absolute; top:0; left:0;">
+              {% endif %}
+              <label class="avatar-cam-btn" for="avatarInput" title="Change avatar">
+                <i class="fa-solid fa-camera"></i>
+              </label>
+            </div>
+            <div class="avatar-actions">
+              <div class="avatar-name">{{ request.user.profile.get_full_name_with_middle }}</div>
+              <div class="avatar-role">
+                {% if request.user.profile.role %}{{ request.user.profile.role.name }}{% else %}No Role Assigned{% endif %}
+                {% if request.user.profile.department %}&nbsp;·&nbsp;{{ request.user.profile.department }}{% endif %}
+              </div>
+              <div class="avatar-btns">
+                <label class="btn-upload-avatar">
+                  <input type="file" name="avatar" id="avatarInput" accept="image/*"
+                         onchange="handleAvatarChange(this)">
+                  <i class="fa-solid fa-arrow-up-from-bracket"></i> Upload New
+                </label>
+                {% if request.user.profile.avatar %}
+                <button type="submit" name="clear_avatar" value="1" class="btn-delete-avatar"
+                        onclick="return confirm('Remove your current avatar?')">
+                  <i class="fa-solid fa-trash-can"></i> Delete Avatar
+                </button>
+                {% endif %}
+              </div>
+              <div class="avatar-hint">PNG, JPG or GIF — max 5 MB</div>
+            </div>
+          </div>
+
+          <!-- Personal Info -->
+          <div class="form-section">
+            <div class="form-section-label">Personal Information</div>
+            <div class="form-grid-2">
+              <div class="sett-form-group">
+                <label class="sett-label">First Name <span class="req">*</span></label>
+                <input type="text" name="first_name" class="sett-input"
+                       value="{{ request.user.first_name }}" required placeholder="Juan">
+              </div>
+              <div class="sett-form-group">
+                <label class="sett-label">Last Name <span class="req">*</span></label>
+                <input type="text" name="last_name" class="sett-input"
+                       value="{{ request.user.last_name }}" required placeholder="Dela Cruz">
+              </div>
+            </div>
+            <div class="form-grid-2" style="margin-top:16px;">
+              <div class="sett-form-group">
+                <label class="sett-label">Middle Name <span class="opt">(optional)</span></label>
+                <input type="text" name="middle_name" class="sett-input"
+                       value="{{ request.user.profile.middle_name }}" placeholder="Santos">
+              </div>
+              <div class="sett-form-group">
+                <label class="sett-label">Username</label>
+                <input type="text" class="sett-input" value="{{ request.user.username }}" disabled>
+                <span class="sett-hint">Username cannot be changed.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact -->
+          <div class="form-section">
+            <div class="form-section-label">Contact Details</div>
+            <div class="form-grid-2">
+              <div class="sett-form-group">
+                <label class="sett-label">Email Address <span class="opt">(optional)</span></label>
+                <input type="email" name="email" class="sett-input"
+                       value="{{ request.user.email }}" placeholder="juan@example.com">
+              </div>
+              <div class="sett-form-group">
+                <label class="sett-label">Mobile Number <span class="opt">(optional)</span></label>
+                <input type="text" name="mobile_number" class="sett-input"
+                       value="{{ request.user.profile.mobile_number|default:'' }}"
+                       placeholder="e.g. 09XX XXX XXXX">
+              </div>
+            </div>
+          </div>
+
+          <!-- Work Info -->
+          <div class="form-section">
+            <div class="form-section-label">Work Information</div>
+            <div class="form-grid-2">
+              <div class="sett-form-group">
+                <label class="sett-label">Position / Designation</label>
+                <input type="text" name="position" class="sett-input"
+                       value="{{ request.user.profile.position|default:'' }}"
+                       placeholder="e.g. Nurse, Pharmacist">
+              </div>
+              <div class="sett-form-group">
+                <label class="sett-label">Department</label>
+                <select name="department" class="sett-input">
+                  <option value="">— Select department —</option>
+                  {% for val, label in department_choices %}
+                    <option value="{{ val }}"
+                      {% if request.user.profile.department == val %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="form-grid-1" style="margin-top:16px;">
+              <div class="sett-form-group">
+                <label class="sett-label">Role</label>
+                <input type="text" class="sett-input"
+                       value="{{ request.user.profile.role.name|default:'No Role Assigned' }}" disabled>
+                <span class="sett-hint">Role is managed by an administrator.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gender -->
+          <div class="form-section">
+            <div class="form-section-label">About You</div>
+            <div class="sett-form-group">
+              <label class="sett-label">Gender <span class="opt">(optional)</span></label>
+              <div class="gender-options" style="margin-top:4px;">
+                {% for val, label, icon in gender_options %}
+                <div class="gender-option">
+                  <input type="radio" name="gender" id="gender_{{ val }}" value="{{ val }}"
+                         {% if request.user.profile.gender == val %}checked{% endif %}>
+                  <label for="gender_{{ val }}">
+                    <i class="{{ icon }}"></i> {{ label }}
+                  </label>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="self-describe-field" id="gender_self_describe_wrap">
+                <input type="text" name="gender_self_describe" id="gender_self_describe_input"
+                       class="sett-input" placeholder="Describe your gender identity…"
+                       maxlength="100"
+                       value="{{ request.user.profile.gender_self_describe|default:'' }}">
+              </div>
+              <span class="sett-hint">This is kept private and only used to personalize your experience.</span>
+            </div>
+            <div class="sett-form-group" style="margin-top:16px;">
+              <label class="sett-label">Bio <span class="opt">(optional)</span></label>
+              <textarea name="bio" class="sett-input" rows="3"
+                        placeholder="A short description about yourself…"
+                        style="resize:vertical;">{{ request.user.profile.bio|default:'' }}</textarea>
+            </div>
+          </div>
+
+        </div><!-- /panel-body -->
+
+        <div class="settings-footer">
+          <a href="{% url 'home' %}" class="btn-sett-cancel">
+            <i class="fa-solid fa-xmark"></i> Cancel
+          </a>
+          <button type="submit" class="btn-sett-save">
+            <i class="fa-solid fa-floppy-disk"></i> Save Changes
+          </button>
+        </div>
+      </form>
+    </div><!-- /tab-profile -->
+
+
+    <!-- ─── PASSWORD ─────────────────────────────────────── -->
+    <div class="settings-tab-pane" id="tab-password">
+      <div class="settings-panel-header">
+        <div class="settings-panel-icon"><i class="fa-solid fa-lock"></i></div>
+        <div>
+          <div class="settings-panel-title">Change Password</div>
+          <div class="settings-panel-sub">Ensure your account uses a strong, unique password.</div>
+        </div>
+      </div>
+
+      <form method="POST" action="{% url 'settings_password' %}" id="pwForm">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="password">
+
+        <div class="settings-panel-body">
+
+          <div class="form-section">
+            <div class="form-section-label">Current Password</div>
+            <div class="form-grid-1">
+              <div class="sett-form-group">
+                <label class="sett-label">Current Password <span class="req">*</span></label>
+                <div class="pw-field-wrap">
+                  <input type="password" name="current_password" id="currentPw"
+                         class="sett-input" placeholder="Enter your current password" required autocomplete="current-password">
+                  <button type="button" class="pw-toggle" onclick="togglePw('currentPw', this)" tabindex="-1">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-label">New Password</div>
+            <div class="form-grid-2">
+              <div class="sett-form-group">
+                <label class="sett-label">New Password <span class="req">*</span></label>
+                <div class="pw-field-wrap">
+                  <input type="password" name="new_password" id="newPw"
+                         class="sett-input" placeholder="Min. 8 characters"
+                         required autocomplete="new-password"
+                         oninput="evalStrength(this.value); checkPwMatch();">
+                  <button type="button" class="pw-toggle" onclick="togglePw('newPw', this)" tabindex="-1">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+                <div class="pw-strength-bar"><div class="pw-strength-fill" id="strengthFill"></div></div>
+                <div class="pw-strength-text" id="strengthText"></div>
+              </div>
+              <div class="sett-form-group">
+                <label class="sett-label">Confirm New Password <span class="req">*</span></label>
+                <div class="pw-field-wrap">
+                  <input type="password" name="confirm_password" id="confirmPw"
+                         class="sett-input" placeholder="Re-enter new password"
+                         required autocomplete="new-password"
+                         oninput="checkPwMatch()">
+                  <button type="button" class="pw-toggle" onclick="togglePw('confirmPw', this)" tabindex="-1">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+                <div class="pw-match" id="pwMatchMsg"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tips -->
+          <div style="background:var(--green-pale); border:1px solid var(--green-light); border-radius:10px; padding:14px 18px;">
+            <div style="font-size:.78rem; font-weight:700; color:var(--green-dark); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px;">
+              <i class="fa-solid fa-shield-halved" style="margin-right:6px;"></i>Password Tips
+            </div>
+            <ul style="font-size:.8rem; color:var(--text-muted); line-height:1.75; margin:0; padding-left:16px;">
+              <li>Use at least 8 characters</li>
+              <li>Mix uppercase, lowercase, numbers, and symbols</li>
+              <li>Avoid using your name or common words</li>
+              <li>Don't reuse passwords from other accounts</li>
+            </ul>
+          </div>
+
+        </div><!-- /panel-body -->
+
+        <div class="settings-footer">
+          <button type="button" class="btn-sett-cancel" onclick="switchTab('profile', document.querySelector('[onclick*=profile]'))">
+            <i class="fa-solid fa-xmark"></i> Cancel
+          </button>
+          <button type="submit" class="btn-sett-save" id="pwSaveBtn">
+            <i class="fa-solid fa-lock"></i> Update Password
+          </button>
+        </div>
+      </form>
+    </div><!-- /tab-password -->
+
+  </div><!-- /settings-panel -->
+</div><!-- /settings-wrap -->
+
+<!-- Toast -->
+<div class="sett-toast" id="settToast">
+  <i class="fa-solid fa-circle-check" id="settToastIcon"></i>
+  <span id="settToastMsg"></span>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+  /* ── Tab switching ───────────────────────────────────── */
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.settings-tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.settings-nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    btn.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ── Avatar preview ──────────────────────────────────── */
+  function handleAvatarChange(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const previewImg = document.getElementById('avatarPreviewImg');
+      const initials   = document.getElementById('avatarInitials');
+      previewImg.src            = e.target.result;
+      previewImg.style.display  = 'block';
+      if (initials) initials.style.display = 'none';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+
+  function toggleGenderSelfDescribe(value) {
+    const wrap  = document.getElementById('gender_self_describe_wrap');
+    const input = document.getElementById('gender_self_describe_input');
+    if (value === 'self_describe') {
+      wrap.classList.add('visible');
+      input.focus();
+    } else {
+      wrap.classList.remove('visible');
+      input.value = '';
+    }
+  }
+
+  document.querySelectorAll('input[name="gender"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      toggleGenderSelfDescribe(this.value);
+    });
+  });
+
+  window.addEventListener('DOMContentLoaded', function() {
+    const current = document.querySelector('input[name="gender"]:checked');
+    if (current && current.value === 'self_describe') {
+      toggleGenderSelfDescribe('self_describe');
+    }
+  });
+
+  /* ── Password visibility toggle ─────────────────────── */
+  function togglePw(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const icon  = btn.querySelector('i');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.className = 'fa-solid fa-eye-slash';
+    } else {
+      input.type = 'password';
+      icon.className = 'fa-solid fa-eye';
+    }
+  }
+
+  /* ── Password strength ───────────────────────────────── */
+  function evalStrength(pw) {
+    const fill = document.getElementById('strengthFill');
+    const text = document.getElementById('strengthText');
+    if (!pw) { fill.className = 'pw-strength-fill'; fill.style.width = '0'; text.textContent = ''; return; }
+    let score = 0;
+    if (pw.length >= 8)                  score++;
+    if (/[A-Z]/.test(pw))                score++;
+    if (/[0-9]/.test(pw))                score++;
+    if (/[^A-Za-z0-9]/.test(pw))        score++;
+    if (score <= 1) {
+      fill.className = 'pw-strength-fill weak'; text.className = 'pw-strength-text weak'; text.textContent = 'Weak';
+    } else if (score <= 3) {
+      fill.className = 'pw-strength-fill medium'; text.className = 'pw-strength-text medium'; text.textContent = 'Moderate';
+    } else {
+      fill.className = 'pw-strength-fill strong'; text.className = 'pw-strength-text strong'; text.textContent = 'Strong';
+    }
+  }
+
+  /* ── Password match ──────────────────────────────────── */
+  function checkPwMatch() {
+    const pw   = document.getElementById('newPw').value;
+    const cpw  = document.getElementById('confirmPw').value;
+    const msg  = document.getElementById('pwMatchMsg');
+    const btn  = document.getElementById('pwSaveBtn');
+    if (!cpw) { msg.textContent = ''; msg.className = 'pw-match'; return; }
+    if (pw === cpw) {
+      msg.textContent = '✓ Passwords match'; msg.className = 'pw-match ok';
+      btn.disabled = false;
+    } else {
+      msg.textContent = '✗ Passwords do not match'; msg.className = 'pw-match bad';
+      btn.disabled = true;
+    }
+  }
+
+  document.getElementById('pwForm').addEventListener('submit', function(e) {
+    const pw  = document.getElementById('newPw').value;
+    const cpw = document.getElementById('confirmPw').value;
+    if (pw !== cpw) {
+      e.preventDefault();
+      showToast('Passwords do not match. Please try again.', 'error');
+    }
+  });
+
+  /* ── Toast ───────────────────────────────────────────── */
+  let _toastTimer = null;
+  function showToast(msg, type = 'success') {
+    const toast = document.getElementById('settToast');
+    const icon  = document.getElementById('settToastIcon');
+    document.getElementById('settToastMsg').textContent = msg;
+    toast.className = 'sett-toast' + (type === 'error' ? ' toast-error' : '');
+    icon.className  = type === 'error' ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check';
+    toast.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  {% if messages %}
+    {% for message in messages %}
+      showToast("{{ message|escapejs }}", "{% if 'error' in message.tags %}error{% else %}success{% endif %}");
+      {% if 'password' in message.tags or 'pw' in message.tags %}
+        // Auto-switch to password tab if a password message
+        switchTab('password', document.querySelectorAll('.settings-nav-item')[1]);
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  /* ── Restore active tab from URL hash ─────────────────── */
+  if (window.location.hash === '#password') {
+    switchTab('password', document.querySelectorAll('.settings-nav-item')[1]);
+  }
+</script>
+{% endblock %}

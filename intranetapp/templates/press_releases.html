@@ -1,0 +1,1095 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Press Releases{% endblock %}
+{% block page_title %}Press Releases{% endblock %}
+{% block breadcrumb %}Press Releases{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Toasts ── */
+.toast-container {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast {
+  background: var(--green-dark); color: var(--white);
+  padding: 12px 18px; border-radius: 8px; font-size: .83rem;
+  box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 10px;
+  opacity: 0; transform: translateX(20px);
+  animation: toastIn .3s forwards, toastOut .3s 3.5s forwards;
+  pointer-events: all; max-width: 360px;
+}
+.toast.toast-error { background: #c0392b; }
+.toast i { flex-shrink: 0; }
+@keyframes toastIn  { to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+/* ── Page header ── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px; flex-wrap: wrap; gap: 12px;
+}
+.page-header h2 {
+  font-family: 'EB Garamond', serif; font-size: 1.55rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.2;
+}
+.page-header h2 small {
+  display: block; font-family: 'Source Sans 3', sans-serif;
+  font-size: .75rem; color: var(--text-muted); font-weight: 400; margin-top: 2px;
+}
+
+/* ── Stat cards ── */
+.stat-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;
+}
+@media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 480px) { .stat-row { grid-template-columns: 1fr 1fr; } }
+
+.stat-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 18px; display: flex; align-items: center; gap: 14px;
+  box-shadow: var(--shadow-sm); cursor: pointer;
+  transition: box-shadow .18s, border-color .18s, transform .18s;
+}
+.stat-card:hover { box-shadow: var(--shadow-md); border-color: var(--green-accent); transform: translateY(-1px); }
+.stat-card.active { border-color: var(--green-accent); background: var(--green-pale); }
+
+.stat-icon {
+  width: 42px; height: 42px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0;
+}
+.stat-icon.all       { background: rgba(45,106,79,.12);   color: var(--green-mid); }
+.stat-icon.published { background: rgba(39,174,96,.15);   color: #219150; }
+.stat-icon.draft     { background: rgba(243,156,18,.15);  color: #c87f00; }
+.stat-icon.archived  { background: rgba(100,100,100,.12); color: #666; }
+
+.stat-body { flex: 1; min-width: 0; }
+.stat-value {
+  font-family: 'EB Garamond', serif; font-size: 1.6rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1;
+}
+.stat-label {
+  font-size: .72rem; color: var(--text-muted); margin-top: 2px;
+  text-transform: uppercase; letter-spacing: .6px; font-weight: 500;
+}
+
+/* ── Toolbar ── */
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.search-box { flex: 1; min-width: 180px; position: relative; }
+.search-box i {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); font-size: .85rem; pointer-events: none;
+}
+.search-box input {
+  width: 100%; padding: 9px 12px 9px 34px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: .85rem; font-family: inherit;
+  background: var(--white); color: var(--text-primary); outline: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+.search-box input:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+
+/* Filter selects in toolbar */
+.toolbar-select {
+  padding: 8px 28px 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: .82rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  transition: border-color .18s, box-shadow .18s;
+  white-space: nowrap;
+}
+.toolbar-select:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.toolbar-select.has-value { border-color: var(--green-accent); background-color: var(--green-pale); color: var(--green-dark); font-weight: 500; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px;
+  border-radius: 8px; font-size: .84rem; font-family: inherit; font-weight: 500;
+  border: none; cursor: pointer; transition: background .18s, box-shadow .18s, transform .15s;
+  white-space: nowrap; line-height: 1; text-decoration: none;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--green-mid); color: var(--white); }
+.btn-primary:hover { background: var(--green-dark); box-shadow: var(--shadow-sm); }
+.btn-outline { background: var(--white); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--green-pale); border-color: var(--green-accent); }
+.btn-danger { background: #c0392b; color: var(--white); }
+.btn-danger:hover { background: #a93226; }
+.btn-ghost { background: transparent; color: var(--text-muted); padding: 7px 10px; }
+.btn-ghost:hover { background: var(--green-pale); color: var(--green-dark); }
+.btn-sm { padding: 6px 12px; font-size: .78rem; }
+
+/* ── Results info bar ── */
+.results-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+}
+.results-bar__count { font-size: .8rem; color: var(--text-muted); }
+.results-bar__count strong { color: var(--text-primary); font-weight: 600; }
+
+/* ── PR grid & cards ── */
+.pr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+
+.pr-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
+  transition: box-shadow .18s, transform .18s;
+}
+.pr-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+.pr-card__img {
+  width: 100%; height: 180px; background: var(--green-pale);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--green-light); font-size: 2rem; flex-shrink: 0; overflow: hidden;
+}
+.pr-card__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.pr-card__body { padding: 16px 18px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.pr-card__meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
+  border-radius: 20px; font-size: .69rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.status-badge-published { background: rgba(39,174,96,.15); color: #1a7a3c; }
+.status-badge-draft     { background: rgba(243,156,18,.15); color: #a06800; }
+.status-badge-archived  { background: rgba(100,100,100,.12); color: #555; }
+
+.pr-card__date  { font-size: .72rem; color: var(--text-muted); }
+.pr-card__title {
+  font-family: 'EB Garamond', serif; font-size: 1.1rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pr-card__excerpt {
+  font-size: .82rem; color: var(--text-muted); line-height: 1.55;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pr-card__author {
+  font-size: .73rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px;
+  margin-top: auto; padding-top: 6px; border-top: 1px solid var(--border);
+}
+
+.pr-card__actions {
+  padding: 8px 12px; background: var(--green-pale); border-top: 1px solid var(--border);
+  display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; overflow: hidden;
+}
+.pr-card__actions .actions-left {
+  display: flex; gap: 4px; align-items: center; flex: 1; min-width: 0;
+}
+.pr-card__actions .actions-right {
+  display: flex; gap: 2px; align-items: center; flex-shrink: 0; margin-left: auto;
+}
+.btn-icon {
+  width: 30px; height: 30px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: 7px;
+  font-size: .82rem; border: 1px solid var(--border);
+  background: var(--white); color: var(--text-muted);
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s; flex-shrink: 0;
+}
+.btn-icon:hover { background: var(--green-pale); color: var(--green-dark); border-color: var(--green-accent); }
+.btn-icon.btn-icon-danger { border-color: rgba(192,57,43,.3); color: #c0392b; }
+.btn-icon.btn-icon-danger:hover { background: rgba(192,57,43,.08); border-color: #c0392b; }
+.pr-card__actions .btn-sm { padding: 5px 10px; font-size: .75rem; }
+
+/* ── Empty state ── */
+.empty-state {
+  grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 64px 20px; background: var(--white);
+  border: 2px dashed var(--border); border-radius: 12px;
+  gap: 12px; color: var(--text-muted); text-align: center;
+}
+.empty-state i { font-size: 2.8rem; color: var(--green-light); }
+.empty-state h3 { font-family: 'EB Garamond', serif; font-size: 1.2rem; color: var(--text-primary); }
+.empty-state p { font-size: .85rem; max-width: 320px; line-height: 1.6; }
+
+/* ══ PAGINATION ══ */
+.pagination-wrap {
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 28px; gap: 4px; flex-wrap: wrap;
+}
+.page-btn {
+  min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .83rem; font-family: inherit; font-weight: 500;
+  border: 1px solid var(--border); background: var(--white); color: var(--text-primary);
+  cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, color .15s;
+  line-height: 1;
+}
+.page-btn:hover { background: var(--green-pale); border-color: var(--green-accent); color: var(--green-dark); }
+.page-btn.active { background: var(--green-mid); border-color: var(--green-mid); color: var(--white); cursor: default; font-weight: 600; }
+.page-btn.disabled { opacity: .4; pointer-events: none; cursor: default; }
+.page-ellipsis { min-width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; font-size: .83rem; color: var(--text-muted); }
+
+/* ══ MODAL SYSTEM ══ */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(10,31,20,.55);
+  z-index: 800; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(2px);
+}
+.modal-backdrop.open { display: flex; }
+
+.modal {
+  background: var(--white); border-radius: 14px; width: 100%;
+  max-width: 680px; max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-lg); animation: modalIn .22s cubic-bezier(.4,0,.2,1); overflow: hidden;
+}
+.modal-lg { max-width: 820px; }
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)  translateY(0); }
+}
+
+.modal__header {
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0;
+}
+.modal__header-icon {
+  width: 38px; height: 38px; border-radius: 9px; background: var(--green-pale);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--green-mid); font-size: .95rem; flex-shrink: 0;
+}
+.modal__header-title { flex: 1; min-width: 0; }
+.modal__header-title h3 {
+  font-family: 'EB Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--text-primary);
+}
+.modal__header-title p { font-size: .77rem; color: var(--text-muted); margin-top: 2px; }
+.modal__close {
+  width: 30px; height: 30px; border-radius: 6px; background: transparent; border: none;
+  cursor: pointer; color: var(--text-muted); font-size: .9rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s; flex-shrink: 0;
+}
+.modal__close:hover { background: var(--green-pale); color: var(--green-dark); }
+
+.modal__body {
+  padding: 20px 24px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 16px; min-height: 0;
+}
+.modal__footer {
+  padding: 14px 24px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; flex-shrink: 0; background: var(--green-pale);
+}
+
+/* ── Form elements ── */
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: .8rem; font-weight: 600; color: var(--text-primary); letter-spacing: .2px; }
+.form-group label .req { color: #c0392b; margin-left: 2px; }
+.form-control {
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: .85rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none;
+  transition: border-color .18s, box-shadow .18s; width: 100%;
+}
+.form-control:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+textarea.form-control { resize: vertical; min-height: 130px; line-height: 1.6; }
+
+.img-upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 22px;
+  text-align: center; cursor: pointer;
+  transition: border-color .18s, background .18s; position: relative; background: var(--white);
+}
+.img-upload-zone:hover { border-color: var(--green-accent); background: var(--green-pale); }
+.img-upload-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.img-upload-zone i { font-size: 1.6rem; color: var(--green-light); margin-bottom: 6px; display: block; }
+.img-upload-zone span { font-size: .82rem; color: var(--text-muted); line-height: 1.5; display: block; }
+.img-upload-zone strong { color: var(--green-mid); }
+
+.img-preview-wrap { position: relative; margin-top: 10px; display: none; }
+.img-preview-wrap img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.img-preview-wrap .img-remove {
+  position: absolute; top: 6px; right: 6px; background: rgba(192,57,43,.9);
+  color: #fff; border: none; border-radius: 6px; padding: 5px 8px;
+  font-size: .72rem; cursor: pointer; display: flex; align-items: center; gap: 4px;
+}
+
+.existing-img-wrap {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; background: var(--green-pale);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.existing-img-wrap img { width: 70px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; }
+.existing-img-wrap .img-info { flex: 1; font-size: .78rem; color: var(--text-muted); }
+.existing-img-wrap .img-info strong { display: block; color: var(--text-primary); margin-bottom: 3px; }
+.clear-img-label { display: flex; align-items: center; gap: 5px; font-size: .78rem; color: var(--text-muted); cursor: pointer; margin-top: 4px; }
+
+.archive-section {
+  background: var(--green-pale); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.archive-section h4 { font-size: .8rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.archive-section h4 i { color: var(--green-mid); }
+.archive-options { display: flex; flex-direction: column; gap: 8px; }
+.archive-radio {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 8px; cursor: pointer; transition: border-color .15s, background .15s;
+}
+.archive-radio:has(input:checked) { border-color: var(--green-accent); background: rgba(82,183,136,.06); }
+.archive-radio input[type="radio"] { margin-top: 2px; accent-color: var(--green-mid); flex-shrink: 0; }
+.archive-radio-text strong { display: block; font-size: .82rem; color: var(--text-primary); }
+.archive-radio-text span   { font-size: .74rem; color: var(--text-muted); }
+
+.archive-date-row { display: none; gap: 8px; align-items: center; flex-wrap: wrap; }
+.archive-date-row.visible { display: flex; }
+.archive-date-row label { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
+.archive-date-row input {
+  padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px;
+  font-size: .83rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none; transition: border-color .18s;
+}
+.archive-date-row input:focus { border-color: var(--green-accent); }
+
+.modal-danger .modal__header { border-bottom-color: rgba(192,57,43,.2); }
+.modal-danger .modal__header-icon { background: rgba(192,57,43,.1); color: #c0392b; }
+
+.detail-img { width: 100%; max-height: 280px; object-fit: cover; border-radius: 10px; margin-bottom: 4px; }
+.detail-title { font-family: 'EB Garamond', serif; font-size: 1.45rem; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.detail-meta {
+  display: flex; flex-wrap: wrap; gap: 12px; font-size: .77rem; color: var(--text-muted);
+  padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.detail-meta span { display: flex; align-items: center; gap: 5px; }
+.detail-body { font-size: .9rem; line-height: 1.75; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; }
+.detail-archive-note {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: var(--green-pale); border: 1px solid var(--border);
+  border-radius: 8px; font-size: .78rem; color: var(--text-muted);
+}
+.detail-archive-note i { color: var(--green-mid); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Toasts -->
+<div class="toast-container" id="toastContainer">
+  {% for msg in messages %}
+    <div class="toast {% if 'error' in msg.tags %}toast-error{% endif %}">
+      <i class="fa-solid {% if 'error' in msg.tags %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+      {{ msg }}
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Page header -->
+<div class="page-header">
+  <h2>Press Releases<small>Manage and publish institutional press releases</small></h2>
+  {% if can_manage %}
+  <button class="btn btn-primary" onclick="openCreateModal()">
+    <i class="fa-solid fa-plus"></i> New Press Release
+  </button>
+  {% endif %}
+</div>
+
+<!-- Stat cards -->
+<div class="stat-row">
+  <div class="stat-card {% if not status_filter %}active{% endif %}" onclick="filterByStatus('')">
+    <div class="stat-icon all"><i class="fa-solid fa-newspaper"></i></div>
+    <div class="stat-body"><div class="stat-value">{{ total_count }}</div><div class="stat-label">Total</div></div>
+  </div>
+  <div class="stat-card {% if status_filter == 'published' %}active{% endif %}" onclick="filterByStatus('published')">
+    <div class="stat-icon published"><i class="fa-solid fa-circle-check"></i></div>
+    <div class="stat-body"><div class="stat-value">{{ published_count }}</div><div class="stat-label">Published</div></div>
+  </div>
+  <div class="stat-card {% if status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('draft')">
+    <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
+    <div class="stat-body"><div class="stat-value">{{ draft_count }}</div><div class="stat-label">Drafts</div></div>
+  </div>
+  <div class="stat-card {% if status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('archived')">
+    <div class="stat-icon archived"><i class="fa-solid fa-box-archive"></i></div>
+    <div class="stat-body"><div class="stat-value">{{ archived_count }}</div><div class="stat-label">Archived</div></div>
+  </div>
+</div>
+
+<!-- Toolbar / search / filters -->
+<form method="get" id="filterForm">
+  <input type="hidden" name="status" id="statusHidden" value="{{ status_filter }}">
+  <div class="toolbar">
+
+    <!-- Search -->
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" name="search" value="{{ search_query }}"
+             placeholder="Search press releases…"
+             onchange="document.getElementById('filterForm').submit()">
+    </div>
+
+    <!-- Month/Year filter -->
+    <select name="month" class="toolbar-select {% if month_filter %}has-value{% endif %}"
+            onchange="document.getElementById('filterForm').submit()" title="Filter by month">
+      <option value="">All months</option>
+      {% for m in available_months %}
+      <option value="{{ m.value }}" {% if m.value == month_filter %}selected{% endif %}>{{ m.label }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- Items per page -->
+    <select name="per_page" class="toolbar-select {% if per_page != 10 %}has-value{% endif %}"
+            onchange="document.getElementById('filterForm').submit()" title="Items per page">
+      <option value="5"   {% if per_page == 5   %}selected{% endif %}>5 per page</option>
+      <option value="10"  {% if per_page == 10  %}selected{% endif %}>10 per page</option>
+      <option value="20"  {% if per_page == 20  %}selected{% endif %}>20 per page</option>
+      <option value="40"  {% if per_page == 40  %}selected{% endif %}>40 per page</option>
+      <option value="100" {% if per_page == 100 %}selected{% endif %}>100 per page</option>
+    </select>
+
+    <!-- Clear filters -->
+    {% if search_query or status_filter or month_filter or per_page != 10 %}
+    <a href="{% url 'press_releases' %}" class="btn btn-outline btn-sm">
+      <i class="fa-solid fa-xmark"></i> Clear
+    </a>
+    {% endif %}
+
+  </div>
+</form>
+
+<!-- Results info -->
+<div class="results-bar">
+  <span class="results-bar__count">
+    Showing <strong>{{ press_releases.start_index }}–{{ press_releases.end_index }}</strong>
+    of <strong>{{ press_releases.paginator.count }}</strong> press release{{ press_releases.paginator.count|pluralize }}
+    {% if month_filter %}&nbsp;·&nbsp;<i class="fa-solid fa-calendar-days" style="color:var(--green-mid);font-size:.75rem;"></i> {{ month_filter_label }}{% endif %}
+  </span>
+</div>
+
+<!-- Cards grid -->
+<div class="pr-grid">
+  {% for pr in press_releases %}
+  <div class="pr-card" id="prCard{{ pr.pk }}">
+
+    <div class="pr-card__img">
+      {% if pr.image %}
+        <img src="{{ pr.image.url }}" alt="{{ pr.title|escapejs }}">
+      {% else %}
+        <i class="fa-solid fa-newspaper"></i>
+      {% endif %}
+    </div>
+
+    <div class="pr-card__body">
+      <div class="pr-card__meta">
+        <span class="status-badge status-badge-{{ pr.status }}">
+          {% if pr.status == 'published' %}<i class="fa-solid fa-circle-check"></i>
+          {% elif pr.status == 'draft'    %}<i class="fa-solid fa-pen-to-square"></i>
+          {% else                         %}<i class="fa-solid fa-box-archive"></i>{% endif %}
+          {{ pr.get_status_display }}
+        </span>
+        <span class="pr-card__date">
+          {% if pr.published_at %}{{ pr.published_at|date:"M d, Y" }}
+          {% else %}{{ pr.created_at|date:"M d, Y" }}{% endif %}
+        </span>
+      </div>
+
+      <div class="pr-card__title">{{ pr.title }}</div>
+      <div class="pr-card__excerpt">{{ pr.details|truncatechars:160 }}</div>
+
+      <div class="pr-card__author">
+        <i class="fa-solid fa-user-pen"></i>
+        {% if pr.author %}{{ pr.author.get_full_name|default:pr.author.username }}{% else %}Unknown{% endif %}
+        {% if pr.archive_policy == 'on_date' and pr.archive_date %}
+          &nbsp;·&nbsp;<i class="fa-solid fa-calendar-xmark"></i> Archives {{ pr.archive_date|date:"M d, Y" }}
+        {% elif pr.archive_policy == 'never' %}
+          &nbsp;·&nbsp;<i class="fa-solid fa-infinity"></i> No archive
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="pr-card__actions">
+      <div class="actions-left">
+        <button class="btn btn-outline btn-sm" onclick="openDetailModal({{ pr.pk }})">
+          <i class="fa-solid fa-eye"></i> View
+        </button>
+
+        {% if can_manage %}
+        <button class="btn btn-outline btn-sm" onclick="openEditModal({{ pr.pk }})">
+          <i class="fa-solid fa-pen"></i> Edit
+        </button>
+
+        {% if pr.status == 'draft' %}
+        <button class="btn btn-sm btn-primary" onclick="toggleStatus({{ pr.pk }}, 'publish')">
+          <i class="fa-solid fa-paper-plane"></i> Publish
+        </button>
+        {% elif pr.status == 'published' %}
+        <button class="btn btn-sm btn-outline" onclick="toggleStatus({{ pr.pk }}, 'draft')">
+          <i class="fa-solid fa-pen-to-square"></i> Unpublish
+        </button>
+        {% elif pr.status == 'archived' %}
+        <button class="btn btn-sm btn-outline" onclick="toggleStatus({{ pr.pk }}, 'unarchive')">
+          <i class="fa-solid fa-box-open"></i> Unarchive
+        </button>
+        {% endif %}
+        {% endif %}
+      </div>
+
+      {% if can_manage %}
+      <div class="actions-right">
+        {% if pr.status != 'archived' %}
+        <button class="btn-icon" title="Archive" onclick="toggleStatus({{ pr.pk }}, 'archive')">
+          <i class="fa-solid fa-box-archive"></i>
+        </button>
+        {% endif %}
+        <button class="btn-icon btn-icon-danger" title="Delete"
+                onclick="openDeleteModal({{ pr.pk }}, '{{ pr.title|escapejs }}')">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+  {% empty %}
+  <div class="empty-state">
+    <i class="fa-solid fa-newspaper"></i>
+    <h3>No press releases found</h3>
+    {% if search_query or status_filter or month_filter %}
+    <p>No results match your search or filter. Try adjusting your filters.</p>
+    <a href="{% url 'press_releases' %}" class="btn btn-outline btn-sm" style="margin-top:6px">Clear filters</a>
+    {% else %}
+    <p>No press releases yet. Click "New Press Release" to get started.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ══ PAGINATION ══ -->
+{# Pass current page info to JS; rendering is done client-side to avoid needing a custom template tag #}
+{% if press_releases.paginator.num_pages > 1 %}
+<div class="pagination-wrap" role="navigation" aria-label="Pagination" id="paginationWrap"></div>
+<script>
+(function () {
+  /* Rebuild the current URL's query string, replacing (or adding) `page`. */
+  function pageUrl(p) {
+    var params = new URLSearchParams(window.location.search);
+    params.set('page', p);
+    return '?' + params.toString();
+  }
+
+  var current   = {{ press_releases.number }};
+  var total     = {{ press_releases.paginator.num_pages }};
+  var hasPrev   = {{ press_releases.has_previous|yesno:"true,false" }};
+  var hasNext   = {{ press_releases.has_next|yesno:"true,false" }};
+  var prevPage  = {% if press_releases.has_previous %}{{ press_releases.previous_page_number }}{% else %}1{% endif %};
+  var nextPage  = {% if press_releases.has_next %}{{ press_releases.next_page_number }}{% else %}{{ press_releases.paginator.num_pages }}{% endif %};
+
+  var wrap = document.getElementById('paginationWrap');
+  var html = '';
+
+  /* Prev */
+  if (hasPrev) {
+    html += '<a href="' + pageUrl(prevPage) + '" class="page-btn" aria-label="Previous page">'
+          + '<i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>';
+  } else {
+    html += '<span class="page-btn disabled" aria-disabled="true">'
+          + '<i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>';
+  }
+
+  /* Page numbers with ellipsis */
+  var ellipsisShown = { left: false, right: false };
+  for (var n = 1; n <= total; n++) {
+    var isActive  = (n === current);
+    var isEdge    = (n === 1 || n === total);
+    var isNear    = (n >= current - 2 && n <= current + 2);
+
+    if (isActive) {
+      html += '<span class="page-btn active" aria-current="page">' + n + '</span>';
+    } else if (isEdge || isNear) {
+      html += '<a href="' + pageUrl(n) + '" class="page-btn">' + n + '</a>';
+    } else if (n === current - 3 && !ellipsisShown.left) {
+      ellipsisShown.left = true;
+      html += '<span class="page-ellipsis">…</span>';
+    } else if (n === current + 3 && !ellipsisShown.right) {
+      ellipsisShown.right = true;
+      html += '<span class="page-ellipsis">…</span>';
+    }
+  }
+
+  /* Next */
+  if (hasNext) {
+    html += '<a href="' + pageUrl(nextPage) + '" class="page-btn" aria-label="Next page">'
+          + '<i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>';
+  } else {
+    html += '<span class="page-btn disabled" aria-disabled="true">'
+          + '<i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>';
+  }
+
+  wrap.innerHTML = html;
+})();
+</script>
+{% endif %}
+
+
+<!-- ══ CREATE MODAL ══ -->
+<div class="modal-backdrop" id="createModal" role="dialog" aria-modal="true">
+  <div class="modal modal-lg">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-newspaper"></i></div>
+      <div class="modal__header-title">
+        <h3>New Press Release</h3>
+        <p>Fill in the details. Save as draft or publish immediately.</p>
+      </div>
+      <button class="modal__close" onclick="closeModal('createModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <form method="post" action="{% url 'press_release_create' %}" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="status" id="c_status_field" value="draft">
+      <div class="modal__body">
+
+        <div class="form-group">
+          <label for="c_title">Title <span class="req">*</span></label>
+          <input type="text" id="c_title" name="title" class="form-control"
+                 placeholder="Enter press release title…" required maxlength="300">
+        </div>
+
+        <div class="form-group">
+          <label for="c_details">Details <span class="req">*</span></label>
+          <textarea id="c_details" name="details" class="form-control"
+                    placeholder="Write the press release content here…" required style="min-height:160px;"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Featured Image</label>
+          <div class="img-upload-zone" id="c_dropZone">
+            <input type="file" name="image" id="c_image" accept="image/*"
+                   onchange="previewImage(this,'c_preview')">
+            <i class="fa-solid fa-image"></i>
+            <span><strong>Click to upload</strong> or drag &amp; drop<br>PNG, JPG, GIF up to 10 MB</span>
+          </div>
+          <div class="img-preview-wrap" id="c_preview">
+            <img src="" alt="Preview">
+            <button type="button" class="img-remove" onclick="removeImage('c_image','c_preview','c_dropZone')">
+              <i class="fa-solid fa-xmark"></i> Remove
+            </button>
+          </div>
+        </div>
+
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="default" checked onchange="toggleArchiveDateRow('c_archiveDateRow',this)">
+              <div class="archive-radio-text">
+                <strong>Use Default Policy</strong>
+                <span>Follows the system-wide archiving schedule</span>
+              </div>
+            </label>
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="on_date" onchange="toggleArchiveDateRow('c_archiveDateRow',this)">
+              <div class="archive-radio-text">
+                <strong>Archive on specific date</strong>
+                <span>Automatically archive this item on the chosen date</span>
+              </div>
+            </label>
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="never" onchange="toggleArchiveDateRow('c_archiveDateRow',this)">
+              <div class="archive-radio-text">
+                <strong>Do not archive</strong>
+                <span>Keep this item available indefinitely</span>
+              </div>
+            </label>
+          </div>
+          <div class="archive-date-row" id="c_archiveDateRow">
+            <label><i class="fa-solid fa-calendar"></i> Archive on:</label>
+            <input type="date" name="archive_date" id="c_archive_date">
+          </div>
+        </div>
+
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('createModal')">Cancel</button>
+        <button type="submit" class="btn btn-outline"
+                onclick="document.getElementById('c_status_field').value='draft'">
+          <i class="fa-solid fa-floppy-disk"></i> Save as Draft
+        </button>
+        <button type="submit" class="btn btn-primary"
+                onclick="document.getElementById('c_status_field').value='published'">
+          <i class="fa-solid fa-paper-plane"></i> Publish
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══ EDIT MODAL ══ -->
+<div class="modal-backdrop" id="editModal" role="dialog" aria-modal="true">
+  <div class="modal modal-lg">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-pen"></i></div>
+      <div class="modal__header-title">
+        <h3>Edit Press Release</h3>
+        <p>Update the details below.</p>
+      </div>
+      <button class="modal__close" onclick="closeModal('editModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <form method="post" id="editForm" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body">
+
+        <div class="form-group">
+          <label for="e_title">Title <span class="req">*</span></label>
+          <input type="text" id="e_title" name="title" class="form-control" required maxlength="300">
+        </div>
+
+        <div class="form-group">
+          <label for="e_details">Details <span class="req">*</span></label>
+          <textarea id="e_details" name="details" class="form-control" required style="min-height:160px;"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="e_status">Status</label>
+          <select id="e_status" name="status" class="form-control">
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="e_existingImgGroup" style="display:none;">
+          <label>Current Image</label>
+          <div class="existing-img-wrap">
+            <img id="e_existingImg" src="" alt="Current image">
+            <div class="img-info">
+              <strong>Existing image</strong>
+              <label class="clear-img-label">
+                <input type="checkbox" name="clear_image" id="e_clearImage" value="1"
+                       onchange="toggleClearImage(this)">
+                Remove current image
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Replace / Add Image</label>
+          <div class="img-upload-zone" id="e_dropZone">
+            <input type="file" name="image" id="e_image" accept="image/*"
+                   onchange="previewImage(this,'e_preview')">
+            <i class="fa-solid fa-image"></i>
+            <span><strong>Click to upload</strong> or drag &amp; drop<br>Leave empty to keep current image</span>
+          </div>
+          <div class="img-preview-wrap" id="e_preview">
+            <img src="" alt="Preview">
+            <button type="button" class="img-remove" onclick="removeImage('e_image','e_preview','e_dropZone')">
+              <i class="fa-solid fa-xmark"></i> Remove
+            </button>
+          </div>
+        </div>
+
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="default" id="e_archDefault"
+                     onchange="toggleArchiveDateRow('e_archiveDateRow',this)">
+              <div class="archive-radio-text">
+                <strong>Use Default Policy</strong>
+                <span>Follows the system-wide archiving schedule</span>
+              </div>
+            </label>
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="on_date" id="e_archOnDate"
+                     onchange="toggleArchiveDateRow('e_archiveDateRow',this)">
+              <div class="archive-radio-text">
+                <strong>Archive on specific date</strong>
+                <span>Automatically archive this item on the chosen date</span>
+              </div>
+            </label>
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="never" id="e_archNever"
+                     onchange="toggleArchiveDateRow('e_archiveDateRow',this)">
+              <div class="archive-radio-text">
+                <strong>Do not archive</strong>
+                <span>Keep this item available indefinitely</span>
+              </div>
+            </label>
+          </div>
+          <div class="archive-date-row" id="e_archiveDateRow">
+            <label><i class="fa-solid fa-calendar"></i> Archive on:</label>
+            <input type="date" name="archive_date" id="e_archive_date">
+          </div>
+        </div>
+
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-floppy-disk"></i> Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══ DETAIL MODAL ══ -->
+<div class="modal-backdrop" id="detailModal" role="dialog" aria-modal="true">
+  <div class="modal modal-lg">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-eye"></i></div>
+      <div class="modal__header-title">
+        <h3 id="detailModalTitle">Press Release</h3>
+        <p id="detailModalSub"></p>
+      </div>
+      <button class="modal__close" onclick="closeModal('detailModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="detailModalBody"></div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('detailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ DELETE MODAL ══ -->
+<div class="modal-backdrop" id="deleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-danger" style="max-width:460px;">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="modal__header-title">
+        <h3>Delete Press Release</h3>
+        <p>This action cannot be undone.</p>
+      </div>
+      <button class="modal__close" onclick="closeModal('deleteModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body">
+      <p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">
+        Are you sure you want to permanently delete <strong id="deleteModalName"></strong>?
+        Any associated image will also be removed.
+      </p>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('deleteModal')">Cancel</button>
+      <form method="post" id="deleteForm" style="display:inline;">
+        {% csrf_token %}
+        {% if can_manage %}
+          <button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<script>
+var PR_DATA = [
+  {% for pr in press_releases %}
+  {
+    pk:             {{ pr.pk }},
+    title:          "{{ pr.title|escapejs }}",
+    details:        "{{ pr.details|escapejs }}",
+    status:         "{{ pr.status }}",
+    status_label:   "{{ pr.get_status_display }}",
+    author:         "{% if pr.author %}{{ pr.author.get_full_name|default:pr.author.username|escapejs }}{% else %}Unknown{% endif %}",
+    created_at:     "{{ pr.created_at|date:'M d, Y' }}",
+    published_at:   "{% if pr.published_at %}{{ pr.published_at|date:'M d, Y H:i' }}{% endif %}",
+    image_url:      "{% if pr.image %}{{ pr.image.url }}{% endif %}",
+    archive_policy: "{{ pr.archive_policy }}",
+    archive_date_iso: "{% if pr.archive_date %}{{ pr.archive_date|date:'Y-m-d' }}{% endif %}",
+    archive_date_fmt: "{% if pr.archive_date %}{{ pr.archive_date|date:'M d, Y' }}{% endif %}",
+    edit_url:       "{% url 'press_release_edit' pr.pk %}",
+    delete_url:     "{% url 'press_release_delete' pr.pk %}",
+    toggle_url:     "{% url 'press_release_toggle_status' pr.pk %}"
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+];
+</script>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+/* ── Helpers ── */
+function getCsrf() {
+  return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+function getPr(pk) {
+  return PR_DATA.find(p => p.pk === pk) || null;
+}
+
+/* ── Filter by status (stat cards) — preserves other params ── */
+function filterByStatus(val) {
+  document.getElementById('statusHidden').value = val;
+  // Reset to page 1 when changing status filter
+  const existing = document.querySelector('input[name="page"]');
+  if (existing) existing.remove();
+  document.getElementById('filterForm').submit();
+}
+
+/* ── Modal system ── */
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => { if (e.target === bd) closeModal(bd.id); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape')
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => closeModal(m.id));
+});
+
+/* ── Create modal ── */
+function openCreateModal() { openModal('createModal'); }
+
+/* ── Image preview / remove ── */
+function previewImage(input, previewId) {
+  const wrap = document.getElementById(previewId);
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      wrap.querySelector('img').src = e.target.result;
+      wrap.style.display = 'block';
+      input.closest('.img-upload-zone').style.display = 'none';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+function removeImage(inputId, previewId, dropZoneId) {
+  document.getElementById(inputId).value = '';
+  const wrap = document.getElementById(previewId);
+  wrap.style.display = 'none';
+  wrap.querySelector('img').src = '';
+  if (dropZoneId) document.getElementById(dropZoneId).style.display = '';
+}
+
+/* ── Archive date row toggle ── */
+function toggleArchiveDateRow(rowId, radio) {
+  document.getElementById(rowId).classList.toggle('visible', radio.value === 'on_date');
+}
+
+/* ── Clear image checkbox ── */
+function toggleClearImage(cb) {
+  const dz  = document.getElementById('e_dropZone');
+  const img = document.getElementById('e_existingImg');
+  const dim = cb.checked ? '.4' : '';
+  const pe  = cb.checked ? 'none' : '';
+  dz.style.opacity = img.style.opacity = dim;
+  dz.style.pointerEvents = pe;
+}
+
+/* ── Detail modal ── */
+function openDetailModal(pk) {
+  const pr = getPr(pk);
+  if (!pr) return;
+
+  document.getElementById('detailModalTitle').textContent = pr.title;
+  document.getElementById('detailModalSub').textContent =
+    (pr.published_at ? 'Published ' + pr.published_at : 'Created ' + pr.created_at) +
+    ' · ' + pr.author;
+
+  const badgeClass = { published:'status-badge-published', draft:'status-badge-draft', archived:'status-badge-archived' }[pr.status] || '';
+
+  let html = '';
+  if (pr.image_url) {
+    html += `<img class="detail-img" src="${escHtml(pr.image_url)}" alt="">`;
+  }
+  html += `
+    <div class="detail-title">${escHtml(pr.title)}</div>
+    <div class="detail-meta">
+      <span><span class="status-badge ${badgeClass}">${escHtml(pr.status_label)}</span></span>
+      <span><i class="fa-solid fa-user-pen"></i> ${escHtml(pr.author)}</span>
+      ${pr.published_at
+        ? `<span><i class="fa-solid fa-calendar-check"></i> ${escHtml(pr.published_at)}</span>`
+        : `<span><i class="fa-regular fa-calendar"></i> ${escHtml(pr.created_at)}</span>`}
+    </div>
+    <div class="detail-body">${escHtml(pr.details)}</div>
+  `;
+  if (pr.archive_policy === 'never') {
+    html += `<div class="detail-archive-note"><i class="fa-solid fa-infinity"></i> This item will not be archived automatically.</div>`;
+  } else if (pr.archive_policy === 'on_date' && pr.archive_date_fmt) {
+    html += `<div class="detail-archive-note"><i class="fa-solid fa-calendar-xmark"></i> Scheduled to archive on <strong>${escHtml(pr.archive_date_fmt)}</strong>.</div>`;
+  }
+
+  document.getElementById('detailModalBody').innerHTML = html;
+  openModal('detailModal');
+}
+
+/* ── Edit modal ── */
+function openEditModal(pk) {
+  const pr = getPr(pk);
+  if (!pr) return;
+
+  document.getElementById('editForm').action = pr.edit_url;
+
+  document.getElementById('e_title').value   = pr.title;
+  document.getElementById('e_details').value = pr.details;
+  document.getElementById('e_status').value  = pr.status;
+
+  const radioMap = { default:'e_archDefault', on_date:'e_archOnDate', never:'e_archNever' };
+  const radioEl  = document.getElementById(radioMap[pr.archive_policy] || 'e_archDefault');
+  if (radioEl) radioEl.checked = true;
+  document.getElementById('e_archiveDateRow')
+    .classList.toggle('visible', pr.archive_policy === 'on_date');
+  document.getElementById('e_archive_date').value = pr.archive_date_iso || '';
+
+  const existGroup = document.getElementById('e_existingImgGroup');
+  if (pr.image_url) {
+    existGroup.style.display = '';
+    document.getElementById('e_existingImg').src = pr.image_url;
+    document.getElementById('e_clearImage').checked = false;
+    document.getElementById('e_dropZone').style.opacity = '';
+    document.getElementById('e_dropZone').style.pointerEvents = '';
+    document.getElementById('e_existingImg').style.opacity = '';
+  } else {
+    existGroup.style.display = 'none';
+  }
+
+  removeImage('e_image', 'e_preview', 'e_dropZone');
+  openModal('editModal');
+}
+
+/* ── Delete modal ── */
+function openDeleteModal(pk, title) {
+  const pr = getPr(pk);
+  document.getElementById('deleteModalName').textContent = '"' + title + '"';
+  document.getElementById('deleteForm').action = pr ? pr.delete_url : `/press-releases/${pk}/delete/`;
+  openModal('deleteModal');
+}
+
+/* ── Status toggle (AJAX) ── */
+function toggleStatus(pk, action) {
+  const pr = getPr(pk);
+  const url = pr ? pr.toggle_url : `/press-releases/${pk}/toggle-status/`;
+  fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=${action}`
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) { window.location.reload(); }
+    else { showToast(data.error || 'Error.', true); }
+  })
+  .catch(() => showToast('Network error.', true));
+}
+
+/* ── Toast ── */
+function showToast(msg, isError) {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' toast-error' : '');
+  t.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i>${escHtml(msg)}`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+}
+</script>
+{% endblock %}

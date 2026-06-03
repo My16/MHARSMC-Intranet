@@ -1,0 +1,979 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load role_filters %}
+
+{% block title %}Role Management{% endblock %}
+{% block page_title %}Role Management{% endblock %}
+{% block breadcrumb %}Role Management{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ═══════════════════════════════════════════════════
+     STAT CARDS
+  ═══════════════════════════════════════════════════ */
+  .rm-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .rm-stat-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .2s;
+  }
+  .rm-stat-card:hover { box-shadow: var(--shadow-md); }
+  .rm-stat-icon {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+  }
+  .rm-stat-icon.total      { background: #e8f4fd; color: #2196f3; }
+  .rm-stat-icon.assigned   { background: #e6f9f0; color: var(--green-mid); }
+  .rm-stat-icon.unassigned { background: #fff8e1; color: #f57f17; }
+  .rm-stat-num   { font-size: 2rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+  .rm-stat-label { font-size: .78rem; color: var(--text-muted); margin-top: 3px; }
+
+  /* ═══════════════════════════════════════════════════
+     TABLE CARD
+  ═══════════════════════════════════════════════════ */
+  .rm-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .rm-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .rm-card-title {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .rm-badge {
+    background: var(--green-pale);
+    color: var(--green-mid);
+    border: 1px solid var(--green-light);
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 600;
+    padding: 2px 10px;
+    font-family: 'Source Sans 3', sans-serif;
+  }
+  .btn-add {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--green-mid); color: var(--white);
+    border: none; border-radius: 8px;
+    padding: 8px 16px; font-size: .82rem; font-weight: 600;
+    font-family: 'Source Sans 3', sans-serif;
+    cursor: pointer; transition: background .18s, box-shadow .18s;
+    text-decoration: none; white-space: nowrap;
+  }
+  .btn-add:hover { background: var(--green-dark); box-shadow: var(--shadow-sm); color: var(--white); }
+
+  /* ═══════════════════════════════════════════════════
+     TABLE
+  ═══════════════════════════════════════════════════ */
+  .rm-table-wrap { overflow-x: auto; }
+  table.rm-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+  .rm-table thead th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: .67rem; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--green-pale);
+    white-space: nowrap;
+  }
+  .rm-table thead th:first-child { width: 40px; text-align: center; }
+  .rm-table tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+  .rm-table tbody tr:last-child { border-bottom: none; }
+  .rm-table tbody tr:hover { background: var(--green-pale); }
+  .rm-table td { padding: 13px 16px; vertical-align: middle; color: var(--text-primary); }
+  .rm-table td:first-child { text-align: center; color: var(--text-muted); font-size: .78rem; font-weight: 500; }
+
+  /* Role name cell */
+  .rm-role-name {
+    font-weight: 600; font-size: .88rem; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .rm-role-name .admin-shield { color: #1565c0; font-size: .8rem; }
+  .rm-role-name .auto-tag {
+    font-size: .65rem; font-weight: 600;
+    background: #e3f2fd; color: #1565c0;
+    border: 1px solid #bbdefb;
+    border-radius: 10px; padding: 1px 8px; letter-spacing: .3px;
+  }
+
+  /* ── Module permission chips in table ── */
+  .perm-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .perm-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: .68rem; font-weight: 600;
+    padding: 3px 9px; border-radius: 12px; white-space: nowrap;
+  }
+  .perm-chip i { font-size: .6rem; }
+  .perm-chip.admin-all  { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+  .perm-chip.chip-edit  { background: var(--green-pale); color: var(--green-mid); border: 1px solid var(--green-light); }
+  .perm-chip.chip-view  { background: #fff8e1; color: #e65100; border: 1px solid #ffe082; }
+
+  /* User count badge */
+  .user-count-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: .78rem; font-weight: 600; color: var(--text-primary);
+  }
+  .user-count-badge i { color: var(--text-muted); font-size: .75rem; }
+
+  /* Action buttons */
+  .rm-actions { display: flex; align-items: center; gap: 4px; }
+  .rm-action-btn {
+    width: 30px; height: 30px; border-radius: 7px; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: .8rem;
+    transition: background .15s, color .15s; background: transparent;
+  }
+  .rm-action-btn.edit   { color: var(--green-mid); }
+  .rm-action-btn.edit:hover   { background: #e6f9f0; color: var(--green-dark); }
+  .rm-action-btn.delete { color: #e0a0a0; }
+  .rm-action-btn.delete:hover { background: #fdecea; color: #e63946; }
+  .rm-action-btn:disabled { opacity: .38; cursor: not-allowed; }
+
+  /* Empty state */
+  .rm-empty { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+  .rm-empty i { font-size: 2rem; color: var(--green-light); display: block; margin-bottom: 10px; }
+
+  /* ═══════════════════════════════════════════════════
+     MODALS
+  ═══════════════════════════════════════════════════ */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,.45);
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--white);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    width: 96%;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-box.modal-md { max-width: 560px; }
+  .modal-box.modal-sm { max-width: 440px; }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px 0; flex-shrink: 0;
+  }
+  .modal-title {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.1rem; font-weight: 600; color: var(--text-primary);
+    display: flex; align-items: center; gap: 9px;
+  }
+  .modal-title i { color: var(--green-mid); font-size: 1rem; }
+  .modal-close {
+    width: 30px; height: 30px; border-radius: 8px; border: none;
+    background: transparent; cursor: pointer; color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem; transition: background .15s, color .15s;
+  }
+  .modal-close:hover { background: var(--green-pale); color: var(--text-primary); }
+  .modal-body { padding: 16px 24px; flex: 1; }
+  .modal-footer {
+    padding: 14px 24px 20px;
+    display: flex; justify-content: flex-end; gap: 10px;
+    flex-shrink: 0; border-top: 1px solid var(--border);
+  }
+
+  /* Form controls */
+  .form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label {
+    font-size: .75rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .6px;
+  }
+  .form-label .req { color: #dc2626; }
+  .form-control {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem;
+    font-family: 'Source Sans 3', sans-serif;
+    color: var(--text-primary); background: var(--white); outline: none;
+    transition: border-color .18s, box-shadow .18s; width: 100%;
+  }
+  .form-control:focus {
+    border-color: var(--green-accent);
+    box-shadow: 0 0 0 3px rgba(82,183,136,.15);
+  }
+  .form-hint { font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── Admin full-access banner ── */
+  .admin-perm-banner {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+  .admin-perm-banner.visible { display: flex; }
+  .admin-perm-banner-icon {
+    width: 38px; height: 38px; border-radius: 8px;
+    background: #1565c0; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .95rem; flex-shrink: 0;
+  }
+  .admin-perm-banner-text strong {
+    display: block; font-size: .84rem; color: #0d47a1; font-weight: 700;
+  }
+  .admin-perm-banner-text span { font-size: .75rem; color: #1565c0; }
+
+  /* ── Permission section label ── */
+  .perm-section-label {
+    font-size: .7rem; font-weight: 700; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--text-muted);
+    margin-bottom: 10px; margin-top: 4px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .perm-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Column header row ── */
+  .perm-col-headers {
+    display: grid;
+    grid-template-columns: 1fr 72px 72px 72px;
+    gap: 4px;
+    padding: 0 10px 6px;
+    font-size: .67rem; font-weight: 700; letter-spacing: .7px;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .perm-col-headers span { text-align: center; }
+  .perm-col-headers span:first-child { text-align: left; }
+
+  /* ── Module row ── */
+  .perm-row {
+    display: grid;
+    grid-template-columns: 1fr 72px 72px 72px;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background .12s;
+  }
+  .perm-row:nth-child(even) { background: rgba(0,0,0,.018); }
+  .perm-row:hover { background: var(--green-pale); }
+
+  .perm-row-label {
+    font-size: .82rem; font-weight: 500; color: var(--text-primary);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .perm-row-label i { color: var(--green-accent); font-size: .45rem; }
+
+  /* ── Radio pill ── */
+  .perm-pill {
+    display: flex; align-items: center; justify-content: center;
+  }
+  .perm-pill input[type="radio"] { display: none; }
+  .perm-pill label {
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    width: 100%; padding: 5px 4px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-size: .72rem; font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background .14s, border-color .14s, color .14s;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .perm-pill label:hover { background: #f3f4f6; border-color: #d1d5db; }
+
+  /* None selected */
+  .perm-pill.pill-none input:checked + label {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #6b7280;
+  }
+  /* View selected — amber */
+  .perm-pill.pill-view input:checked + label {
+    background: #fff8e1;
+    border-color: #f59e0b;
+    color: #92400e;
+  }
+  /* Edit selected — green */
+  .perm-pill.pill-edit input:checked + label {
+    background: var(--green-pale);
+    border-color: var(--green-accent);
+    color: var(--green-dark);
+  }
+
+  /* ── Modal buttons ── */
+  .btn-modal-cancel {
+    padding: 8px 18px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--white);
+    font-size: .83rem; font-family: 'Source Sans 3', sans-serif;
+    color: var(--text-primary); cursor: pointer; transition: background .15s;
+  }
+  .btn-modal-cancel:hover { background: var(--green-pale); }
+  .btn-modal-submit {
+    padding: 8px 20px; border-radius: 8px; border: none;
+    background: var(--green-mid); color: var(--white);
+    font-size: .83rem; font-weight: 600; font-family: 'Source Sans 3', sans-serif;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background .18s;
+  }
+  .btn-modal-submit:hover { background: var(--green-dark); }
+  .btn-modal-danger {
+    padding: 8px 20px; border-radius: 8px; border: none;
+    background: #e63946; color: var(--white);
+    font-size: .83rem; font-weight: 600; font-family: 'Source Sans 3', sans-serif;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background .18s;
+  }
+  .btn-modal-danger:hover { background: #c0392b; }
+
+  /* ── Delete modal ── */
+  .delete-icon-wrap {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: #fdecea; display: flex; align-items: center; justify-content: center;
+    margin: 24px auto 16px; font-size: 1.5rem; color: #e63946;
+  }
+  .delete-modal-title {
+    font-family: 'EB Garamond', serif; font-size: 1.2rem;
+    text-align: center; margin-bottom: 8px; color: var(--text-primary);
+  }
+  .delete-modal-msg {
+    font-size: .84rem; color: var(--text-muted);
+    text-align: center; line-height: 1.55; padding: 0 12px;
+  }
+  .delete-fallback-section {
+    margin: 14px 16px 0; padding: 12px 14px;
+    background: #fff8e1; border: 1px solid #ffe082;
+    border-radius: 8px; font-size: .82rem; color: var(--text-primary);
+  }
+  .delete-fallback-section label {
+    font-weight: 600; font-size: .75rem; text-transform: uppercase;
+    letter-spacing: .6px; color: var(--text-muted); display: block; margin-bottom: 6px;
+  }
+  .no-users-note {
+    margin: 14px 16px 0; padding: 10px 14px;
+    background: var(--green-pale); border: 1px solid var(--green-light);
+    border-radius: 8px; font-size: .82rem; color: var(--text-muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .no-users-note i { color: var(--green-mid); }
+
+  /* ═══════════════════════════════════════════════════
+     TOAST
+  ═══════════════════════════════════════════════════ */
+  .rm-toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+    background: var(--green-dark); color: var(--white);
+    border-radius: 10px; padding: 12px 20px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: .84rem; font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(20px); opacity: 0;
+    transition: transform .25s, opacity .25s;
+    pointer-events: none; max-width: 360px;
+  }
+  .rm-toast.show { transform: translateY(0); opacity: 1; }
+  .rm-toast.toast-error { background: #c0392b; }
+  .rm-toast i { font-size: 1rem; flex-shrink: 0; }
+
+  /* ═══════════════════════════════════════════════════
+     RESPONSIVE
+  ═══════════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    .rm-stats { grid-template-columns: 1fr; }
+    .perm-col-headers,
+    .perm-row { grid-template-columns: 1fr 60px 60px 60px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Stat Cards ══════════════════════════════════════════════ -->
+<div class="rm-stats">
+  <div class="rm-stat-card">
+    <div class="rm-stat-icon total"><i class="fa-solid fa-user-tag"></i></div>
+    <div>
+      <div class="rm-stat-num">{{ total_roles }}</div>
+      <div class="rm-stat-label">Total Roles</div>
+    </div>
+  </div>
+  <div class="rm-stat-card">
+    <div class="rm-stat-icon assigned"><i class="fa-solid fa-user-check"></i></div>
+    <div>
+      <div class="rm-stat-num">{{ total_assigned }}</div>
+      <div class="rm-stat-label">Users with a Role</div>
+    </div>
+  </div>
+  <div class="rm-stat-card">
+    <div class="rm-stat-icon unassigned"><i class="fa-solid fa-user-slash"></i></div>
+    <div>
+      <div class="rm-stat-num">{{ total_unassigned }}</div>
+      <div class="rm-stat-label">Users without a Role</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Roles Table ═════════════════════════════════════════════ -->
+<div class="rm-card">
+  <div class="rm-card-header">
+    <div class="rm-card-title">
+      System Roles
+      <span class="rm-badge">{{ total_roles }} total</span>
+    </div>
+    <button class="btn-add" onclick="openAddModal()">
+      <i class="fa-solid fa-plus"></i> Add Role
+    </button>
+  </div>
+
+  <div class="rm-table-wrap">
+    <table class="rm-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Role Name</th>
+          <th>Module Access</th>
+          <th>Description</th>
+          <th>Users</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in roles %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+
+          <!-- Role name -->
+          <td>
+            <div class="rm-role-name">
+              {% if item.role.is_administrator %}
+                <i class="fa-solid fa-shield-halved admin-shield"></i>
+              {% else %}
+                <i class="fa-solid fa-user-tag" style="color:var(--green-accent);"></i>
+              {% endif %}
+              {{ item.role.name }}
+              {% if item.role.is_administrator %}
+                <span class="auto-tag">Full Access</span>
+              {% endif %}
+            </div>
+          </td>
+
+          <!-- Module access chips -->
+          <td>
+            {% if item.role.is_administrator %}
+              <div class="perm-chips">
+                <span class="perm-chip admin-all">
+                  <i class="fa-solid fa-shield-halved"></i> All Modules
+                </span>
+              </div>
+            {% else %}
+              <div class="perm-chips">
+                {% for module_key, module_label in module_choices %}
+                  {% with level=item.role|perm_level:module_key %}
+                    {% if level == 'edit' %}
+                      <span class="perm-chip chip-edit">
+                        <i class="fa-solid fa-pen"></i>{{ module_label }}
+                      </span>
+                    {% elif level == 'view' %}
+                      <span class="perm-chip chip-view">
+                        <i class="fa-solid fa-eye"></i>{{ module_label }}
+                      </span>
+                    {% endif %}
+                  {% endwith %}
+                {% endfor %}
+                {% if not item.role.has_any_access %}
+                  <span style="font-size:.78rem; color:var(--text-muted);">No modules assigned</span>
+                {% endif %}
+              </div>
+            {% endif %}
+          </td>
+
+          <!-- Description -->
+          <td>{{ item.role.description|default:'—' }}</td>
+
+          <!-- User count -->
+          <td>
+            <span class="user-count-badge">
+              <i class="fa-solid fa-users"></i>
+              {{ item.user_count }} user{{ item.user_count|pluralize }}
+            </span>
+          </td>
+
+          <!-- Actions -->
+          <td>
+            <div class="rm-actions">
+              <button
+                type="button"
+                class="rm-action-btn edit"
+                title="Edit role"
+                data-pk="{{ item.role.pk }}"
+                data-name="{{ item.role.name|escapejs }}"
+                data-description="{{ item.role.description|escapejs }}"
+                data-perms="{{ item.perms_list }}"
+                data-is-admin="{{ item.role.is_administrator|yesno:'true,false' }}"
+                onclick="openEditModal(this)"
+              >
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+
+              <button
+                type="button"
+                class="rm-action-btn delete"
+                title="Delete role"
+                data-pk="{{ item.role.pk }}"
+                data-name="{{ item.role.name|escapejs }}"
+                data-user-count="{{ item.user_count }}"
+                onclick="openDeleteModal(this)"
+              >
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6">
+            <div class="rm-empty">
+              <i class="fa-solid fa-user-tag"></i>
+              No roles found. Create your first role to get started.
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     ADD ROLE MODAL
+══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-box modal-md">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-plus"></i> Add New Role</div>
+      <button class="modal-close" onclick="closeModal('addModal')" type="button">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form method="POST" action="{% url 'role_add' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+
+        <div class="form-group">
+          <label class="form-label">Role Name <span class="req">*</span></label>
+          <input
+            type="text" name="name" id="add_role_name"
+            class="form-control" placeholder="e.g. Pharmacist, Cashier, IT Staff"
+            required oninput="handleAddNameChange(this.value)"
+          >
+          <span class="form-hint">Naming this "Administrator" will automatically grant full access to all modules.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea
+            name="description" id="add_role_description"
+            class="form-control" rows="2"
+            placeholder="Optional: describe what this role can do"
+          ></textarea>
+        </div>
+
+        <!-- Permissions -->
+        <div class="perm-section-label">Module Access</div>
+
+        <!-- Admin banner — shown instead of grid for Administrator -->
+        <div class="admin-perm-banner" id="add-admin-banner">
+          <div class="admin-perm-banner-icon">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <div class="admin-perm-banner-text">
+            <strong>Full Access Granted Automatically</strong>
+            <span>The Administrator role bypasses all module restrictions.</span>
+          </div>
+        </div>
+
+        <!-- Permission grid -->
+        <div id="add-perm-grid">
+          <div class="perm-col-headers">
+            <span>Module</span>
+            <span>None</span>
+            <span>View</span>
+            <span>Edit</span>
+          </div>
+          {% for module_key, module_label in module_choices %}
+          <div class="perm-row">
+            <span class="perm-row-label">
+              <i class="fa-solid fa-circle"></i>
+              {{ module_label }}
+            </span>
+            <div class="perm-pill pill-none">
+              <input type="radio"
+                name="perm_{{ module_key }}"
+                id="add-{{ module_key }}-none"
+                value="none" checked>
+              <label for="add-{{ module_key }}-none">
+                <i class="fa-solid fa-minus"></i>
+              </label>
+            </div>
+            <div class="perm-pill pill-view">
+              <input type="radio"
+                name="perm_{{ module_key }}"
+                id="add-{{ module_key }}-view"
+                value="view">
+              <label for="add-{{ module_key }}-view">
+                <i class="fa-solid fa-eye"></i> View
+              </label>
+            </div>
+            <div class="perm-pill pill-edit">
+              <input type="radio"
+                name="perm_{{ module_key }}"
+                id="add-{{ module_key }}-edit"
+                value="edit">
+              <label for="add-{{ module_key }}-edit">
+                <i class="fa-solid fa-pen"></i> Edit
+              </label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-cancel" onclick="closeModal('addModal')">Cancel</button>
+        <button type="submit" class="btn-modal-submit">
+          <i class="fa-solid fa-plus"></i> Create Role
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     EDIT ROLE MODAL
+══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box modal-md">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-pen-to-square"></i> Edit Role</div>
+      <button class="modal-close" onclick="closeModal('editModal')" type="button">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form method="POST" id="editForm" action="">
+      {% csrf_token %}
+      <div class="modal-body">
+
+        <div class="form-group">
+          <label class="form-label">Role Name <span class="req">*</span></label>
+          <input
+            type="text" name="name" id="edit_role_name"
+            class="form-control" required
+            oninput="handleEditNameChange(this.value)"
+          >
+          <span class="form-hint">Renaming to "Administrator" will auto-grant full access.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea
+            name="description" id="edit_role_description"
+            class="form-control" rows="2"
+            placeholder="Optional: describe what this role can do"
+          ></textarea>
+        </div>
+
+        <!-- Permissions -->
+        <div class="perm-section-label">Module Access</div>
+
+        <!-- Admin banner -->
+        <div class="admin-perm-banner" id="edit-admin-banner">
+          <div class="admin-perm-banner-icon">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <div class="admin-perm-banner-text">
+            <strong>Full Access Granted Automatically</strong>
+            <span>The Administrator role bypasses all module restrictions.</span>
+          </div>
+        </div>
+
+        <!-- Permission grid -->
+        <div id="edit-perm-grid">
+          <div class="perm-col-headers">
+            <span>Module</span>
+            <span>None</span>
+            <span>View</span>
+            <span>Edit</span>
+          </div>
+          {% for module_key, module_label in module_choices %}
+          <div class="perm-row">
+            <span class="perm-row-label">
+              <i class="fa-solid fa-circle"></i>
+              {{ module_label }}
+            </span>
+            <div class="perm-pill pill-none">
+              <input type="radio"
+                name="perm_{{ module_key }}"
+                id="edit-{{ module_key }}-none"
+                value="none" checked>
+              <label for="edit-{{ module_key }}-none">
+                <i class="fa-solid fa-minus"></i>
+              </label>
+            </div>
+            <div class="perm-pill pill-view">
+              <input type="radio"
+                name="perm_{{ module_key }}"
+                id="edit-{{ module_key }}-view"
+                value="view">
+              <label for="edit-{{ module_key }}-view">
+                <i class="fa-solid fa-eye"></i> View
+              </label>
+            </div>
+            <div class="perm-pill pill-edit">
+              <input type="radio"
+                name="perm_{{ module_key }}"
+                id="edit-{{ module_key }}-edit"
+                value="edit">
+              <label for="edit-{{ module_key }}-edit">
+                <i class="fa-solid fa-pen"></i> Edit
+              </label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-cancel" onclick="closeModal('editModal')">Cancel</button>
+        <button type="submit" class="btn-modal-submit">
+          <i class="fa-solid fa-floppy-disk"></i> Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     DELETE ROLE MODAL
+══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box modal-sm">
+    <div class="delete-icon-wrap">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <div class="delete-modal-title">Delete Role?</div>
+    <p class="delete-modal-msg">
+      You are about to delete the role <strong id="deleteRoleName"></strong>.
+      This action cannot be undone.
+    </p>
+
+    <!-- Fallback — shown only when role has users -->
+    <div id="deleteFallbackSection" class="delete-fallback-section" style="display:none;">
+      <label>
+        <i class="fa-solid fa-triangle-exclamation" style="color:#f57f17; margin-right:4px;"></i>
+        This role is assigned to <strong id="deleteUserCount"></strong> user(s). Choose a fallback role:
+      </label>
+      <select id="deleteFallbackSelect" name="fallback_role" class="form-control">
+        <option value="">— Remove role (leave unassigned) —</option>
+        {% for item in roles %}
+          <option value="{{ item.role.pk }}" data-delete-pk="{{ item.role.pk }}">{{ item.role.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- No-users note -->
+    <div id="deleteNoUsersNote" class="no-users-note" style="display:none;">
+      <i class="fa-solid fa-circle-info"></i>
+      No users are assigned to this role. Safe to delete.
+    </div>
+
+    <form method="POST" id="deleteForm" action="">
+      {% csrf_token %}
+      <input type="hidden" name="fallback_role" id="deleteFallbackHidden" value="">
+      <div class="modal-footer" style="justify-content:center; border-top:none; padding-top:16px;">
+        <button type="button" class="btn-modal-cancel" onclick="closeModal('deleteModal')">Cancel</button>
+        <button type="submit" class="btn-modal-danger">
+          <i class="fa-solid fa-trash-can"></i> Yes, Delete
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="rm-toast" id="rmToast">
+  <i class="fa-solid fa-circle-check" id="rmToastIcon"></i>
+  <span id="rmToastMsg"></span>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+  const MODULE_KEYS = [
+    {% for key, label in module_choices %}'{{ key }}',{% endfor %}
+  ];
+
+  /* ── URL helpers ── */
+  const ROLE_URLS = {
+    edit:   pk => "{% url 'role_edit'   pk=0 %}".replace('/0/', '/' + pk + '/'),
+    delete: pk => "{% url 'role_delete' pk=0 %}".replace('/0/', '/' + pk + '/'),
+  };
+
+  /* ── Modal helpers ── */
+  function openModal(id)  { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape')
+      document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  });
+
+  /* ── Toast ── */
+  let _toastTimer = null;
+  function showToast(msg, type = 'success') {
+    const toast = document.getElementById('rmToast');
+    const icon  = document.getElementById('rmToastIcon');
+    document.getElementById('rmToastMsg').textContent = msg;
+    toast.className = 'rm-toast' + (type === 'error' ? ' toast-error' : '');
+    icon.className  = type === 'error' ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check';
+    toast.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  {% if messages %}
+    {% for message in messages %}
+      showToast("{{ message|escapejs }}", "{% if 'error' in message.tags %}error{% else %}success{% endif %}");
+    {% endfor %}
+  {% endif %}
+
+  /* ── Admin detection ── */
+  function isAdminName(name) {
+    return name.trim().toLowerCase() === 'administrator';
+  }
+
+  /* ── Toggle admin mode: show banner, hide grid ── */
+  function setAdminMode(prefix, isAdmin) {
+    const grid   = document.getElementById(prefix + '-perm-grid');
+    const banner = document.getElementById(prefix + '-admin-banner');
+    if (!grid || !banner) return;
+    banner.classList.toggle('visible', isAdmin);
+    grid.style.display = isAdmin ? 'none' : 'block';
+  }
+
+  /* ── Set perm radios from comma-separated none/view/edit string ── */
+  function setPerms(prefix, permsStr) {
+    const vals = (permsStr || '').split(',');
+    MODULE_KEYS.forEach((key, i) => {
+      const val   = vals[i] || 'none';
+      const radio = document.getElementById(prefix + '-' + key + '-' + val);
+      if (radio) radio.checked = true;
+    });
+  }
+
+  /* ── Add Modal ── */
+  function openAddModal() {
+    document.getElementById('add_role_name').value        = '';
+    document.getElementById('add_role_description').value = '';
+    // Reset all to "none"
+    MODULE_KEYS.forEach(key => {
+      const r = document.getElementById('add-' + key + '-none');
+      if (r) r.checked = true;
+    });
+    setAdminMode('add', false);
+    openModal('addModal');
+  }
+
+  function handleAddNameChange(val) {
+    setAdminMode('add', isAdminName(val));
+  }
+
+  /* ── Edit Modal ── */
+  function openEditModal(btn) {
+    const pk      = btn.dataset.pk;
+    const isAdmin = btn.dataset.isAdmin === 'true';
+
+    document.getElementById('editForm').action             = ROLE_URLS.edit(pk);
+    document.getElementById('edit_role_name').value        = btn.dataset.name || '';
+    document.getElementById('edit_role_description').value = btn.dataset.description || '';
+
+    setPerms('edit', btn.dataset.perms);
+    setAdminMode('edit', isAdmin);
+    openModal('editModal');
+  }
+
+  function handleEditNameChange(val) {
+    setAdminMode('edit', isAdminName(val));
+  }
+
+  /* ── Delete Modal ── */
+  function openDeleteModal(btn) {
+    const pk        = btn.dataset.pk;
+    const name      = btn.dataset.name;
+    const userCount = parseInt(btn.dataset.userCount, 10);
+
+    document.getElementById('deleteForm').action          = ROLE_URLS.delete(pk);
+    document.getElementById('deleteRoleName').textContent = name;
+
+    const fallbackSection = document.getElementById('deleteFallbackSection');
+    const noUsersNote     = document.getElementById('deleteNoUsersNote');
+    const fallbackSelect  = document.getElementById('deleteFallbackSelect');
+    const fallbackHidden  = document.getElementById('deleteFallbackHidden');
+
+    Array.from(fallbackSelect.options).forEach(opt => {
+      opt.hidden = opt.dataset.deletePk === pk;
+    });
+
+    fallbackSelect.onchange = () => { fallbackHidden.value = fallbackSelect.value; };
+    fallbackHidden.value = fallbackSelect.value;
+
+    if (userCount > 0) {
+      document.getElementById('deleteUserCount').textContent = userCount;
+      fallbackSection.style.display = 'block';
+      noUsersNote.style.display     = 'none';
+    } else {
+      fallbackSection.style.display = 'none';
+      noUsersNote.style.display     = 'flex';
+    }
+
+    openModal('deleteModal');
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,1713 @@
+{% extends 'base.html' %}
+{% load static role_filters %}
+
+{% block title %}Employees' Corner{% endblock %}
+{% block page_title %}Employees' Corner{% endblock %}
+{% block breadcrumb %}Employees' Corner{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Toasts ── */
+.toast-container {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast {
+  background: var(--green-dark); color: var(--white);
+  padding: 12px 18px; border-radius: 8px; font-size: .83rem;
+  box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 10px;
+  opacity: 0; transform: translateX(20px);
+  animation: toastIn .3s forwards, toastOut .3s 3.5s forwards;
+  pointer-events: all; max-width: 360px;
+}
+.toast.toast-error { background: #c0392b; }
+.toast i { flex-shrink: 0; }
+@keyframes toastIn  { to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+/* ── Page header ── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+}
+.page-header h2 {
+  font-family: 'EB Garamond', serif; font-size: 1.55rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.2;
+}
+.page-header h2 small {
+  display: block; font-family: 'Source Sans 3', sans-serif;
+  font-size: .75rem; color: var(--text-muted); font-weight: 400; margin-top: 2px;
+}
+
+/* ══ OUTER TAB BAR (Union / Coop) ══ */
+.outer-tab-bar {
+  display: grid; grid-template-columns: 1fr 1fr;
+  width: 100%; border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: 22px; overflow: hidden; background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+.outer-tab-btn {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 14px 20px; font-size: .9rem; font-family: inherit; font-weight: 500;
+  border: none; background: transparent; cursor: pointer; color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  transition: color .18s, background .18s, border-color .18s;
+}
+.outer-tab-btn:first-child { border-right: 1px solid var(--border); }
+.outer-tab-btn i { font-size: .9rem; }
+.outer-tab-btn:hover { background: var(--green-pale); color: var(--text-primary); }
+/* Union = green, Coop = amber/orange */
+.outer-tab-btn.active-union {
+  background: var(--green-pale); color: var(--green-dark);
+  border-bottom-color: var(--green-mid); font-weight: 600;
+}
+.outer-tab-btn.active-coop {
+  background: #fffbeb; color: #92400e;
+  border-bottom-color: #d97706; font-weight: 600;
+}
+.outer-tab-btn:not(.active-union):not(.active-coop):hover {
+  background: #f9fafb;
+}
+
+.outer-panel { display: none; }
+.outer-panel.active { display: block; }
+
+/* ══ INNER TAB BAR (Postings / Group Files) ══ */
+.inner-tab-bar {
+  display: inline-flex; gap: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--white);
+  box-shadow: var(--shadow-sm); margin-bottom: 20px;
+}
+.inner-tab-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 18px; font-size: .83rem; font-family: inherit; font-weight: 500;
+  border: none; background: transparent; cursor: pointer; color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  transition: color .18s, background .18s, border-color .18s;
+  white-space: nowrap;
+}
+.inner-tab-btn:not(:last-child) { border-right: 1px solid var(--border); }
+.inner-tab-btn i { font-size: .8rem; }
+
+/* Union inner active */
+.union-panel .inner-tab-btn.active {
+  background: var(--green-pale); color: var(--green-dark);
+  border-bottom-color: var(--green-mid); font-weight: 600;
+}
+.union-panel .inner-tab-btn:hover:not(.active) { background: var(--green-pale); color: var(--text-primary); }
+
+/* Coop inner active */
+.coop-panel .inner-tab-btn.active {
+  background: #fffbeb; color: #92400e;
+  border-bottom-color: #d97706; font-weight: 600;
+}
+.coop-panel .inner-tab-btn:hover:not(.active) { background: #fffbeb; color: var(--text-primary); }
+
+.inner-panel { display: none; }
+.inner-panel.active { display: block; }
+
+/* ── Panel header row (inner tab bar + add button) ── */
+.panel-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px; margin-bottom: 4px;
+}
+
+/* ── Stat cards ── */
+.stat-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;
+}
+@media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 480px) { .stat-row { grid-template-columns: 1fr 1fr; } }
+
+.stat-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 18px; display: flex; align-items: center; gap: 14px;
+  box-shadow: var(--shadow-sm); cursor: pointer;
+  transition: box-shadow .18s, border-color .18s, transform .18s;
+}
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+/* Union stat */
+.u-stat-card:hover  { border-color: var(--green-accent); }
+.u-stat-card.active { border-color: var(--green-accent); background: var(--green-pale); }
+.stat-icon.u-all       { background: rgba(45,106,79,.12);   color: var(--green-mid); }
+.stat-icon.u-published { background: rgba(39,174,96,.15);   color: #219150; }
+.stat-icon.u-draft     { background: rgba(243,156,18,.15);  color: #c87f00; }
+.stat-icon.u-archived  { background: rgba(100,100,100,.12); color: #666; }
+
+/* Coop stat */
+.c-stat-card:hover  { border-color: #fcd34d; }
+.c-stat-card.active { border-color: #fcd34d; background: #fffbeb; }
+.stat-icon.c-all       { background: rgba(217,119,6,.12);  color: #d97706; }
+.stat-icon.c-published { background: rgba(39,174,96,.15);  color: #219150; }
+.stat-icon.c-draft     { background: rgba(243,156,18,.15); color: #c87f00; }
+.stat-icon.c-archived  { background: rgba(100,100,100,.12);color: #666; }
+
+.stat-icon {
+  width: 42px; height: 42px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0;
+}
+.stat-body { flex: 1; min-width: 0; }
+.stat-value {
+  font-family: 'EB Garamond', serif; font-size: 1.6rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1;
+}
+.stat-label {
+  font-size: .72rem; color: var(--text-muted); margin-top: 2px;
+  text-transform: uppercase; letter-spacing: .6px; font-weight: 500;
+}
+
+/* ── Toolbar ── */
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.search-box { flex: 1; min-width: 180px; position: relative; }
+.search-box i {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); font-size: .85rem; pointer-events: none;
+}
+.search-box input {
+  width: 100%; padding: 9px 12px 9px 34px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: .85rem; font-family: inherit;
+  background: var(--white); color: var(--text-primary); outline: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+.union-panel .search-box input:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.coop-panel  .search-box input:focus { border-color: #fcd34d;             box-shadow: 0 0 0 3px rgba(217,119,6,.1); }
+
+.toolbar-select {
+  padding: 8px 28px 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: .82rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  transition: border-color .18s, box-shadow .18s; white-space: nowrap;
+}
+.union-panel .toolbar-select:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.union-panel .toolbar-select.has-value { border-color: var(--green-accent); background-color: var(--green-pale); color: var(--green-dark); font-weight: 500; }
+.coop-panel  .toolbar-select:focus     { border-color: #fcd34d; box-shadow: 0 0 0 3px rgba(217,119,6,.1); }
+.coop-panel  .toolbar-select.has-value { border-color: #fcd34d; background-color: #fffbeb; color: #92400e; font-weight: 500; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px;
+  border-radius: 8px; font-size: .84rem; font-family: inherit; font-weight: 500;
+  border: none; cursor: pointer; transition: background .18s, box-shadow .18s, transform .15s;
+  white-space: nowrap; line-height: 1; text-decoration: none;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary        { background: var(--green-mid); color: var(--white); }
+.btn-primary:hover  { background: var(--green-dark); box-shadow: var(--shadow-sm); }
+.btn-primary-coop   { background: #d97706; color: var(--white); }
+.btn-primary-coop:hover { background: #b45309; box-shadow: var(--shadow-sm); }
+.btn-outline { background: var(--white); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--green-pale); border-color: var(--green-accent); }
+.btn-danger  { background: #c0392b; color: var(--white); }
+.btn-danger:hover { background: #a93226; }
+.btn-sm  { padding: 6px 12px; font-size: .78rem; }
+
+/* ── Results bar ── */
+.results-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+}
+.results-bar__count { font-size: .8rem; color: var(--text-muted); }
+.results-bar__count strong { color: var(--text-primary); font-weight: 600; }
+
+/* ══ STATUS BADGE ══ */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
+  border-radius: 20px; font-size: .69rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.status-badge-published { background: rgba(39,174,96,.15); color: #1a7a3c; }
+.status-badge-draft     { background: rgba(243,156,18,.15); color: #a06800; }
+.status-badge-archived  { background: rgba(100,100,100,.12); color: #555; }
+
+/* ══ POST CARDS ══ */
+.post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+.post-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
+  transition: box-shadow .18s, transform .18s;
+}
+.post-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+/* Card top stripe */
+.post-card__stripe {
+  height: 5px; flex-shrink: 0;
+}
+.union-card .post-card__stripe { background: linear-gradient(90deg, var(--green-mid), var(--green-accent)); }
+.coop-card  .post-card__stripe { background: linear-gradient(90deg, #d97706, #fbbf24); }
+
+.post-card__header {
+  padding: 12px 14px 6px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+}
+.post-card__date-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .7rem; color: var(--text-muted); background: var(--bg-subtle, #f8f9fa);
+  border: 1px solid var(--border); border-radius: 20px; padding: 2px 9px;
+  flex-shrink: 0;
+}
+.union-card .post-card__date-pill i { color: var(--green-mid); }
+.coop-card  .post-card__date-pill i { color: #d97706; }
+
+.post-card__body { padding: 4px 14px 10px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.post-card__title {
+  font-family: 'EB Garamond', serif; font-size: 1.08rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  line-clamp: 2;
+}
+.post-card__summary {
+  font-size: .8rem; font-style: italic; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  line-clamp: 2;
+}
+.union-card .post-card__summary { color: var(--green-mid); }
+.coop-card  .post-card__summary { color: #d97706; }
+
+.post-card__excerpt {
+  font-size: .82rem; color: var(--text-muted); line-height: 1.55;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  line-clamp: 3;
+}
+
+/* Attachment chips on card */
+.post-card__files { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.file-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: .69rem; padding: 2px 9px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--white); color: var(--text-muted);
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-decoration: none; transition: background .15s, border-color .15s, color .15s;
+  cursor: pointer;
+}
+.union-card .file-chip i { color: var(--green-mid); font-size: .65rem; flex-shrink: 0; }
+.coop-card  .file-chip i { color: #d97706; font-size: .65rem; flex-shrink: 0; }
+.union-card .file-chip:hover { background: var(--green-pale); border-color: var(--green-accent); color: var(--green-dark); }
+.coop-card  .file-chip:hover { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+
+.post-card__footer {
+  font-size: .73rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px;
+  margin-top: auto; padding: 8px 14px; border-top: 1px solid var(--border); flex-wrap: wrap;
+}
+.post-card__attachment-badge {
+  display: inline-flex; align-items: center; gap: 4px; font-size: .7rem; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border);
+}
+.union-card .post-card__attachment-badge { color: var(--green-mid); background: var(--green-pale); }
+.coop-card  .post-card__attachment-badge { color: #d97706; background: #fffbeb; border-color: #fde68a; }
+
+.post-card__actions {
+  padding: 8px 12px; border-top: 1px solid var(--border);
+  display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; overflow: hidden;
+}
+.union-card .post-card__actions { background: var(--green-pale); }
+.coop-card  .post-card__actions { background: #fffdf5; }
+
+.post-card__actions .actions-left  { display: flex; gap: 4px; align-items: center; flex: 1; min-width: 0; }
+.post-card__actions .actions-right { display: flex; gap: 2px; align-items: center; flex-shrink: 0; margin-left: auto; }
+
+.btn-icon {
+  width: 30px; height: 30px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: 7px;
+  font-size: .82rem; border: 1px solid var(--border);
+  background: var(--white); color: var(--text-muted);
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s; flex-shrink: 0;
+}
+.union-card .post-card__actions .btn-icon:hover { background: var(--green-pale); color: var(--green-dark); border-color: var(--green-accent); }
+.coop-card  .post-card__actions .btn-icon:hover { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+.btn-icon.btn-icon-danger { border-color: rgba(192,57,43,.3); color: #c0392b; }
+.btn-icon.btn-icon-danger:hover { background: rgba(192,57,43,.08); border-color: #c0392b; }
+
+/* ══ GROUP FILES TABLE ══ */
+.files-section { margin-bottom: 24px; }
+.files-section-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.files-section-header h4 {
+  font-family: 'EB Garamond', serif; font-size: 1rem; font-weight: 600;
+  color: var(--text-primary); flex: 1;
+}
+.files-section-header .post-ref {
+  font-size: .74rem; color: var(--text-muted); font-style: italic;
+}
+
+.files-table { width: 100%; border-collapse: collapse; }
+.files-table thead tr {
+  background: var(--bg-subtle, #f8f9fa); border-bottom: 1px solid var(--border);
+}
+.files-table th {
+  padding: 9px 14px; font-size: .72rem; font-weight: 600; text-align: left;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px;
+}
+.files-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+.files-table tbody tr:last-child { border-bottom: none; }
+.files-table tbody tr:hover { background: var(--bg-subtle, #f9fafb); }
+.files-table td { padding: 10px 14px; font-size: .83rem; color: var(--text-primary); vertical-align: middle; }
+
+.file-icon-cell {
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.file-icon-cell i { font-size: .95rem; flex-shrink: 0; }
+.union-panel .file-icon-cell i { color: var(--green-mid); }
+.coop-panel  .file-icon-cell i { color: #d97706; }
+.file-icon-cell .file-name-link {
+  color: var(--text-primary); text-decoration: none; font-weight: 500;
+  transition: color .15s;
+}
+.union-panel .file-icon-cell .file-name-link:hover { color: var(--green-dark); text-decoration: underline; }
+.coop-panel  .file-icon-cell .file-name-link:hover { color: #92400e; text-decoration: underline; }
+
+.post-ref-pill {
+  display: inline-flex; align-items: center; gap: 4px; font-size: .7rem;
+  padding: 2px 9px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--white); color: var(--text-muted); max-width: 200px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.union-panel .post-ref-pill i { color: var(--green-mid); }
+.coop-panel  .post-ref-pill  i { color: #d97706; }
+
+.file-download-btn {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px;
+  border-radius: 6px; font-size: .75rem; font-family: inherit; font-weight: 500;
+  border: 1px solid var(--border); background: var(--white); color: var(--text-primary);
+  cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, color .15s;
+}
+.union-panel .file-download-btn:hover { background: var(--green-pale); border-color: var(--green-accent); color: var(--green-dark); }
+.coop-panel  .file-download-btn:hover { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 64px 20px; background: var(--white);
+  border: 2px dashed var(--border); border-radius: 12px;
+  gap: 12px; color: var(--text-muted); text-align: center;
+}
+.union-panel .empty-state i { font-size: 2.8rem; color: var(--green-light); }
+.coop-panel  .empty-state i { font-size: 2.8rem; color: #fcd34d; }
+.empty-state h3 { font-family: 'EB Garamond', serif; font-size: 1.2rem; color: var(--text-primary); }
+.empty-state p { font-size: .85rem; max-width: 320px; line-height: 1.6; }
+
+/* ── Empty for table ── */
+.empty-files {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 40px 20px; background: var(--white);
+  border: 2px dashed var(--border); border-radius: 10px;
+  gap: 8px; color: var(--text-muted); text-align: center; margin-top: 8px;
+}
+
+/* ── Pagination ── */
+.pagination-wrap {
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 28px; gap: 4px; flex-wrap: wrap;
+}
+.page-btn {
+  min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .83rem; font-family: inherit; font-weight: 500;
+  border: 1px solid var(--border); background: var(--white); color: var(--text-primary);
+  cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, color .15s; line-height: 1;
+}
+.union-panel .page-btn:hover  { background: var(--green-pale); border-color: var(--green-accent); color: var(--green-dark); }
+.union-panel .page-btn.active { background: var(--green-mid); border-color: var(--green-mid); color: var(--white); cursor: default; font-weight: 600; }
+.coop-panel  .page-btn:hover  { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.coop-panel  .page-btn.active { background: #d97706; border-color: #d97706; color: var(--white); cursor: default; font-weight: 600; }
+.page-btn.disabled { opacity: .4; pointer-events: none; }
+.page-ellipsis { min-width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; font-size: .83rem; color: var(--text-muted); }
+
+/* ── Modal system ── */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(10,31,20,.55);
+  z-index: 800; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(2px);
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: 14px; width: 100%;
+  max-width: 760px; max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-lg); animation: modalIn .22s cubic-bezier(.4,0,.2,1); overflow: hidden;
+}
+.modal-sm { max-width: 460px; }
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal__header {
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0;
+}
+.modal__header-icon {
+  width: 38px; height: 38px; border-radius: 9px; background: var(--green-pale);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--green-mid); font-size: .95rem; flex-shrink: 0;
+}
+.modal__header-icon.amber { background: #fffbeb; color: #d97706; }
+.modal__header-title { flex: 1; min-width: 0; }
+.modal__header-title h3 { font-family: 'EB Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
+.modal__header-title p  { font-size: .77rem; color: var(--text-muted); margin-top: 2px; }
+.modal__close {
+  width: 30px; height: 30px; border-radius: 6px; background: transparent; border: none;
+  cursor: pointer; color: var(--text-muted); font-size: .9rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s; flex-shrink: 0;
+}
+.modal__close:hover { background: var(--green-pale); color: var(--green-dark); }
+.modal__body {
+  padding: 20px 24px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 16px; min-height: 0;
+}
+.modal__footer {
+  padding: 14px 24px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; flex-shrink: 0; background: var(--green-pale);
+}
+.modal__footer.amber-footer { background: #fffdf5; }
+.modal-danger .modal__header-icon { background: rgba(192,57,43,.1); color: #c0392b; }
+
+/* ── Form elements ── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: .8rem; font-weight: 600; color: var(--text-primary); letter-spacing: .2px; }
+.form-group label .req { color: #c0392b; margin-left: 2px; }
+.form-control {
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: .85rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none;
+  transition: border-color .18s, box-shadow .18s; width: 100%;
+}
+.form-control.green-focus:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.form-control.amber-focus:focus { border-color: #fcd34d; box-shadow: 0 0 0 3px rgba(217,119,6,.1); }
+textarea.form-control { resize: vertical; min-height: 110px; line-height: 1.6; }
+
+/* ── Archive section ── */
+.archive-section {
+  background: var(--green-pale); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.archive-section h4 { font-size: .8rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; margin: 0; }
+.archive-section h4 i { color: var(--green-mid); }
+.archive-section.amber-arch { background: #fffdf5; border-color: #fde68a; }
+.archive-section.amber-arch h4 i { color: #d97706; }
+.archive-options { display: flex; flex-direction: column; gap: 8px; }
+.archive-radio {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 8px; cursor: pointer; transition: border-color .15s, background .15s;
+}
+.archive-section:not(.amber-arch) .archive-radio:has(input:checked) { border-color: var(--green-accent); background: rgba(82,183,136,.06); }
+.amber-arch .archive-radio:has(input:checked) { border-color: #fcd34d; background: rgba(217,119,6,.04); }
+.archive-radio input[type="radio"] { margin-top: 2px; flex-shrink: 0; }
+.archive-section:not(.amber-arch) .archive-radio input[type="radio"] { accent-color: var(--green-mid); }
+.amber-arch .archive-radio input[type="radio"] { accent-color: #d97706; }
+.archive-radio-text strong { display: block; font-size: .82rem; color: var(--text-primary); }
+.archive-radio-text span   { font-size: .74rem; color: var(--text-muted); }
+.archive-date-row { display: none; gap: 8px; align-items: center; flex-wrap: wrap; }
+.archive-date-row.visible { display: flex; }
+.archive-date-row label { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
+.archive-date-row input {
+  padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px;
+  font-size: .83rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none; transition: border-color .18s;
+}
+
+/* ── File upload ── */
+.file-upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 18px;
+  text-align: center; cursor: pointer;
+  transition: border-color .18s, background .18s; position: relative; background: var(--white);
+}
+.file-upload-zone.green:hover { border-color: var(--green-accent); background: var(--green-pale); }
+.file-upload-zone.amber:hover { border-color: #fcd34d; background: #fffbeb; }
+.file-upload-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.file-upload-zone i { font-size: 1.5rem; margin-bottom: 5px; display: block; }
+.file-upload-zone.green i { color: var(--green-light); }
+.file-upload-zone.amber i { color: #fcd34d; }
+.file-upload-zone span { font-size: .81rem; color: var(--text-muted); line-height: 1.5; display: block; }
+.file-upload-zone.green strong { color: var(--green-mid); }
+.file-upload-zone.amber strong { color: #d97706; }
+.file-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.file-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: 7px; font-size: .79rem;
+}
+.file-item.green { background: var(--green-pale); }
+.file-item.amber { background: #fffbeb; border-color: #fde68a; }
+.file-item.green i { color: var(--green-mid); font-size: .85rem; flex-shrink: 0; }
+.file-item.amber i { color: #d97706; font-size: .85rem; flex-shrink: 0; }
+.file-item .file-name { flex: 1; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-item .file-size { color: var(--text-muted); flex-shrink: 0; }
+
+/* ── Detail modal ── */
+.detail-title { font-family: 'EB Garamond', serif; font-size: 1.45rem; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.detail-meta {
+  display: flex; flex-wrap: wrap; gap: 12px; font-size: .77rem; color: var(--text-muted);
+  padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.detail-meta span { display: flex; align-items: center; gap: 5px; }
+.detail-section-label { font-size: .75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+.detail-body { font-size: .9rem; line-height: 1.75; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
+.detail-summary { font-size: .88rem; font-style: italic; line-height: 1.6; padding: 10px 14px; background: var(--green-pale); border-radius: 8px; border-left: 3px solid var(--green-accent); }
+.detail-summary.amber { background: #fffbeb; border-left-color: #fcd34d; color: #92400e; }
+.detail-attachments { display: flex; flex-direction: column; gap: 6px; }
+.detail-attachment-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--green-pale); border: 1px solid var(--border); border-radius: 7px; font-size: .8rem;
+}
+.detail-attachment-item.amber { background: #fffbeb; border-color: #fde68a; }
+.detail-attachment-item i { color: var(--green-mid); font-size: .9rem; }
+.detail-attachment-item.amber i { color: #d97706; }
+.detail-attachment-item a { color: var(--green-dark); font-weight: 500; text-decoration: none; flex: 1; }
+.detail-attachment-item.amber a { color: #92400e; }
+.detail-attachment-item a:hover { text-decoration: underline; }
+.detail-attachment-item .att-size { color: var(--text-muted); font-size: .73rem; }
+.detail-archive-note {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: var(--green-pale); border: 1px solid var(--border);
+  border-radius: 8px; font-size: .78rem; color: var(--text-muted);
+}
+.detail-archive-note.amber { background: #fffbeb; border-color: #fde68a; }
+.detail-archive-note i { color: var(--green-mid); }
+.detail-archive-note.amber i { color: #d97706; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Toasts -->
+<div class="toast-container" id="toastContainer">
+  {% for msg in messages %}
+    <div class="toast {% if 'error' in msg.tags %}toast-error{% endif %}">
+      <i class="fa-solid {% if 'error' in msg.tags %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+      {{ msg }}
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Page header -->
+<div class="page-header">
+  <h2>Employees' Corner
+    <small>Union and Cooperative postings, announcements, and shared files</small>
+  </h2>
+</div>
+
+<!-- ══ OUTER TAB BAR: Union / Coop ══ -->
+<div class="outer-tab-bar">
+  <button class="outer-tab-btn active-union" id="outerTabUnion" onclick="switchOuterTab('union')">
+    <i class="fa-solid fa-people-group"></i> Union
+    <span style="background:var(--green-pale);color:var(--green-dark);font-size:.68rem;padding:1px 7px;border-radius:20px;font-weight:600;margin-left:2px;">{{ union_total_count }}</span>
+  </button>
+  <button class="outer-tab-btn" id="outerTabCoop" onclick="switchOuterTab('coop')">
+    <i class="fa-solid fa-handshake"></i> Cooperative
+    <span style="background:#fffbeb;color:#92400e;font-size:.68rem;padding:1px 7px;border-radius:20px;font-weight:600;margin-left:2px;">{{ coop_total_count }}</span>
+  </button>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     UNION PANEL
+     ══════════════════════════════════════════════ -->
+<div class="outer-panel active union-panel" id="outerPanelUnion">
+
+  <!-- Inner tab bar + action button -->
+  <div class="panel-header-row">
+    <div class="inner-tab-bar">
+      <button class="inner-tab-btn active" id="unionTabPostings" onclick="switchInnerTab('union','postings')">
+        <i class="fa-solid fa-newspaper"></i> Postings
+        <span style="background:var(--green-pale);color:var(--green-dark);font-size:.66rem;padding:1px 6px;border-radius:20px;font-weight:600;margin-left:2px;">{{ union_post_count }}</span>
+      </button>
+      <button class="inner-tab-btn" id="unionTabFiles" onclick="switchInnerTab('union','files')">
+        <i class="fa-solid fa-folder-open"></i> Group Files
+        <span style="background:var(--green-pale);color:var(--green-dark);font-size:.66rem;padding:1px 6px;border-radius:20px;font-weight:600;margin-left:2px;">{{ union_file_count }}</span>
+      </button>
+    </div>
+    {% if can_manage %}
+    <button class="btn btn-primary btn-sm" onclick="openCreateModal('union')" id="unionAddBtn">
+      <i class="fa-solid fa-plus"></i> New Post
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- ── Union: Postings ── -->
+  <div class="inner-panel active" id="unionPanelPostings">
+
+    <!-- Stat cards -->
+    <div class="stat-row" style="margin-top:14px;">
+      <div class="stat-card u-stat-card {% if not union_status_filter %}active{% endif %}" onclick="filterByStatus('union','')">
+        <div class="stat-icon u-all"><i class="fa-solid fa-newspaper"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ union_post_count }}</div><div class="stat-label">Total</div></div>
+      </div>
+      <div class="stat-card u-stat-card {% if union_status_filter == 'published' %}active{% endif %}" onclick="filterByStatus('union','published')">
+        <div class="stat-icon u-published"><i class="fa-solid fa-circle-check"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ union_published_count }}</div><div class="stat-label">Published</div></div>
+      </div>
+      <div class="stat-card u-stat-card {% if union_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('union','draft')">
+        <div class="stat-icon u-draft"><i class="fa-solid fa-pen-to-square"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ union_draft_count }}</div><div class="stat-label">Drafts</div></div>
+      </div>
+      <div class="stat-card u-stat-card {% if union_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('union','archived')">
+        <div class="stat-icon u-archived"><i class="fa-solid fa-box-archive"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ union_archived_count }}</div><div class="stat-label">Archived</div></div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <form method="get" id="unionFilterForm">
+      <input type="hidden" name="tab"           value="union">
+      <input type="hidden" name="inner_union"   value="postings">
+      <input type="hidden" name="union_status"  id="unionStatusHidden" value="{{ union_status_filter }}">
+      <div class="toolbar">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" name="union_search" value="{{ union_search_query }}"
+                 placeholder="Search union postings…"
+                 onchange="document.getElementById('unionFilterForm').submit()">
+        </div>
+        <select name="union_month" class="toolbar-select {% if union_month_filter %}has-value{% endif %}"
+                onchange="document.getElementById('unionFilterForm').submit()">
+          <option value="">All months</option>
+          {% for m in union_available_months %}
+          <option value="{{ m.value }}" {% if m.value == union_month_filter %}selected{% endif %}>{{ m.label }}</option>
+          {% endfor %}
+        </select>
+        <select name="union_per_page" class="toolbar-select {% if union_per_page and union_per_page != 10 %}has-value{% endif %}"
+                onchange="document.getElementById('unionFilterForm').submit()">
+          <option value="5"   {% if union_per_page == 5   %}selected{% endif %}>5 per page</option>
+          <option value="10"  {% if not union_per_page or union_per_page == 10 %}selected{% endif %}>10 per page</option>
+          <option value="20"  {% if union_per_page == 20  %}selected{% endif %}>20 per page</option>
+          <option value="40"  {% if union_per_page == 40  %}selected{% endif %}>40 per page</option>
+        </select>
+        {% if union_search_query or union_status_filter or union_month_filter %}
+        <a href="?tab=union&inner_union=postings" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+        {% endif %}
+      </div>
+    </form>
+
+    <div class="results-bar">
+      <span class="results-bar__count">
+        Showing <strong>{{ union_posts.start_index }}–{{ union_posts.end_index }}</strong>
+        of <strong>{{ union_posts.paginator.count }}</strong> posting{{ union_posts.paginator.count|pluralize }}
+      </span>
+    </div>
+
+    <!-- Cards -->
+    <div class="post-grid">
+      {% for post in union_posts %}
+      <div class="post-card union-card" id="unionPostCard{{ post.pk }}">
+        <div class="post-card__stripe"></div>
+        <div class="post-card__header">
+          <span class="status-badge status-badge-{{ post.status }}">
+            {% if post.status == 'published' %}<i class="fa-solid fa-circle-check"></i>
+            {% elif post.status == 'draft'   %}<i class="fa-solid fa-pen-to-square"></i>
+            {% else                          %}<i class="fa-solid fa-box-archive"></i>{% endif %}
+            {{ post.get_status_display }}
+          </span>
+          <span class="post-card__date-pill"><i class="fa-solid fa-calendar-days"></i>{{ post.date_posted|date:"M d, Y" }}</span>
+        </div>
+        <div class="post-card__body">
+          <div class="post-card__title">{{ post.title }}</div>
+          {% if post.summary %}<div class="post-card__summary">{{ post.summary|truncatechars:100 }}</div>{% endif %}
+          <div class="post-card__excerpt">{{ post.content|truncatechars:150 }}</div>
+          {% if post.attachments.count %}
+          <div class="post-card__files">
+            {% for att in post.attachments.all %}
+            <a href="{{ att.file.url }}" target="_blank" class="file-chip" title="{{ att.original_name }}">
+              <i class="fa-solid fa-paperclip"></i>{{ att.original_name|truncatechars:22 }}
+            </a>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div class="post-card__footer">
+            <i class="fa-solid fa-user-pen"></i>
+            {% if post.author %}{{ post.author.get_full_name|default:post.author.username }}{% else %}Unknown{% endif %}
+            {% if post.attachments.count %}&nbsp;·&nbsp;<span class="post-card__attachment-badge"><i class="fa-solid fa-paperclip"></i> {{ post.attachments.count }} file{{ post.attachments.count|pluralize }}</span>{% endif %}
+            {% if post.archive_policy == 'never' %}&nbsp;·&nbsp;<i class="fa-solid fa-infinity"></i> No archive
+            {% elif post.archive_policy == 'on_date' and post.archive_date %}&nbsp;·&nbsp;<i class="fa-solid fa-calendar-xmark"></i> Archives {{ post.archive_date|date:"M d, Y" }}{% endif %}
+          </div>
+        </div>
+        <div class="post-card__actions">
+          <div class="actions-left">
+            <button class="btn btn-outline btn-sm" onclick="openDetailModal('union','{{ post.pk }}')"><i class="fa-solid fa-eye"></i> View</button>
+            {% if can_manage %}
+            <button class="btn btn-outline btn-sm" onclick="openEditModal('union','{{ post.pk }}')"><i class="fa-solid fa-pen"></i> Edit</button>
+            {% if post.status == 'draft' %}
+            <button class="btn btn-sm btn-primary" onclick="toggleStatus('union','{{ post.pk }}','publish')"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+            {% elif post.status == 'published' %}
+            <button class="btn btn-sm btn-outline" onclick="toggleStatus('union','{{ post.pk }}','draft')"><i class="fa-solid fa-pen-to-square"></i> Unpublish</button>
+            {% elif post.status == 'archived' %}
+            <button class="btn btn-sm btn-outline" onclick="toggleStatus('union','{{ post.pk }}','unarchive')"><i class="fa-solid fa-box-open"></i> Unarchive</button>
+            {% endif %}
+            {% endif %}
+          </div>
+          {% if can_manage %}
+          <div class="actions-right">
+            {% if post.status != 'archived' %}<button class="btn-icon" title="Archive" onclick="toggleStatus('union','{{ post.pk }}','archive')"><i class="fa-solid fa-box-archive"></i></button>{% endif %}
+            <button class="btn-icon btn-icon-danger" title="Delete" onclick="openDeleteModal('union','{{ post.pk }}','{{ post.title|escapejs }}')"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <div class="empty-state" style="grid-column:1/-1;">
+        <i class="fa-solid fa-newspaper"></i>
+        <h3>No postings found</h3>
+        {% if union_search_query or union_status_filter or union_month_filter %}
+        <p>No results match your search or filter.</p>
+        <a href="?tab=union&inner_union=postings" class="btn btn-outline btn-sm" style="margin-top:6px">Clear filters</a>
+        {% else %}
+        <p>No union postings yet. Click "New Post" to get started.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if union_posts.paginator.num_pages > 1 %}
+      <div class="pagination-wrap" id="unionPostsPagination"
+           data-current="{{ union_posts.number }}"
+           data-total="{{ union_posts.paginator.num_pages }}"
+           data-has-prev="{{ union_posts.has_previous|yesno:'true,false' }}"
+           data-has-next="{{ union_posts.has_next|yesno:'true,false' }}"
+           data-prev="{% if union_posts.has_previous %}{{ union_posts.previous_page_number }}{% else %}1{% endif %}"
+           data-next="{% if union_posts.has_next %}{{ union_posts.next_page_number }}{% else %}{{ union_posts.paginator.num_pages }}{% endif %}">
+      </div>
+    <script>
+    (function(){
+      var wrap=document.getElementById('unionPostsPagination');
+      var current=Number(wrap.dataset.current), total=Number(wrap.dataset.total);
+      var hasPrev = wrap.dataset.hasPrev === 'true', hasNext = wrap.dataset.hasNext === 'true';
+      var prevPage = Number(wrap.dataset.prev), nextPage = Number(wrap.dataset.next);
+      function pageUrl(p){var params=new URLSearchParams(window.location.search);params.set('page_union',p);params.set('tab','union');params.set('inner_union','postings');return'?'+params.toString();}
+      var html='';
+      html+=hasPrev?'<a href="'+pageUrl(prevPage)+'" class="page-btn"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>';
+      var el={left:false,right:false};
+      for(var n=1;n<=total;n++){var a=(n===current),e=(n===1||n===total),nr=(n>=current-2&&n<=current+2);
+        if(a)html+='<span class="page-btn active">'+n+'</span>';
+        else if(e||nr)html+='<a href="'+pageUrl(n)+'" class="page-btn">'+n+'</a>';
+        else if(n===current-3&&!el.left){el.left=true;html+='<span class="page-ellipsis">…</span>';} 
+        else if(n===current+3&&!el.right){el.right=true;html+='<span class="page-ellipsis">…</span>';} 
+      }
+      html+=hasNext?'<a href="'+pageUrl(nextPage)+'" class="page-btn"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>';
+      wrap.innerHTML=html;
+    })();
+    </script>
+    {% endif %}
+
+  </div><!-- /unionPanelPostings -->
+
+  <!-- ── Union: Group Files ── -->
+  <div class="inner-panel" id="unionPanelFiles">
+    <div style="margin-top:14px;">
+      <!-- Search toolbar for files -->
+      <div class="toolbar" style="margin-bottom:14px;">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" placeholder="Search files…" oninput="filterFiles('union', this.value)">
+        </div>
+        <select class="toolbar-select" onchange="filterFilesByType('union', this.value)">
+          <option value="">All types</option>
+          <option value="pdf">PDF</option>
+          <option value="word">Word</option>
+          <option value="excel">Excel</option>
+          <option value="image">Image</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="results-bar">
+        <span class="results-bar__count">
+          <strong>{{ union_file_count }}</strong> file{{ union_file_count|pluralize }} from union postings
+        </span>
+      </div>
+
+      <!-- Files grouped by post -->
+      {% if union_posts_with_files %}
+        {% for post in union_posts_with_files %}
+        <div class="files-section">
+          <div class="files-section-header">
+            <h4><i class="fa-solid fa-newspaper" style="color:var(--green-mid);font-size:.85rem;margin-right:4px;"></i>{{ post.title }}</h4>
+            <span class="post-ref">{{ post.date_posted|date:"M d, Y" }}</span>
+            <span class="status-badge status-badge-{{ post.status }}" style="font-size:.65rem;">{{ post.get_status_display }}</span>
+          </div>
+          <table class="files-table">
+            <thead>
+              <tr>
+                <th>File Name</th>
+                <th>Size</th>
+                <th>From Post</th>
+                <th style="text-align:right;">Download</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for att in post.attachments.all %}
+              <tr>
+                <td>
+                  <div class="file-icon-cell">
+                    <i class="fa-solid {{ att.original_name|file_icon }}"></i>
+                    <a href="{{ att.file.url }}" target="_blank" rel="noopener" class="file-name-link">{{ att.original_name }}</a>
+                  </div>
+                </td>
+                <td style="color:var(--text-muted);font-size:.78rem;">{{ att.file_size_display }}</td>
+                <td>
+                  <span class="post-ref-pill">
+                    <i class="fa-solid fa-newspaper"></i>{{ post.title|truncatechars:30 }}
+                  </span>
+                </td>
+                <td style="text-align:right;">
+                  <a href="{{ att.file.url }}" download class="file-download-btn">
+                    <i class="fa-solid fa-download"></i> Download
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-files">
+          <i class="fa-solid fa-folder-open" style="font-size:2.2rem;color:var(--green-light);"></i>
+          <p style="font-size:.85rem;color:var(--text-muted);">No files yet. Files attached to union postings will appear here for easy download.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div><!-- /unionPanelFiles -->
+
+</div><!-- /outerPanelUnion -->
+
+
+<!-- ══════════════════════════════════════════════
+     COOPERATIVE PANEL
+     ══════════════════════════════════════════════ -->
+<div class="outer-panel coop-panel" id="outerPanelCoop">
+
+  <!-- Inner tab bar + action button -->
+  <div class="panel-header-row">
+    <div class="inner-tab-bar">
+      <button class="inner-tab-btn active" id="coopTabPostings" onclick="switchInnerTab('coop','postings')">
+        <i class="fa-solid fa-newspaper"></i> Postings
+        <span style="background:#fffbeb;color:#92400e;font-size:.66rem;padding:1px 6px;border-radius:20px;font-weight:600;margin-left:2px;">{{ coop_post_count }}</span>
+      </button>
+      <button class="inner-tab-btn" id="coopTabFiles" onclick="switchInnerTab('coop','files')">
+        <i class="fa-solid fa-folder-open"></i> Group Files
+        <span style="background:#fffbeb;color:#92400e;font-size:.66rem;padding:1px 6px;border-radius:20px;font-weight:600;margin-left:2px;">{{ coop_file_count }}</span>
+      </button>
+    </div>
+    {% if can_manage %}
+    <button class="btn btn-primary-coop btn-sm" onclick="openCreateModal('coop')" id="coopAddBtn">
+      <i class="fa-solid fa-plus"></i> New Post
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- ── Coop: Postings ── -->
+  <div class="inner-panel active" id="coopPanelPostings">
+
+    <div class="stat-row" style="margin-top:14px;">
+      <div class="stat-card c-stat-card {% if not coop_status_filter %}active{% endif %}" onclick="filterByStatus('coop','')">
+        <div class="stat-icon c-all"><i class="fa-solid fa-handshake"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ coop_post_count }}</div><div class="stat-label">Total</div></div>
+      </div>
+      <div class="stat-card c-stat-card {% if coop_status_filter == 'published' %}active{% endif %}" onclick="filterByStatus('coop','published')">
+        <div class="stat-icon c-published"><i class="fa-solid fa-circle-check"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ coop_published_count }}</div><div class="stat-label">Published</div></div>
+      </div>
+      <div class="stat-card c-stat-card {% if coop_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('coop','draft')">
+        <div class="stat-icon c-draft"><i class="fa-solid fa-pen-to-square"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ coop_draft_count }}</div><div class="stat-label">Drafts</div></div>
+      </div>
+      <div class="stat-card c-stat-card {% if coop_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('coop','archived')">
+        <div class="stat-icon c-archived"><i class="fa-solid fa-box-archive"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ coop_archived_count }}</div><div class="stat-label">Archived</div></div>
+      </div>
+    </div>
+
+    <form method="get" id="coopFilterForm">
+      <input type="hidden" name="tab"          value="coop">
+      <input type="hidden" name="inner_coop"   value="postings">
+      <input type="hidden" name="coop_status"  id="coopStatusHidden" value="{{ coop_status_filter }}">
+      <div class="toolbar">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" name="coop_search" value="{{ coop_search_query }}"
+                 placeholder="Search coop postings…"
+                 onchange="document.getElementById('coopFilterForm').submit()">
+        </div>
+        <select name="coop_month" class="toolbar-select {% if coop_month_filter %}has-value{% endif %}"
+                onchange="document.getElementById('coopFilterForm').submit()">
+          <option value="">All months</option>
+          {% for m in coop_available_months %}
+          <option value="{{ m.value }}" {% if m.value == coop_month_filter %}selected{% endif %}>{{ m.label }}</option>
+          {% endfor %}
+        </select>
+        <select name="coop_per_page" class="toolbar-select {% if coop_per_page and coop_per_page != 10 %}has-value{% endif %}"
+                onchange="document.getElementById('coopFilterForm').submit()">
+          <option value="5"   {% if coop_per_page == 5   %}selected{% endif %}>5 per page</option>
+          <option value="10"  {% if not coop_per_page or coop_per_page == 10 %}selected{% endif %}>10 per page</option>
+          <option value="20"  {% if coop_per_page == 20  %}selected{% endif %}>20 per page</option>
+          <option value="40"  {% if coop_per_page == 40  %}selected{% endif %}>40 per page</option>
+        </select>
+        {% if coop_search_query or coop_status_filter or coop_month_filter %}
+        <a href="?tab=coop&inner_coop=postings" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+        {% endif %}
+      </div>
+    </form>
+
+    <div class="results-bar">
+      <span class="results-bar__count">
+        Showing <strong>{{ coop_posts.start_index }}–{{ coop_posts.end_index }}</strong>
+        of <strong>{{ coop_posts.paginator.count }}</strong> posting{{ coop_posts.paginator.count|pluralize }}
+      </span>
+    </div>
+
+    <div class="post-grid">
+      {% for post in coop_posts %}
+      <div class="post-card coop-card" id="coopPostCard{{ post.pk }}">
+        <div class="post-card__stripe"></div>
+        <div class="post-card__header">
+          <span class="status-badge status-badge-{{ post.status }}">
+            {% if post.status == 'published' %}<i class="fa-solid fa-circle-check"></i>
+            {% elif post.status == 'draft'   %}<i class="fa-solid fa-pen-to-square"></i>
+            {% else                          %}<i class="fa-solid fa-box-archive"></i>{% endif %}
+            {{ post.get_status_display }}
+          </span>
+          <span class="post-card__date-pill"><i class="fa-solid fa-calendar-days"></i>{{ post.date_posted|date:"M d, Y" }}</span>
+        </div>
+        <div class="post-card__body">
+          <div class="post-card__title">{{ post.title }}</div>
+          {% if post.summary %}<div class="post-card__summary">{{ post.summary|truncatechars:100 }}</div>{% endif %}
+          <div class="post-card__excerpt">{{ post.content|truncatechars:150 }}</div>
+          {% if post.attachments.count %}
+          <div class="post-card__files">
+            {% for att in post.attachments.all %}
+            <a href="{{ att.file.url }}" target="_blank" class="file-chip" title="{{ att.original_name }}">
+              <i class="fa-solid fa-paperclip"></i>{{ att.original_name|truncatechars:22 }}
+            </a>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div class="post-card__footer">
+            <i class="fa-solid fa-user-pen"></i>
+            {% if post.author %}{{ post.author.get_full_name|default:post.author.username }}{% else %}Unknown{% endif %}
+            {% if post.attachments.count %}&nbsp;·&nbsp;<span class="post-card__attachment-badge"><i class="fa-solid fa-paperclip"></i> {{ post.attachments.count }} file{{ post.attachments.count|pluralize }}</span>{% endif %}
+            {% if post.archive_policy == 'never' %}&nbsp;·&nbsp;<i class="fa-solid fa-infinity"></i> No archive
+            {% elif post.archive_policy == 'on_date' and post.archive_date %}&nbsp;·&nbsp;<i class="fa-solid fa-calendar-xmark"></i> Archives {{ post.archive_date|date:"M d, Y" }}{% endif %}
+          </div>
+        </div>
+        <div class="post-card__actions">
+          <div class="actions-left">
+            <button class="btn btn-outline btn-sm" onclick="openDetailModal('coop','{{ post.pk }}')"><i class="fa-solid fa-eye"></i> View</button>
+            {% if can_manage %}
+            <button class="btn btn-outline btn-sm" onclick="openEditModal('coop','{{ post.pk }}')"><i class="fa-solid fa-pen"></i> Edit</button>
+            {% if post.status == 'draft' %}
+            <button class="btn btn-sm btn-primary-coop" onclick="toggleStatus('coop','{{ post.pk }}','publish')"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+            {% elif post.status == 'published' %}
+            <button class="btn btn-sm btn-outline" onclick="toggleStatus('coop','{{ post.pk }}','draft')"><i class="fa-solid fa-pen-to-square"></i> Unpublish</button>
+            {% elif post.status == 'archived' %}
+            <button class="btn btn-sm btn-outline" onclick="toggleStatus('coop','{{ post.pk }}','unarchive')"><i class="fa-solid fa-box-open"></i> Unarchive</button>
+            {% endif %}
+            {% endif %}
+          </div>
+          {% if can_manage %}
+          <div class="actions-right">
+            {% if post.status != 'archived' %}<button class="btn-icon" title="Archive" onclick="toggleStatus('coop','{{ post.pk }}','archive')"><i class="fa-solid fa-box-archive"></i></button>{% endif %}
+            <button class="btn-icon btn-icon-danger" title="Delete" onclick="openDeleteModal('coop','{{ post.pk }}','{{ post.title|escapejs }}')"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <div class="empty-state" style="grid-column:1/-1;">
+        <i class="fa-solid fa-handshake"></i>
+        <h3>No postings found</h3>
+        {% if coop_search_query or coop_status_filter or coop_month_filter %}
+        <p>No results match your search or filter.</p>
+        <a href="?tab=coop&inner_coop=postings" class="btn btn-outline btn-sm" style="margin-top:6px">Clear filters</a>
+        {% else %}
+        <p>No coop postings yet. Click "New Post" to get started.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if coop_posts.paginator.num_pages > 1 %}
+    <div class="pagination-wrap" id="coopPostsPagination"
+         data-current="{{ coop_posts.number }}"
+         data-total="{{ coop_posts.paginator.num_pages }}"
+         data-has-prev="{{ coop_posts.has_previous|yesno:'true,false' }}"
+         data-has-next="{{ coop_posts.has_next|yesno:'true,false' }}"
+         data-prev="{% if coop_posts.has_previous %}{{ coop_posts.previous_page_number }}{% else %}1{% endif %}"
+         data-next="{% if coop_posts.has_next %}{{ coop_posts.next_page_number }}{% else %}{{ coop_posts.paginator.num_pages }}{% endif %}">
+    </div>
+    <script>
+    (function(){
+      var wrap=document.getElementById('coopPostsPagination');
+      var current=Number(wrap.dataset.current), total=Number(wrap.dataset.total);
+      var hasPrev = wrap.dataset.hasPrev === 'true', hasNext = wrap.dataset.hasNext === 'true';
+      var prevPage = Number(wrap.dataset.prev), nextPage = Number(wrap.dataset.next);
+      function pageUrl(p){var params=new URLSearchParams(window.location.search);params.set('page_coop',p);params.set('tab','coop');params.set('inner_coop','postings');return'?'+params.toString();}
+      var html='';
+      html+=hasPrev?'<a href="'+pageUrl(prevPage)+'" class="page-btn"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>';
+      var el={left:false,right:false};
+      for(var n=1;n<=total;n++){var a=(n===current),e=(n===1||n===total),nr=(n>=current-2&&n<=current+2);
+        if(a)html+='<span class="page-btn active">'+n+'</span>';
+        else if(e||nr)html+='<a href="'+pageUrl(n)+'" class="page-btn">'+n+'</a>';
+        else if(n===current-3&&!el.left){el.left=true;html+='<span class="page-ellipsis">…</span>';}
+        else if(n===current+3&&!el.right){el.right=true;html+='<span class="page-ellipsis">…</span>';}
+      }
+      html+=hasNext?'<a href="'+pageUrl(nextPage)+'" class="page-btn"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>';
+      wrap.innerHTML=html;
+    })();
+    </script>
+    {% endif %}
+
+  </div><!-- /coopPanelPostings -->
+
+  <!-- ── Coop: Group Files ── -->
+  <div class="inner-panel" id="coopPanelFiles">
+    <div style="margin-top:14px;">
+      <div class="toolbar" style="margin-bottom:14px;">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" placeholder="Search files…" oninput="filterFiles('coop', this.value)">
+        </div>
+        <select class="toolbar-select" onchange="filterFilesByType('coop', this.value)">
+          <option value="">All types</option>
+          <option value="pdf">PDF</option>
+          <option value="word">Word</option>
+          <option value="excel">Excel</option>
+          <option value="image">Image</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="results-bar">
+        <span class="results-bar__count">
+          <strong>{{ coop_file_count }}</strong> file{{ coop_file_count|pluralize }} from coop postings
+        </span>
+      </div>
+
+      {% if coop_posts_with_files %}
+        {% for post in coop_posts_with_files %}
+        <div class="files-section">
+          <div class="files-section-header">
+            <h4><i class="fa-solid fa-handshake" style="color:#d97706;font-size:.85rem;margin-right:4px;"></i>{{ post.title }}</h4>
+            <span class="post-ref">{{ post.date_posted|date:"M d, Y" }}</span>
+            <span class="status-badge status-badge-{{ post.status }}" style="font-size:.65rem;">{{ post.get_status_display }}</span>
+          </div>
+          <table class="files-table">
+            <thead>
+              <tr>
+                <th>File Name</th>
+                <th>Size</th>
+                <th>From Post</th>
+                <th style="text-align:right;">Download</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for att in post.attachments.all %}
+              <tr>
+                <td>
+                  <div class="file-icon-cell">
+                    <i class="fa-solid {{ att.original_name|file_icon }}"></i>
+                    <a href="{{ att.file.url }}" target="_blank" rel="noopener" class="file-name-link">{{ att.original_name }}</a>
+                  </div>
+                </td>
+                <td style="color:var(--text-muted);font-size:.78rem;">{{ att.file_size_display }}</td>
+                <td>
+                  <span class="post-ref-pill">
+                    <i class="fa-solid fa-handshake"></i>{{ post.title|truncatechars:30 }}
+                  </span>
+                </td>
+                <td style="text-align:right;">
+                  <a href="{{ att.file.url }}" download class="file-download-btn">
+                    <i class="fa-solid fa-download"></i> Download
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-files">
+          <i class="fa-solid fa-folder-open" style="font-size:2.2rem;color:#fcd34d;"></i>
+          <p style="font-size:.85rem;color:var(--text-muted);">No files yet. Files attached to coop postings will appear here for easy download.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div><!-- /coopPanelFiles -->
+
+</div><!-- /outerPanelCoop -->
+
+
+<!-- ══════════════════════════════════════════════
+     UNION MODALS
+     ══════════════════════════════════════════════ -->
+
+<!-- Union: Create Post -->
+<div class="modal-backdrop" id="unionCreateModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-newspaper"></i></div>
+      <div class="modal__header-title"><h3>New Union Post</h3><p>Fill in the details. Save as draft or publish immediately.</p></div>
+      <button class="modal__close" onclick="closeModal('unionCreateModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" action="{% url 'corner_post_create' 'union' %}" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="section" value="union">
+      <input type="hidden" name="status" id="uc_status_field" value="draft">
+      <div class="modal__body">
+        <div class="form-group"><label for="uc_title">Title <span class="req">*</span></label><input type="text" id="uc_title" name="title" class="form-control green-focus" placeholder="Enter post title…" required maxlength="300"></div>
+        <div class="form-group"><label for="uc_summary">Summary <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label><input type="text" id="uc_summary" name="summary" class="form-control green-focus" placeholder="Short one-line description…" maxlength="500"></div>
+        <div class="form-group"><label for="uc_content">Content <span class="req">*</span></label><textarea id="uc_content" name="content" class="form-control green-focus" placeholder="Full post content, announcements, updates…" required></textarea></div>
+        <!-- Date posted is set automatically on create -->
+        <div class="form-group">
+          <label>Attachments <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+          <div class="file-upload-zone green"><input type="file" name="attachments" id="uc_attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" onchange="handleFileSelect(this,'uc_fileList','green')"><i class="fa-solid fa-paperclip"></i><span><strong>Click to attach files</strong> or drag &amp; drop<br><small>Attached files will also appear in Group Files</small></span></div>
+          <div class="file-list" id="uc_fileList"></div>
+        </div>
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" checked onchange="toggleArchiveDateRow('uc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" onchange="toggleArchiveDateRow('uc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" onchange="toggleArchiveDateRow('uc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="uc_archiveDateRow"><label><i class="fa-solid fa-calendar"></i> Archive on:</label><input type="date" name="archive_date" id="uc_archive_date"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('unionCreateModal')">Cancel</button>
+        <button type="submit" class="btn btn-outline" onclick="document.getElementById('uc_status_field').value='draft'"><i class="fa-solid fa-floppy-disk"></i> Save as Draft</button>
+        <button type="submit" class="btn btn-primary" onclick="document.getElementById('uc_status_field').value='published'"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Union: Edit Post -->
+<div class="modal-backdrop" id="unionEditModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-pen"></i></div>
+      <div class="modal__header-title"><h3>Edit Union Post</h3><p>Update the details below.</p></div>
+      <button class="modal__close" onclick="closeModal('unionEditModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" id="unionEditForm" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="section" value="union">
+      <div class="modal__body">
+        <div class="form-group"><label for="ue_title">Title <span class="req">*</span></label><input type="text" id="ue_title" name="title" class="form-control green-focus" required maxlength="300"></div>
+        <div class="form-group"><label for="ue_summary">Summary</label><input type="text" id="ue_summary" name="summary" class="form-control green-focus" maxlength="500"></div>
+        <div class="form-group"><label for="ue_content">Content <span class="req">*</span></label><textarea id="ue_content" name="content" class="form-control green-focus" required></textarea></div>
+        <div class="form-group"><label for="ue_status">Status</label><select id="ue_status" name="status" class="form-control green-focus"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></div>
+        <!-- Date posted is managed automatically; not editable here -->
+        <div id="ue_existingAttachments" style="display:none;"><div class="form-group"><label>Current Attachments</label><div class="file-list" id="ue_existingFileList"></div></div></div>
+        <div class="form-group">
+          <label>Add New Attachments</label>
+          <div class="file-upload-zone green"><input type="file" name="attachments" id="ue_attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" onchange="handleFileSelect(this,'ue_fileList','green')"><i class="fa-solid fa-paperclip"></i><span><strong>Click to attach files</strong> or drag &amp; drop<br>Leave empty to keep existing</span></div>
+          <div class="file-list" id="ue_fileList"></div>
+        </div>
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" id="ue_archDefault" onchange="toggleArchiveDateRow('ue_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" id="ue_archOnDate" onchange="toggleArchiveDateRow('ue_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" id="ue_archNever" onchange="toggleArchiveDateRow('ue_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="ue_archiveDateRow"><label><i class="fa-solid fa-calendar"></i> Archive on:</label><input type="date" name="archive_date" id="ue_archive_date"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('unionEditModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Union: Detail -->
+<div class="modal-backdrop" id="unionDetailModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-eye"></i></div>
+      <div class="modal__header-title"><h3 id="unionDetailTitle">Post</h3><p id="unionDetailSub"></p></div>
+      <button class="modal__close" onclick="closeModal('unionDetailModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="unionDetailBody"></div>
+    <div class="modal__footer"><button class="btn btn-outline" onclick="closeModal('unionDetailModal')">Close</button></div>
+  </div>
+</div>
+
+<!-- Union: Delete -->
+<div class="modal-backdrop" id="unionDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-sm modal-danger">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="modal__header-title"><h3>Delete Post</h3><p>This action cannot be undone.</p></div>
+      <button class="modal__close" onclick="closeModal('unionDeleteModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body"><p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to permanently delete <strong id="unionDeleteName"></strong>? All associated attachments will also be removed.</p></div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('unionDeleteModal')">Cancel</button>
+      <form method="post" id="unionDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     COOP MODALS
+     ══════════════════════════════════════════════ -->
+
+<!-- Coop: Create Post -->
+<div class="modal-backdrop" id="coopCreateModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon amber"><i class="fa-solid fa-newspaper"></i></div>
+      <div class="modal__header-title"><h3>New Coop Post</h3><p>Fill in the details. Save as draft or publish immediately.</p></div>
+      <button class="modal__close" onclick="closeModal('coopCreateModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" action="{% url 'corner_post_create' 'coop' %}" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="section" value="coop">
+      <input type="hidden" name="status" id="cc_status_field" value="draft">
+      <div class="modal__body">
+        <div class="form-group"><label for="cc_title">Title <span class="req">*</span></label><input type="text" id="cc_title" name="title" class="form-control amber-focus" placeholder="Enter post title…" required maxlength="300"></div>
+        <div class="form-group"><label for="cc_summary">Summary <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label><input type="text" id="cc_summary" name="summary" class="form-control amber-focus" placeholder="Short one-line description…" maxlength="500"></div>
+        <div class="form-group"><label for="cc_content">Content <span class="req">*</span></label><textarea id="cc_content" name="content" class="form-control amber-focus" placeholder="Full post content, announcements, updates…" required></textarea></div>
+        <!-- Date posted is set automatically on create -->
+        <div class="form-group">
+          <label>Attachments <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+          <div class="file-upload-zone amber"><input type="file" name="attachments" id="cc_attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" onchange="handleFileSelect(this,'cc_fileList','amber')"><i class="fa-solid fa-paperclip"></i><span><strong>Click to attach files</strong> or drag &amp; drop<br><small>Attached files will also appear in Group Files</small></span></div>
+          <div class="file-list" id="cc_fileList"></div>
+        </div>
+        <div class="archive-section amber-arch">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" checked onchange="toggleArchiveDateRow('cc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" onchange="toggleArchiveDateRow('cc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" onchange="toggleArchiveDateRow('cc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="cc_archiveDateRow"><label><i class="fa-solid fa-calendar"></i> Archive on:</label><input type="date" name="archive_date" id="cc_archive_date"></div>
+        </div>
+      </div>
+      <div class="modal__footer amber-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('coopCreateModal')">Cancel</button>
+        <button type="submit" class="btn btn-outline" onclick="document.getElementById('cc_status_field').value='draft'"><i class="fa-solid fa-floppy-disk"></i> Save as Draft</button>
+        <button type="submit" class="btn btn-primary-coop" onclick="document.getElementById('cc_status_field').value='published'"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Coop: Edit Post -->
+<div class="modal-backdrop" id="coopEditModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon amber"><i class="fa-solid fa-pen"></i></div>
+      <div class="modal__header-title"><h3>Edit Coop Post</h3><p>Update the details below.</p></div>
+      <button class="modal__close" onclick="closeModal('coopEditModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" id="coopEditForm" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="section" value="coop">
+      <div class="modal__body">
+        <div class="form-group"><label for="ce_title">Title <span class="req">*</span></label><input type="text" id="ce_title" name="title" class="form-control amber-focus" required maxlength="300"></div>
+        <div class="form-group"><label for="ce_summary">Summary</label><input type="text" id="ce_summary" name="summary" class="form-control amber-focus" maxlength="500"></div>
+        <div class="form-group"><label for="ce_content">Content <span class="req">*</span></label><textarea id="ce_content" name="content" class="form-control amber-focus" required></textarea></div>
+        <div class="form-group"><label for="ce_status">Status</label><select id="ce_status" name="status" class="form-control amber-focus"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></div>
+        <!-- Date posted is managed automatically; not editable here -->
+        <div id="ce_existingAttachments" style="display:none;"><div class="form-group"><label>Current Attachments</label><div class="file-list" id="ce_existingFileList"></div></div></div>
+        <div class="form-group">
+          <label>Add New Attachments</label>
+          <div class="file-upload-zone amber"><input type="file" name="attachments" id="ce_attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" onchange="handleFileSelect(this,'ce_fileList','amber')"><i class="fa-solid fa-paperclip"></i><span><strong>Click to attach files</strong> or drag &amp; drop<br>Leave empty to keep existing</span></div>
+          <div class="file-list" id="ce_fileList"></div>
+        </div>
+        <div class="archive-section amber-arch">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" id="ce_archDefault" onchange="toggleArchiveDateRow('ce_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" id="ce_archOnDate" onchange="toggleArchiveDateRow('ce_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" id="ce_archNever" onchange="toggleArchiveDateRow('ce_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="ce_archiveDateRow"><label><i class="fa-solid fa-calendar"></i> Archive on:</label><input type="date" name="archive_date" id="ce_archive_date"></div>
+        </div>
+      </div>
+      <div class="modal__footer amber-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('coopEditModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary-coop"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Coop: Detail -->
+<div class="modal-backdrop" id="coopDetailModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon amber"><i class="fa-solid fa-eye"></i></div>
+      <div class="modal__header-title"><h3 id="coopDetailTitle">Post</h3><p id="coopDetailSub"></p></div>
+      <button class="modal__close" onclick="closeModal('coopDetailModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="coopDetailBody"></div>
+    <div class="modal__footer amber-footer"><button class="btn btn-outline" onclick="closeModal('coopDetailModal')">Close</button></div>
+  </div>
+</div>
+
+<!-- Coop: Delete -->
+<div class="modal-backdrop" id="coopDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-sm modal-danger">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="modal__header-title"><h3>Delete Post</h3><p>This action cannot be undone.</p></div>
+      <button class="modal__close" onclick="closeModal('coopDeleteModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body"><p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to permanently delete <strong id="coopDeleteName"></strong>? All associated attachments will also be removed.</p></div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('coopDeleteModal')">Cancel</button>
+      <form method="post" id="coopDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ JS DATA PAYLOADS ══ -->
+<script type="application/json" id="union-data">[
+  {% for post in union_posts %}
+  {
+    "pk": {{ post.pk }},
+    "title": "{{ post.title|escapejs }}",
+    "summary": "{{ post.summary|default:''|escapejs }}",
+    "content": "{{ post.content|escapejs }}",
+    "status": "{{ post.status }}", "status_label": "{{ post.get_status_display }}",
+    "date_posted": "{{ post.date_posted|date:'Y-m-d' }}",
+    "date_posted_fmt": "{{ post.date_posted|date:'M d, Y' }}",
+    "author": "{% if post.author %}{{ post.author.get_full_name|default:post.author.username|escapejs }}{% else %}Unknown{% endif %}",
+    "archive_policy": "{{ post.archive_policy }}",
+    "archive_date_iso": "{{ post.archive_date|date:'Y-m-d'|default:'' }}",
+    "archive_date_fmt": "{{ post.archive_date|date:'M d, Y'|default:'' }}",
+    "edit_url": "{% url 'corner_post_edit' 'union' post.pk %}",
+    "delete_url": "{% url 'corner_post_delete' 'union' post.pk %}",
+    "toggle_url": "{% url 'corner_post_toggle_status' 'union' post.pk %}",
+    "attachments": [ {% for att in post.attachments.all %}{"name":"{{ att.original_name|escapejs }}","size":"{{ att.file_size_display }}","url":"{{ att.file.url }}"}{% if not forloop.last %},{% endif %}{% endfor %} ]
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]</script>
+
+<script type="application/json" id="coop-data">[
+  {% for post in coop_posts %}
+  {
+    "pk": {{ post.pk }},
+    "title": "{{ post.title|escapejs }}",
+    "summary": "{{ post.summary|default:''|escapejs }}",
+    "content": "{{ post.content|escapejs }}",
+    "status": "{{ post.status }}", "status_label": "{{ post.get_status_display }}",
+    "date_posted": "{{ post.date_posted|date:'Y-m-d' }}",
+    "date_posted_fmt": "{{ post.date_posted|date:'M d, Y' }}",
+    "author": "{% if post.author %}{{ post.author.get_full_name|default:post.author.username|escapejs }}{% else %}Unknown{% endif %}",
+    "archive_policy": "{{ post.archive_policy }}",
+    "archive_date_iso": "{{ post.archive_date|date:'Y-m-d'|default:'' }}",
+    "archive_date_fmt": "{{ post.archive_date|date:'M d, Y'|default:'' }}",
+    "edit_url": "{% url 'corner_post_edit' 'coop' post.pk %}",
+    "delete_url": "{% url 'corner_post_delete' 'coop' post.pk %}",
+    "toggle_url": "{% url 'corner_post_toggle_status' 'coop' post.pk %}",
+    "attachments": [ {% for att in post.attachments.all %}{"name":"{{ att.original_name|escapejs }}","size":"{{ att.file_size_display }}","url":"{{ att.file.url }}"}{% if not forloop.last %},{% endif %}{% endfor %} ]
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]</script>
+
+<script>
+var UNION_DATA = JSON.parse(document.getElementById('union-data').textContent || '[]');
+var COOP_DATA = JSON.parse(document.getElementById('coop-data').textContent || '[]');
+</script>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+/* ══════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════ */
+function getCsrf() { return document.querySelector('[name=csrfmiddlewaretoken]').value; }
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+function getPost(section, pk) {
+  var data = section === 'union' ? UNION_DATA : COOP_DATA;
+  // PKs may be numbers in the JSON payload and strings when passed from
+  // onclick handlers. Compare as strings to ensure a match.
+  return data.find(p => String(p.pk) === String(pk)) || null;
+}
+function getFileIcon(name) {
+  var ext = (name||'').split('.').pop().toLowerCase();
+  if (ext==='pdf')                                    return 'fa-file-pdf';
+  if (['doc','docx'].includes(ext))                  return 'fa-file-word';
+  if (['xls','xlsx','csv'].includes(ext))            return 'fa-file-excel';
+  if (['ppt','pptx'].includes(ext))                  return 'fa-file-powerpoint';
+  if (['jpg','jpeg','png','gif','webp'].includes(ext))return 'fa-file-image';
+  if (['zip','rar','7z'].includes(ext))              return 'fa-file-zipper';
+  return 'fa-file';
+}
+function formatBytes(bytes) {
+  if (bytes < 1024)    return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+/* ══════════════════════════════════════════════
+   OUTER TAB SYSTEM
+   ══════════════════════════════════════════════ */
+var ACTIVE_OUTER = '{{ active_tab|default:"union" }}';
+
+function switchOuterTab(tab) {
+  ACTIVE_OUTER = tab;
+  document.getElementById('outerPanelUnion').classList.toggle('active', tab === 'union');
+  document.getElementById('outerPanelCoop').classList.toggle('active', tab === 'coop');
+  document.getElementById('outerTabUnion').className = 'outer-tab-btn' + (tab === 'union' ? ' active-union' : '');
+  document.getElementById('outerTabCoop').className  = 'outer-tab-btn' + (tab === 'coop'  ? ' active-coop'  : '');
+}
+
+/* ══════════════════════════════════════════════
+   INNER TAB SYSTEM
+   ══════════════════════════════════════════════ */
+function switchInnerTab(outer, inner) {
+  if (outer === 'union') {
+    document.getElementById('unionPanelPostings').classList.toggle('active', inner === 'postings');
+    document.getElementById('unionPanelFiles').classList.toggle('active',    inner === 'files');
+    document.getElementById('unionTabPostings').classList.toggle('active',   inner === 'postings');
+    document.getElementById('unionTabFiles').classList.toggle('active',      inner === 'files');
+    document.getElementById('unionAddBtn').style.display = inner === 'postings' ? '' : 'none';
+  } else {
+    document.getElementById('coopPanelPostings').classList.toggle('active', inner === 'postings');
+    document.getElementById('coopPanelFiles').classList.toggle('active',    inner === 'files');
+    document.getElementById('coopTabPostings').classList.toggle('active',   inner === 'postings');
+    document.getElementById('coopTabFiles').classList.toggle('active',      inner === 'files');
+    document.getElementById('coopAddBtn').style.display = inner === 'postings' ? '' : 'none';
+  }
+}
+
+/* Init */
+(function(){
+  switchOuterTab(ACTIVE_OUTER);
+  var innerUnion = '{{ inner_union|default:"postings" }}';
+  var innerCoop  = '{{ inner_coop|default:"postings" }}';
+  switchInnerTab('union', innerUnion);
+  switchInnerTab('coop',  innerCoop);
+})();
+
+/* ══════════════════════════════════════════════
+   FILTER BY STATUS
+   ══════════════════════════════════════════════ */
+function filterByStatus(section, val) {
+  if (section === 'union') {
+    document.getElementById('unionStatusHidden').value = val;
+    document.getElementById('unionFilterForm').submit();
+  } else {
+    document.getElementById('coopStatusHidden').value = val;
+    document.getElementById('coopFilterForm').submit();
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FILES FILTER (client-side for group files)
+   ══════════════════════════════════════════════ */
+function filterFiles(section, query) {
+  var panelId = section === 'union' ? 'unionPanelFiles' : 'coopPanelFiles';
+  var panel = document.getElementById(panelId);
+  var rows = panel.querySelectorAll('.files-table tbody tr');
+  var q = query.toLowerCase();
+  rows.forEach(function(row) {
+    var name = (row.querySelector('.file-name-link') || {}).textContent || '';
+    row.style.display = (!q || name.toLowerCase().includes(q)) ? '' : 'none';
+  });
+}
+function filterFilesByType(section, type) {
+  var panelId = section === 'union' ? 'unionPanelFiles' : 'coopPanelFiles';
+  var panel = document.getElementById(panelId);
+  var rows = panel.querySelectorAll('.files-table tbody tr');
+  var extMap = {
+    pdf:   ['pdf'],
+    word:  ['doc','docx'],
+    excel: ['xls','xlsx','csv'],
+    image: ['jpg','jpeg','png','gif','webp']
+  };
+  rows.forEach(function(row) {
+    if (!type) { row.style.display = ''; return; }
+    var name = (row.querySelector('.file-name-link') || {}).textContent || '';
+    var ext  = name.split('.').pop().toLowerCase();
+    var match = extMap[type] ? extMap[type].includes(ext) : !Object.values(extMap).flat().includes(ext);
+    row.style.display = match ? '' : 'none';
+  });
+}
+
+/* ══════════════════════════════════════════════
+   MODAL SYSTEM
+   ══════════════════════════════════════════════ */
+function openModal(id)  { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => { if (e.target === bd) closeModal(bd.id); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape')
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => closeModal(m.id));
+});
+
+function openCreateModal(section) {
+  openModal(section === 'union' ? 'unionCreateModal' : 'coopCreateModal');
+}
+
+/* ── Archive date row toggle ── */
+function toggleArchiveDateRow(rowId, radio) {
+  document.getElementById(rowId).classList.toggle('visible', radio.value === 'on_date');
+}
+
+/* ── File select handler ── */
+function handleFileSelect(input, listId, colorClass) {
+  var list = document.getElementById(listId);
+  list.innerHTML = '';
+  Array.from(input.files).forEach(function(f) {
+    var item = document.createElement('div');
+    item.className = 'file-item' + (colorClass ? ' ' + colorClass : '');
+    item.innerHTML = '<i class="fa-solid ' + getFileIcon(f.name) + '"></i>'
+      + '<span class="file-name">' + escHtml(f.name) + '</span>'
+      + '<span class="file-size">' + formatBytes(f.size) + '</span>';
+    list.appendChild(item);
+  });
+}
+
+/* ══════════════════════════════════════════════
+   DETAIL MODAL
+   ══════════════════════════════════════════════ */
+function openDetailModal(section, pk) {
+  var post = getPost(section, pk); if (!post) return;
+  var isUnion = section === 'union';
+  var modalId = isUnion ? 'unionDetailModal' : 'coopDetailModal';
+  var bodyId  = isUnion ? 'unionDetailBody'  : 'coopDetailBody';
+  var titleId = isUnion ? 'unionDetailTitle' : 'coopDetailTitle';
+  var subId   = isUnion ? 'unionDetailSub'   : 'coopDetailSub';
+  var accent  = isUnion ? '' : ' amber';
+
+  document.getElementById(titleId).textContent = post.title;
+  document.getElementById(subId).textContent   = post.date_posted_fmt + ' · ' + post.status_label;
+
+  var bc = {published:'status-badge-published',draft:'status-badge-draft',archived:'status-badge-archived'}[post.status]||'';
+  var h = '<div class="detail-title">'+escHtml(post.title)+'</div>';
+  h += '<div class="detail-meta"><span><span class="status-badge '+bc+'">'+escHtml(post.status_label)+'</span></span>';
+  h += '<span><i class="fa-solid fa-calendar-days"></i> '+escHtml(post.date_posted_fmt)+'</span>';
+  h += '<span><i class="fa-solid fa-user-pen"></i> '+escHtml(post.author)+'</span></div>';
+  if (post.summary) h += '<div class="detail-summary'+accent+'">'+escHtml(post.summary)+'</div>';
+  h += '<div class="detail-section-label">Content</div><div class="detail-body">'+escHtml(post.content)+'</div>';
+  if (post.attachments && post.attachments.length) {
+    h += '<div class="detail-section-label"><i class="fa-solid fa-paperclip" style="margin-right:4px;"></i>Attachments</div><div class="detail-attachments">';
+    post.attachments.forEach(function(a){
+      h+='<div class="detail-attachment-item'+accent+'"><i class="fa-solid '+getFileIcon(a.name)+'"></i><a href="'+escHtml(a.url)+'" target="_blank" rel="noopener">'+escHtml(a.name)+'</a><span class="att-size">'+escHtml(a.size)+'</span></div>';
+    });
+    h += '</div>';
+  }
+  if (post.archive_policy==='never') h+='<div class="detail-archive-note'+accent+'"><i class="fa-solid fa-infinity"></i> This item will not be archived automatically.</div>';
+  else if (post.archive_policy==='on_date'&&post.archive_date_fmt) h+='<div class="detail-archive-note'+accent+'"><i class="fa-solid fa-calendar-xmark"></i> Scheduled to archive on <strong>'+escHtml(post.archive_date_fmt)+'</strong>.</div>';
+
+  document.getElementById(bodyId).innerHTML = h;
+  openModal(modalId);
+}
+
+/* ══════════════════════════════════════════════
+   EDIT MODAL
+   ══════════════════════════════════════════════ */
+function openEditModal(section, pk) {
+  var post = getPost(section, pk); if (!post) return;
+  var isUnion = section === 'union';
+  var prefix = isUnion ? 'ue' : 'ce';
+  var modalId = isUnion ? 'unionEditModal' : 'coopEditModal';
+  var formId  = isUnion ? 'unionEditForm'  : 'coopEditForm';
+
+  document.getElementById(formId).action = post.edit_url;
+  document.getElementById(prefix+'_title').value       = post.title;
+  document.getElementById(prefix+'_summary').value     = post.summary;
+  document.getElementById(prefix+'_content').value     = post.content;
+  document.getElementById(prefix+'_status').value      = post.status;
+  // date_posted is not editable via the modal; it's set automatically on creation
+
+  var rm = {default:prefix+'_archDefault', on_date:prefix+'_archOnDate', never:prefix+'_archNever'};
+  var re = document.getElementById(rm[post.archive_policy]||rm['default']);
+  if (re) re.checked = true;
+  document.getElementById(prefix+'_archiveDateRow').classList.toggle('visible', post.archive_policy==='on_date');
+  document.getElementById(prefix+'_archive_date').value = post.archive_date_iso || '';
+
+  var ew = document.getElementById(prefix+'_existingAttachments');
+  var el = document.getElementById(prefix+'_existingFileList');
+  el.innerHTML = '';
+  var colorClass = isUnion ? 'green' : 'amber';
+  if (post.attachments && post.attachments.length) {
+    ew.style.display = '';
+    post.attachments.forEach(function(a){
+      var i=document.createElement('div');
+      i.className='file-item '+colorClass;
+      i.innerHTML='<i class="fa-solid '+getFileIcon(a.name)+'"></i><span class="file-name"><a href="'+escHtml(a.url)+'" target="_blank" rel="noopener" style="color:'+(isUnion?'var(--green-dark)':'#92400e')+';">'+escHtml(a.name)+'</a></span><span class="file-size">'+escHtml(a.size)+'</span>';
+      el.appendChild(i);
+    });
+  } else { ew.style.display = 'none'; }
+
+  document.getElementById(prefix+'_attachments').value = '';
+  document.getElementById(prefix+'_fileList').innerHTML = '';
+  openModal(modalId);
+}
+
+/* ══════════════════════════════════════════════
+   DELETE MODAL
+   ══════════════════════════════════════════════ */
+function openDeleteModal(section, pk, title) {
+  var post = getPost(section, pk);
+  var isUnion = section === 'union';
+  document.getElementById(isUnion ? 'unionDeleteName' : 'coopDeleteName').textContent = '"' + title + '"';
+  document.getElementById(isUnion ? 'unionDeleteForm' : 'coopDeleteForm').action =
+    post ? post.delete_url : '/corner/'+section+'/'+pk+'/delete/';
+  openModal(isUnion ? 'unionDeleteModal' : 'coopDeleteModal');
+}
+
+/* ══════════════════════════════════════════════
+   STATUS TOGGLE (AJAX)
+   ══════════════════════════════════════════════ */
+function toggleStatus(section, pk, action) {
+  var post = getPost(section, pk);
+  var url  = post ? post.toggle_url : '/corner/'+section+'/'+pk+'/toggle-status/';
+  fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=' + action
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) window.location.reload();
+    else showToast(data.error || 'Error.', true);
+  })
+  .catch(() => showToast('Network error.', true));
+}
+
+/* ══════════════════════════════════════════════
+   TOAST
+   ══════════════════════════════════════════════ */
+function showToast(msg, isError) {
+  var c = document.getElementById('toastContainer');
+  var t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' toast-error' : '');
+  t.innerHTML = '<i class="fa-solid ' + (isError ? 'fa-circle-exclamation' : 'fa-circle-check') + '"></i>' + escHtml(msg);
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+}
+</script>
+{% endblock %}

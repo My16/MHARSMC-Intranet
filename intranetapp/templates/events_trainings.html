@@ -1,0 +1,1567 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Events &amp; Trainings{% endblock %}
+{% block page_title %}Events &amp; Trainings{% endblock %}
+{% block breadcrumb %}Events &amp; Trainings{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Toasts ── */
+.toast-container {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast {
+  background: var(--green-dark); color: var(--white);
+  padding: 12px 18px; border-radius: 8px; font-size: .83rem;
+  box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 10px;
+  opacity: 0; transform: translateX(20px);
+  animation: toastIn .3s forwards, toastOut .3s 3.5s forwards;
+  pointer-events: all; max-width: 360px;
+}
+.toast.toast-error { background: #c0392b; }
+.toast i { flex-shrink: 0; }
+@keyframes toastIn  { to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+/* ── Page header ── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+}
+.page-header h2 {
+  font-family: 'EB Garamond', serif; font-size: 1.55rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.2;
+}
+.page-header h2 small {
+  display: block; font-family: 'Source Sans 3', sans-serif;
+  font-size: .75rem; color: var(--text-muted); font-weight: 400; margin-top: 2px;
+}
+
+/* ── Tab bar ── */
+.tab-bar {
+  display: grid; grid-template-columns: 1fr 1fr;
+  width: 100%;
+  border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: 22px; overflow: hidden; background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+.tab-btn {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 13px 20px; font-size: .88rem; font-family: inherit; font-weight: 500;
+  border: none; background: transparent; cursor: pointer; color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  transition: color .18s, background .18s, border-color .18s;
+  position: relative;
+}
+.tab-btn:first-child { border-right: 1px solid var(--border); }
+.tab-btn i { font-size: .88rem; }
+.tab-btn:hover { background: var(--green-pale); color: var(--text-primary); }
+.tab-btn.active-ev  { background: var(--green-pale); color: var(--green-dark); border-bottom-color: var(--green-mid); font-weight: 600; }
+.tab-btn.active-tr:hover { background: #eff6ff; }
+.tab-btn.active-tr  { background: #eff6ff; color: #1d4ed8; border-bottom-color: #2563eb; font-weight: 600; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Stat cards ── */
+.stat-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;
+}
+@media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 480px) { .stat-row { grid-template-columns: 1fr 1fr; } }
+
+.stat-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 18px; display: flex; align-items: center; gap: 14px;
+  box-shadow: var(--shadow-sm); cursor: pointer;
+  transition: box-shadow .18s, border-color .18s, transform .18s;
+}
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+/* Event stat card active */
+.ev-stat-card:hover                             { border-color: var(--green-accent); }
+.ev-stat-card.active                            { border-color: var(--green-accent); background: var(--green-pale); }
+.stat-icon.all       { background: rgba(45,106,79,.12);   color: var(--green-mid); }
+.stat-icon.published { background: rgba(39,174,96,.15);   color: #219150; }
+.stat-icon.draft     { background: rgba(243,156,18,.15);  color: #c87f00; }
+.stat-icon.archived  { background: rgba(100,100,100,.12); color: #666; }
+
+/* Training stat card active */
+.tr-stat-card:hover   { border-color: #93c5fd; }
+.tr-stat-card.active  { border-color: #93c5fd; background: #eff6ff; }
+.stat-icon.tr-all       { background: rgba(37,99,235,.1);  color: #2563eb; }
+.stat-icon.tr-published { background: rgba(39,174,96,.15); color: #219150; }
+.stat-icon.tr-draft     { background: rgba(243,156,18,.15);color: #c87f00; }
+.stat-icon.tr-archived  { background: rgba(100,100,100,.12);color: #666; }
+
+.stat-icon {
+  width: 42px; height: 42px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0;
+}
+.stat-body { flex: 1; min-width: 0; }
+.stat-value {
+  font-family: 'EB Garamond', serif; font-size: 1.6rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1;
+}
+.stat-label {
+  font-size: .72rem; color: var(--text-muted); margin-top: 2px;
+  text-transform: uppercase; letter-spacing: .6px; font-weight: 500;
+}
+
+/* ── Toolbar ── */
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.search-box { flex: 1; min-width: 180px; position: relative; }
+.search-box i {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); font-size: .85rem; pointer-events: none;
+}
+.search-box input {
+  width: 100%; padding: 9px 12px 9px 34px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: .85rem; font-family: inherit;
+  background: var(--white); color: var(--text-primary); outline: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+.search-box input:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.tr-search input:focus  { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+
+.toolbar-select {
+  padding: 8px 28px 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: .82rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  transition: border-color .18s, box-shadow .18s; white-space: nowrap;
+}
+.toolbar-select:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.toolbar-select.has-value { border-color: var(--green-accent); background-color: var(--green-pale); color: var(--green-dark); font-weight: 500; }
+.tr-panel .toolbar-select:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+.tr-panel .toolbar-select.has-value { border-color: #93c5fd; background-color: #eff6ff; color: #1d4ed8; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px;
+  border-radius: 8px; font-size: .84rem; font-family: inherit; font-weight: 500;
+  border: none; cursor: pointer; transition: background .18s, box-shadow .18s, transform .15s;
+  white-space: nowrap; line-height: 1; text-decoration: none;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary    { background: var(--green-mid); color: var(--white); }
+.btn-primary:hover { background: var(--green-dark); box-shadow: var(--shadow-sm); }
+.btn-primary-tr { background: #2563eb; color: var(--white); }
+.btn-primary-tr:hover { background: #1d4ed8; box-shadow: var(--shadow-sm); }
+.btn-outline { background: var(--white); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--green-pale); border-color: var(--green-accent); }
+.btn-danger  { background: #c0392b; color: var(--white); }
+.btn-danger:hover { background: #a93226; }
+.btn-sm  { padding: 6px 12px; font-size: .78rem; }
+
+/* ── Results bar ── */
+.results-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+}
+.results-bar__count { font-size: .8rem; color: var(--text-muted); }
+.results-bar__count strong { color: var(--text-primary); font-weight: 600; }
+
+/* ── Event cards ── */
+.ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+.ev-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
+  transition: box-shadow .18s, transform .18s;
+}
+.ev-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.ev-card__top {
+  display: flex; align-items: stretch; flex-shrink: 0; border-bottom: 1px solid var(--border);
+}
+.ev-card__date-block {
+  width: 62px; min-width: 62px; background: var(--green-mid);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 10px 6px; flex-shrink: 0;
+}
+.ev-card__date-block .day { font-family: 'EB Garamond', serif; font-size: 1.8rem; font-weight: 600; color: var(--white); line-height: 1; }
+.ev-card__date-block .mon { font-size: .65rem; color: var(--green-light); text-transform: uppercase; letter-spacing: .8px; margin-top: 1px; }
+.ev-card__date-block .yr  { font-size: .6rem; color: rgba(255,255,255,.55); margin-top: 1px; }
+
+/* ── Training cards ── */
+.tr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+.tr-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
+  transition: box-shadow .18s, transform .18s;
+}
+.tr-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.tr-card__top {
+  display: flex; align-items: stretch; flex-shrink: 0; border-bottom: 1px solid var(--border);
+}
+.tr-card__date-block {
+  width: 62px; min-width: 62px; background: #2563eb;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 10px 6px; flex-shrink: 0;
+}
+.tr-card__date-block .day { font-family: 'EB Garamond', serif; font-size: 1.8rem; font-weight: 600; color: var(--white); line-height: 1; }
+.tr-card__date-block .mon { font-size: .65rem; color: #bfdbfe; text-transform: uppercase; letter-spacing: .8px; margin-top: 1px; }
+.tr-card__date-block .yr  { font-size: .6rem; color: rgba(255,255,255,.55); margin-top: 1px; }
+
+/* ── Shared card internals ── */
+.ev-card__top-info, .tr-card__top-info {
+  flex: 1; padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; gap: 4px;
+}
+.ev-card__meta, .tr-card__meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
+
+.ev-card__end-date { font-size: .7rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.ev-card__end-date i { color: var(--green-accent); font-size: .65rem; }
+.tr-card__end-date { font-size: .7rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.tr-card__end-date i { color: #2563eb; font-size: .65rem; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
+  border-radius: 20px; font-size: .69rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.status-badge-published { background: rgba(39,174,96,.15); color: #1a7a3c; }
+.status-badge-draft     { background: rgba(243,156,18,.15); color: #a06800; }
+.status-badge-archived  { background: rgba(100,100,100,.12); color: #555; }
+
+.ev-card__location { font-size: .74rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.ev-card__location i { color: var(--green-accent); font-size: .7rem; }
+.tr-card__location { font-size: .74rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.tr-card__location i { color: #2563eb; font-size: .7rem; }
+
+.ev-card__body, .tr-card__body { padding: 14px 16px; flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.ev-card__title, .tr-card__title {
+  font-family: 'EB Garamond', serif; font-size: 1.08rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  line-clamp: 2;
+}
+.ev-card__summary { font-size: .8rem; color: var(--green-mid); font-style: italic; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-clamp: 2; }
+.tr-card__summary { font-size: .8rem; color: #2563eb;           font-style: italic; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-clamp: 2; }
+.ev-card__excerpt, .tr-card__excerpt { font-size: .82rem; color: var(--text-muted); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-clamp: 3; }
+
+/* Training pills */
+.tr-card__pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.tr-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: .69rem; padding: 2px 8px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--white); color: var(--text-muted);
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tr-pill i { color: #2563eb; font-size: .65rem; flex-shrink: 0; }
+
+.ev-card__footer, .tr-card__footer {
+  font-size: .73rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px;
+  margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); flex-wrap: wrap;
+}
+.ev-card__attachment { display: inline-flex; align-items: center; gap: 4px; font-size: .7rem; color: var(--green-mid); background: var(--green-pale); padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); }
+.tr-card__attachment { display: inline-flex; align-items: center; gap: 4px; font-size: .7rem; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 20px; border: 1px solid #bfdbfe; }
+
+.ev-card__actions {
+  padding: 8px 12px; background: var(--green-pale); border-top: 1px solid var(--border);
+  display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; overflow: hidden;
+}
+.tr-card__actions {
+  padding: 8px 12px; background: #f8faff; border-top: 1px solid var(--border);
+  display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; overflow: hidden;
+}
+.ev-card__actions .actions-left, .tr-card__actions .actions-left  { display: flex; gap: 4px; align-items: center; flex: 1; min-width: 0; }
+.ev-card__actions .actions-right, .tr-card__actions .actions-right { display: flex; gap: 2px; align-items: center; flex-shrink: 0; margin-left: auto; }
+
+.btn-icon {
+  width: 30px; height: 30px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: 7px;
+  font-size: .82rem; border: 1px solid var(--border);
+  background: var(--white); color: var(--text-muted);
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s; flex-shrink: 0;
+}
+.ev-card__actions .btn-icon:hover { background: var(--green-pale); color: var(--green-dark); border-color: var(--green-accent); }
+.tr-card__actions .btn-icon:hover { background: #eff6ff; color: #2563eb; border-color: #93c5fd; }
+.btn-icon.btn-icon-danger { border-color: rgba(192,57,43,.3); color: #c0392b; }
+.btn-icon.btn-icon-danger:hover { background: rgba(192,57,43,.08); border-color: #c0392b; }
+
+/* ── Empty state ── */
+.empty-state {
+  grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 64px 20px; background: var(--white);
+  border: 2px dashed var(--border); border-radius: 12px;
+  gap: 12px; color: var(--text-muted); text-align: center;
+}
+.empty-state i { font-size: 2.8rem; color: var(--green-light); }
+.tr-panel .empty-state i { color: #93c5fd; }
+.empty-state h3 { font-family: 'EB Garamond', serif; font-size: 1.2rem; color: var(--text-primary); }
+.empty-state p { font-size: .85rem; max-width: 320px; line-height: 1.6; }
+
+/* ── Pagination ── */
+.pagination-wrap {
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 28px; gap: 4px; flex-wrap: wrap;
+}
+.page-btn {
+  min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .83rem; font-family: inherit; font-weight: 500;
+  border: 1px solid var(--border); background: var(--white); color: var(--text-primary);
+  cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, color .15s; line-height: 1;
+}
+.ev-panel .page-btn:hover  { background: var(--green-pale); border-color: var(--green-accent); color: var(--green-dark); }
+.ev-panel .page-btn.active { background: var(--green-mid); border-color: var(--green-mid); color: var(--white); cursor: default; font-weight: 600; }
+.tr-panel .page-btn:hover  { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }
+.tr-panel .page-btn.active { background: #2563eb; border-color: #2563eb; color: var(--white); cursor: default; font-weight: 600; }
+.page-btn.disabled { opacity: .4; pointer-events: none; }
+.page-ellipsis { min-width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; font-size: .83rem; color: var(--text-muted); }
+
+/* ── Modal system ── */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(10,31,20,.55);
+  z-index: 800; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(2px);
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: 14px; width: 100%;
+  max-width: 760px; max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-lg); animation: modalIn .22s cubic-bezier(.4,0,.2,1); overflow: hidden;
+}
+.modal-sm { max-width: 460px; }
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal__header {
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0;
+}
+.modal__header-icon {
+  width: 38px; height: 38px; border-radius: 9px; background: var(--green-pale);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--green-mid); font-size: .95rem; flex-shrink: 0;
+}
+.modal__header-icon.blue { background: #eff6ff; color: #2563eb; }
+.modal__header-title { flex: 1; min-width: 0; }
+.modal__header-title h3 { font-family: 'EB Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
+.modal__header-title p  { font-size: .77rem; color: var(--text-muted); margin-top: 2px; }
+.modal__close {
+  width: 30px; height: 30px; border-radius: 6px; background: transparent; border: none;
+  cursor: pointer; color: var(--text-muted); font-size: .9rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s; flex-shrink: 0;
+}
+.modal__close:hover { background: var(--green-pale); color: var(--green-dark); }
+.modal__body {
+  padding: 20px 24px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 16px; min-height: 0;
+}
+.modal__footer {
+  padding: 14px 24px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; flex-shrink: 0; background: var(--green-pale);
+}
+.modal__footer.blue-footer { background: #f8faff; }
+.modal-danger .modal__header-icon { background: rgba(192,57,43,.1); color: #c0392b; }
+
+/* ── Form elements ── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: .8rem; font-weight: 600; color: var(--text-primary); letter-spacing: .2px; }
+.form-group label .req { color: #c0392b; margin-left: 2px; }
+.form-control {
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: .85rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none;
+  transition: border-color .18s, box-shadow .18s; width: 100%;
+}
+.form-control:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.form-control.blue-focus:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+textarea.form-control { resize: vertical; min-height: 110px; line-height: 1.6; }
+
+/* ── Section/Scheduler boxes ── */
+.scheduler-section {
+  background: var(--green-pale); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.scheduler-section h4 { font-size: .8rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.scheduler-section h4 i { color: var(--green-mid); }
+.section-box-blue {
+  background: #f8faff; border: 1px solid #dbeafe;
+  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.section-box-blue h4 { font-size: .8rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; margin: 0; }
+.section-box-blue h4 i { color: #2563eb; }
+.schedule-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 540px) { .schedule-row { grid-template-columns: 1fr; } }
+
+/* ── Archive section ── */
+.archive-section {
+  background: var(--green-pale); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.archive-section h4 { font-size: .8rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.archive-section h4 i { color: var(--green-mid); }
+.archive-section.blue-arch { background: #f8faff; border-color: #dbeafe; }
+.archive-section.blue-arch h4 i { color: #2563eb; }
+.archive-options { display: flex; flex-direction: column; gap: 8px; }
+.archive-radio {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 8px; cursor: pointer; transition: border-color .15s, background .15s;
+}
+.archive-radio:has(input:checked) { border-color: var(--green-accent); background: rgba(82,183,136,.06); }
+.blue-arch .archive-radio:has(input:checked) { border-color: #93c5fd; background: rgba(37,99,235,.04); }
+.archive-radio input[type="radio"] { margin-top: 2px; accent-color: var(--green-mid); flex-shrink: 0; }
+.blue-arch .archive-radio input[type="radio"] { accent-color: #2563eb; }
+.archive-radio-text strong { display: block; font-size: .82rem; color: var(--text-primary); }
+.archive-radio-text span   { font-size: .74rem; color: var(--text-muted); }
+.archive-date-row { display: none; gap: 8px; align-items: center; flex-wrap: wrap; }
+.archive-date-row.visible { display: flex; }
+.archive-date-row label { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
+.archive-date-row input {
+  padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px;
+  font-size: .83rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none; transition: border-color .18s;
+}
+.archive-date-row input:focus { border-color: var(--green-accent); }
+.blue-arch .archive-date-row input:focus { border-color: #93c5fd; }
+
+/* ── File upload ── */
+.file-upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 18px;
+  text-align: center; cursor: pointer;
+  transition: border-color .18s, background .18s; position: relative; background: var(--white);
+}
+.file-upload-zone:hover { border-color: var(--green-accent); background: var(--green-pale); }
+.file-upload-zone.blue:hover { border-color: #93c5fd; background: #eff6ff; }
+.file-upload-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.file-upload-zone i { font-size: 1.5rem; color: var(--green-light); margin-bottom: 5px; display: block; }
+.file-upload-zone.blue i { color: #93c5fd; }
+.file-upload-zone span { font-size: .81rem; color: var(--text-muted); line-height: 1.5; display: block; }
+.file-upload-zone strong { color: var(--green-mid); }
+.file-upload-zone.blue strong { color: #2563eb; }
+.file-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.file-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+  background: var(--green-pale); border: 1px solid var(--border); border-radius: 7px;
+  font-size: .79rem;
+}
+.file-item.blue { background: #eff6ff; border-color: #bfdbfe; }
+.file-item i { color: var(--green-mid); font-size: .85rem; flex-shrink: 0; }
+.file-item.blue i { color: #2563eb; }
+.file-item .file-name { flex: 1; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-item .file-size { color: var(--text-muted); flex-shrink: 0; }
+
+/* ── Detail modal ── */
+.detail-title { font-family: 'EB Garamond', serif; font-size: 1.45rem; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.detail-meta {
+  display: flex; flex-wrap: wrap; gap: 12px; font-size: .77rem; color: var(--text-muted);
+  padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.detail-meta span { display: flex; align-items: center; gap: 5px; }
+.detail-section-label { font-size: .75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+.detail-body { font-size: .9rem; line-height: 1.75; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
+.detail-summary { font-size: .88rem; color: var(--green-mid); font-style: italic; line-height: 1.6; padding: 10px 14px; background: var(--green-pale); border-radius: 8px; border-left: 3px solid var(--green-accent); }
+.detail-summary.blue { color: #2563eb; background: #eff6ff; border-left-color: #93c5fd; }
+.detail-schedule-box, .detail-info-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  background: var(--green-pale); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px;
+}
+.detail-schedule-box.blue, .detail-info-grid.blue { background: #f8faff; border-color: #dbeafe; }
+.detail-schedule-box .sched-item, .detail-info-grid .detail-info-item { display: flex; flex-direction: column; gap: 2px; }
+.detail-schedule-box .sched-label, .detail-info-grid .info-label { font-size: .69rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; }
+.detail-schedule-box .sched-val, .detail-info-grid .info-val     { font-size: .85rem; color: var(--text-primary); font-weight: 500; line-height: 1.4; }
+.detail-attachments { display: flex; flex-direction: column; gap: 6px; }
+.detail-attachment-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--green-pale); border: 1px solid var(--border); border-radius: 7px;
+  font-size: .8rem;
+}
+.detail-attachment-item.blue { background: #eff6ff; border-color: #bfdbfe; }
+.detail-attachment-item i { color: var(--green-mid); font-size: .9rem; }
+.detail-attachment-item.blue i { color: #2563eb; }
+.detail-attachment-item a { color: var(--green-dark); font-weight: 500; text-decoration: none; flex: 1; }
+.detail-attachment-item.blue a { color: #1d4ed8; }
+.detail-attachment-item a:hover { text-decoration: underline; }
+.detail-attachment-item .att-size { color: var(--text-muted); font-size: .73rem; }
+.detail-archive-note {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: var(--green-pale); border: 1px solid var(--border);
+  border-radius: 8px; font-size: .78rem; color: var(--text-muted);
+}
+.detail-archive-note.blue { background: #f8faff; border-color: #dbeafe; }
+.detail-archive-note i { color: var(--green-mid); }
+.detail-archive-note.blue i { color: #2563eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Toasts -->
+<div class="toast-container" id="toastContainer">
+  {% for msg in messages %}
+    <div class="toast {% if 'error' in msg.tags %}toast-error{% endif %}">
+      <i class="fa-solid {% if 'error' in msg.tags %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+      {{ msg }}
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Page header -->
+<div class="page-header">
+  <h2>Events &amp; Trainings<small>Manage and publish institutional events and training programs</small></h2>
+  <!-- Replace the existing buttons div in page-header -->
+    {% if can_manage %}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="newEventBtn" onclick="openCreateModal('ev')">
+            <i class="fa-solid fa-calendar-plus"></i> New Event
+        </button>
+        <button class="btn btn-primary-tr" id="newTrainingBtn" onclick="openCreateModal('tr')">
+            <i class="fa-solid fa-chalkboard-user"></i> New Training
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ══ TAB BAR ══ -->
+<div class="tab-bar">
+  <button class="tab-btn active-ev" id="tabEvBtn" onclick="switchTab('ev')">
+    <i class="fa-solid fa-calendar-days"></i> Events
+    <span style="background:var(--green-pale);color:var(--green-dark);font-size:.68rem;padding:1px 7px;border-radius:20px;font-weight:600;margin-left:2px;">{{ ev_total_count }}</span>
+  </button>
+  <button class="tab-btn" id="tabTrBtn" onclick="switchTab('tr')">
+    <i class="fa-solid fa-chalkboard-user"></i> Trainings
+    <span style="background:#eff6ff;color:#2563eb;font-size:.68rem;padding:1px 7px;border-radius:20px;font-weight:600;margin-left:2px;">{{ tr_total_count }}</span>
+  </button>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     EVENTS PANEL
+     ══════════════════════════════════════════════════════════ -->
+<div class="tab-panel active ev-panel" id="panelEv">
+
+  <!-- Stat cards -->
+  <div class="stat-row">
+    <div class="stat-card ev-stat-card {% if not ev_status_filter %}active{% endif %}" onclick="filterByStatus('ev','')">
+      <div class="stat-icon all"><i class="fa-solid fa-calendar-days"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ ev_total_count }}</div><div class="stat-label">Total</div></div>
+    </div>
+    <div class="stat-card ev-stat-card {% if ev_status_filter == 'published' %}active{% endif %}" onclick="filterByStatus('ev','published')">
+      <div class="stat-icon published"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ ev_published_count }}</div><div class="stat-label">Published</div></div>
+    </div>
+    <div class="stat-card ev-stat-card {% if ev_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('ev','draft')">
+      <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ ev_draft_count }}</div><div class="stat-label">Drafts</div></div>
+    </div>
+    <div class="stat-card ev-stat-card {% if ev_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('ev','archived')">
+      <div class="stat-icon archived"><i class="fa-solid fa-box-archive"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ ev_archived_count }}</div><div class="stat-label">Archived</div></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <form method="get" id="evFilterForm">
+    <input type="hidden" name="tab"       value="ev">
+    <input type="hidden" name="ev_status" id="evStatusHidden" value="{{ ev_status_filter }}">
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="ev_search" value="{{ ev_search_query }}"
+               placeholder="Search events…"
+               onchange="document.getElementById('evFilterForm').submit()">
+      </div>
+      <select name="ev_month" class="toolbar-select {% if ev_month_filter %}has-value{% endif %}"
+              onchange="document.getElementById('evFilterForm').submit()">
+        <option value="">All months</option>
+        {% for m in ev_available_months %}
+        <option value="{{ m.value }}" {% if m.value == ev_month_filter %}selected{% endif %}>{{ m.label }}</option>
+        {% endfor %}
+      </select>
+      <select name="ev_per_page" class="toolbar-select {% if ev_per_page and ev_per_page != 10 %}has-value{% endif %}"
+              onchange="document.getElementById('evFilterForm').submit()">
+        <option value="5"   {% if ev_per_page == 5   %}selected{% endif %}>5 per page</option>
+        <option value="10"  {% if not ev_per_page or ev_per_page == 10 %}selected{% endif %}>10 per page</option>
+        <option value="20"  {% if ev_per_page == 20  %}selected{% endif %}>20 per page</option>
+        <option value="40"  {% if ev_per_page == 40  %}selected{% endif %}>40 per page</option>
+        <option value="100" {% if ev_per_page == 100 %}selected{% endif %}>100 per page</option>
+      </select>
+      {% if ev_search_query or ev_status_filter or ev_month_filter or ev_per_page and ev_per_page != 10 %}
+      <a href="?tab=ev" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- Results bar -->
+  <div class="results-bar">
+    <span class="results-bar__count">
+      Showing <strong>{{ events.start_index }}–{{ events.end_index }}</strong>
+      of <strong>{{ events.paginator.count }}</strong> event{{ events.paginator.count|pluralize }}
+      {% if ev_month_filter %}&nbsp;·&nbsp;<i class="fa-solid fa-calendar-days" style="color:var(--green-mid);font-size:.75rem;"></i> {{ ev_month_filter_label }}{% endif %}
+    </span>
+  </div>
+
+  <!-- Cards grid -->
+  <div class="ev-grid">
+    {% for ev in events %}
+    <div class="ev-card" id="evCard{{ ev.pk }}">
+      <div class="ev-card__top">
+        <div class="ev-card__date-block">
+          <span class="day">{{ ev.start_date|date:"d" }}</span>
+          <span class="mon">{{ ev.start_date|date:"M" }}</span>
+          <span class="yr">{{ ev.start_date|date:"Y" }}</span>
+        </div>
+        <div class="ev-card__top-info">
+          <div class="ev-card__meta">
+            <span class="status-badge status-badge-{{ ev.status }}">
+              {% if ev.status == 'published' %}<i class="fa-solid fa-circle-check"></i>
+              {% elif ev.status == 'draft'   %}<i class="fa-solid fa-pen-to-square"></i>
+              {% else                        %}<i class="fa-solid fa-box-archive"></i>{% endif %}
+              {{ ev.get_status_display }}
+            </span>
+            {% if ev.end_date and ev.end_date != ev.start_date %}
+            <span class="ev-card__end-date"><i class="fa-solid fa-arrow-right-long"></i> {{ ev.end_date|date:"M d, Y" }}</span>
+            {% endif %}
+          </div>
+          <div class="ev-card__location"><i class="fa-solid fa-location-dot"></i>{{ ev.location|truncatechars:50 }}</div>
+          {% if ev.start_time %}
+          <div class="ev-card__location" style="margin-top:2px;"><i class="fa-solid fa-clock"></i>{{ ev.start_time|time:"g:i A" }}{% if ev.end_time %} – {{ ev.end_time|time:"g:i A" }}{% endif %}</div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="ev-card__body">
+        <div class="ev-card__title">{{ ev.title }}</div>
+        {% if ev.summary %}<div class="ev-card__summary">{{ ev.summary|truncatechars:100 }}</div>{% endif %}
+        <div class="ev-card__excerpt">{{ ev.details|truncatechars:150 }}</div>
+        <div class="ev-card__footer">
+          <i class="fa-solid fa-user-pen"></i>
+          {% if ev.author %}{{ ev.author.get_full_name|default:ev.author.username }}{% else %}Unknown{% endif %}
+          {% if ev.attachments.count %}&nbsp;·&nbsp;<span class="ev-card__attachment"><i class="fa-solid fa-paperclip"></i> {{ ev.attachments.count }} file{{ ev.attachments.count|pluralize }}</span>{% endif %}
+          {% if ev.archive_policy == 'never' %}&nbsp;·&nbsp;<i class="fa-solid fa-infinity"></i> No archive
+          {% elif ev.archive_policy == 'on_date' and ev.archive_date %}&nbsp;·&nbsp;<i class="fa-solid fa-calendar-xmark"></i> Archives {{ ev.archive_date|date:"M d, Y" }}{% endif %}
+        </div>
+      </div>
+      <div class="ev-card__actions">
+        <div class="actions-left">
+          <button class="btn btn-outline btn-sm" onclick="openDetailModal('ev','{{ ev.pk }}')"><i class="fa-solid fa-eye"></i> View</button>
+          {% if can_manage %}
+          <button class="btn btn-outline btn-sm" onclick="openEditModal('ev','{{ ev.pk }}')"><i class="fa-solid fa-pen"></i> Edit</button>
+          {% if ev.status == 'draft' %}
+          <button class="btn btn-sm btn-primary" onclick="toggleStatus('ev','{{ ev.pk }}','publish')"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+          {% elif ev.status == 'published' %}
+          <button class="btn btn-sm btn-outline" onclick="toggleStatus('ev','{{ ev.pk }}','draft')"><i class="fa-solid fa-pen-to-square"></i> Unpublish</button>
+          {% elif ev.status == 'archived' %}
+          <button class="btn btn-sm btn-outline" onclick="toggleStatus('ev','{{ ev.pk }}','unarchive')"><i class="fa-solid fa-box-open"></i> Unarchive</button>
+          {% endif %}
+          {% endif %}
+        </div>
+        {% if can_manage %}
+        <div class="actions-right">
+          {% if ev.status != 'archived' %}<button class="btn-icon" title="Archive" onclick="toggleStatus('ev','{{ ev.pk }}','archive')"><i class="fa-solid fa-box-archive"></i></button>{% endif %}
+          <button class="btn-icon btn-icon-danger" title="Delete" onclick="openDeleteModal('ev','{{ ev.pk }}','{{ ev.title|escapejs }}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+      <i class="fa-solid fa-calendar-days"></i>
+      <h3>No events found</h3>
+      {% if ev_search_query or ev_status_filter or ev_month_filter %}
+      <p>No results match your search or filter. Try adjusting your filters.</p>
+      <a href="?tab=ev" class="btn btn-outline btn-sm" style="margin-top:6px">Clear filters</a>
+      {% else %}
+      <p>No events yet. Click "New Event" to get started.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Events pagination -->
+  {% if events.paginator.num_pages > 1 %}
+  <div class="pagination-wrap" id="evPaginationWrap"
+       data-current="{{ events.number }}"
+       data-total="{{ events.paginator.num_pages }}"
+       data-has-prev="{{ events.has_previous|yesno:'true,false' }}"
+       data-has-next="{{ events.has_next|yesno:'true,false' }}"
+       data-prev="{% if events.has_previous %}{{ events.previous_page_number }}{% else %}1{% endif %}"
+       data-next="{% if events.has_next %}{{ events.next_page_number }}{% else %}{{ events.paginator.num_pages }}{% endif %}">
+  </div>
+  <script>
+  (function(){
+    var wrap=document.getElementById('evPaginationWrap');
+    var current=Number(wrap.dataset.current), total=Number(wrap.dataset.total);
+    var hasPrev = wrap.dataset.hasPrev === 'true', hasNext = wrap.dataset.hasNext === 'true';
+    var prevPage = Number(wrap.dataset.prev), nextPage = Number(wrap.dataset.next);
+    function pageUrl(p){var params=new URLSearchParams(window.location.search);params.set('page_ev',p);params.set('tab','ev');return'?'+params.toString();}
+    var html='';
+    html+=hasPrev?'<a href="'+pageUrl(prevPage)+'" class="page-btn"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>';
+    var el={left:false,right:false};
+    for(var n=1;n<=total;n++){var a=(n===current),e=(n===1||n===total),nr=(n>=current-2&&n<=current+2);
+      if(a)html+='<span class="page-btn active">'+n+'</span>';
+      else if(e||nr)html+='<a href="'+pageUrl(n)+'" class="page-btn">'+n+'</a>';
+      else if(n===current-3&&!el.left){el.left=true;html+='<span class="page-ellipsis">…</span>';} 
+      else if(n===current+3&&!el.right){el.right=true;html+='<span class="page-ellipsis">…</span>';} 
+    }
+    html+=hasNext?'<a href="'+pageUrl(nextPage)+'" class="page-btn"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>';
+    wrap.innerHTML=html;
+  })();
+  </script>
+  {% endif %}
+
+</div><!-- /panelEv -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     TRAININGS PANEL
+     ══════════════════════════════════════════════════════════ -->
+<div class="tab-panel tr-panel" id="panelTr">
+
+  <!-- Stat cards -->
+  <div class="stat-row">
+    <div class="stat-card tr-stat-card {% if not tr_status_filter %}active{% endif %}" onclick="filterByStatus('tr','')">
+      <div class="stat-icon tr-all"><i class="fa-solid fa-chalkboard-user"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ tr_total_count }}</div><div class="stat-label">Total</div></div>
+    </div>
+    <div class="stat-card tr-stat-card {% if tr_status_filter == 'published' %}active{% endif %}" onclick="filterByStatus('tr','published')">
+      <div class="stat-icon tr-published"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ tr_published_count }}</div><div class="stat-label">Published</div></div>
+    </div>
+    <div class="stat-card tr-stat-card {% if tr_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('tr','draft')">
+      <div class="stat-icon tr-draft"><i class="fa-solid fa-pen-to-square"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ tr_draft_count }}</div><div class="stat-label">Drafts</div></div>
+    </div>
+    <div class="stat-card tr-stat-card {% if tr_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('tr','archived')">
+      <div class="stat-icon tr-archived"><i class="fa-solid fa-box-archive"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ tr_archived_count }}</div><div class="stat-label">Archived</div></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <form method="get" id="trFilterForm">
+    <input type="hidden" name="tab"       value="tr">
+    <input type="hidden" name="tr_status" id="trStatusHidden" value="{{ tr_status_filter }}">
+    <div class="toolbar">
+      <div class="search-box tr-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="tr_search" value="{{ tr_search_query }}"
+               placeholder="Search trainings…"
+               onchange="document.getElementById('trFilterForm').submit()">
+      </div>
+      <select name="tr_month" class="toolbar-select {% if tr_month_filter %}has-value{% endif %}"
+              onchange="document.getElementById('trFilterForm').submit()">
+        <option value="">All months</option>
+        {% for m in tr_available_months %}
+        <option value="{{ m.value }}" {% if m.value == tr_month_filter %}selected{% endif %}>{{ m.label }}</option>
+        {% endfor %}
+      </select>
+      <select name="tr_per_page" class="toolbar-select {% if tr_per_page != 10 %}has-value{% endif %}"
+              onchange="document.getElementById('trFilterForm').submit()">
+        <option value="5"   {% if tr_per_page == 5   %}selected{% endif %}>5 per page</option>
+        <option value="10"  {% if tr_per_page == 10  %}selected{% endif %}>10 per page</option>
+        <option value="20"  {% if tr_per_page == 20  %}selected{% endif %}>20 per page</option>
+        <option value="40"  {% if tr_per_page == 40  %}selected{% endif %}>40 per page</option>
+        <option value="100" {% if tr_per_page == 100 %}selected{% endif %}>100 per page</option>
+      </select>
+      {% if tr_search_query or tr_status_filter or tr_month_filter or tr_per_page != 10 %}
+      <a href="?tab=tr" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- Results bar -->
+  <div class="results-bar">
+    <span class="results-bar__count">
+      Showing <strong>{{ trainings.start_index }}–{{ trainings.end_index }}</strong>
+      of <strong>{{ trainings.paginator.count }}</strong> training{{ trainings.paginator.count|pluralize }}
+      {% if tr_month_filter %}&nbsp;·&nbsp;<i class="fa-solid fa-calendar-days" style="color:#2563eb;font-size:.75rem;"></i> {{ tr_month_filter_label }}{% endif %}
+    </span>
+  </div>
+
+  <!-- Cards grid -->
+  <div class="tr-grid">
+    {% for tr in trainings %}
+    <div class="tr-card" id="trCard{{ tr.pk }}">
+      <div class="tr-card__top">
+        <div class="tr-card__date-block">
+          <span class="day">{{ tr.start_date|date:"d" }}</span>
+          <span class="mon">{{ tr.start_date|date:"M" }}</span>
+          <span class="yr">{{ tr.start_date|date:"Y" }}</span>
+        </div>
+        <div class="tr-card__top-info">
+          <div class="tr-card__meta">
+            <span class="status-badge status-badge-{{ tr.status }}">
+              {% if tr.status == 'published' %}<i class="fa-solid fa-circle-check"></i>
+              {% elif tr.status == 'draft'   %}<i class="fa-solid fa-pen-to-square"></i>
+              {% else                        %}<i class="fa-solid fa-box-archive"></i>{% endif %}
+              {{ tr.get_status_display }}
+            </span>
+            {% if tr.end_date and tr.end_date != tr.start_date %}
+            <span class="tr-card__end-date"><i class="fa-solid fa-arrow-right-long"></i> {{ tr.end_date|date:"M d, Y" }}</span>
+            {% endif %}
+          </div>
+          <div class="tr-card__location"><i class="fa-solid fa-location-dot"></i>{{ tr.location|truncatechars:50 }}</div>
+          {% if tr.start_time %}
+          <div class="tr-card__location" style="margin-top:2px;"><i class="fa-solid fa-clock"></i>{{ tr.start_time|time:"g:i A" }}{% if tr.end_time %} – {{ tr.end_time|time:"g:i A" }}{% endif %}</div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="tr-card__body">
+        <div class="tr-card__title">{{ tr.title }}</div>
+        {% if tr.summary %}<div class="tr-card__summary">{{ tr.summary|truncatechars:100 }}</div>{% endif %}
+        <div class="tr-card__excerpt">{{ tr.details|truncatechars:120 }}</div>
+        <div class="tr-card__pills">
+          <span class="tr-pill" title="Organizer: {{ tr.organizer }}"><i class="fa-solid fa-building"></i>{{ tr.organizer|truncatechars:30 }}</span>
+          <span class="tr-pill" title="Target: {{ tr.target_participants }}"><i class="fa-solid fa-users"></i>{{ tr.target_participants|truncatechars:30 }}</span>
+        </div>
+        <div class="tr-card__footer">
+          <i class="fa-solid fa-user-pen"></i>
+          {% if tr.author %}{{ tr.author.get_full_name|default:tr.author.username }}{% else %}Unknown{% endif %}
+          {% if tr.attachments.count %}&nbsp;·&nbsp;<span class="tr-card__attachment"><i class="fa-solid fa-paperclip"></i> {{ tr.attachments.count }} file{{ tr.attachments.count|pluralize }}</span>{% endif %}
+          {% if tr.archive_policy == 'never' %}&nbsp;·&nbsp;<i class="fa-solid fa-infinity"></i> No archive
+          {% elif tr.archive_policy == 'on_date' and tr.archive_date %}&nbsp;·&nbsp;<i class="fa-solid fa-calendar-xmark"></i> Archives {{ tr.archive_date|date:"M d, Y" }}{% endif %}
+        </div>
+      </div>
+      <div class="tr-card__actions">
+        <div class="actions-left">
+          <button class="btn btn-outline btn-sm" onclick="openDetailModal('tr','{{ tr.pk }}')"><i class="fa-solid fa-eye"></i> View</button>
+          {% if can_manage %}
+          <button class="btn btn-outline btn-sm" onclick="openEditModal('tr','{{ tr.pk }}')"><i class="fa-solid fa-pen"></i> Edit</button>
+          {% if tr.status == 'draft' %}
+          <button class="btn btn-sm btn-primary-tr" onclick="toggleStatus('tr','{{ tr.pk }}','publish')"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+          {% elif tr.status == 'published' %}
+          <button class="btn btn-sm btn-outline" onclick="toggleStatus('tr','{{ tr.pk }}','draft')"><i class="fa-solid fa-pen-to-square"></i> Unpublish</button>
+          {% elif tr.status == 'archived' %}
+          <button class="btn btn-sm btn-outline" onclick="toggleStatus('tr','{{ tr.pk }}','unarchive')"><i class="fa-solid fa-box-open"></i> Unarchive</button>
+          {% endif %}
+          {% endif %}
+        </div>
+        {% if can_manage %}
+        <div class="actions-right">
+          {% if tr.status != 'archived' %}<button class="btn-icon" title="Archive" onclick="toggleStatus('tr','{{ tr.pk }}','archive')"><i class="fa-solid fa-box-archive"></i></button>{% endif %}
+          <button class="btn-icon btn-icon-danger" title="Delete" onclick="openDeleteModal('tr','{{ tr.pk }}','{{ tr.title|escapejs }}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+      <i class="fa-solid fa-chalkboard-user"></i>
+      <h3>No trainings found</h3>
+      {% if tr_search_query or tr_status_filter or tr_month_filter %}
+      <p>No results match your search or filter. Try adjusting your filters.</p>
+      <a href="?tab=tr" class="btn btn-outline btn-sm" style="margin-top:6px">Clear filters</a>
+      {% else %}
+      <p>No trainings yet. Click "New Training" to get started.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Trainings pagination -->
+  {% if trainings.paginator.num_pages > 1 %}
+  <div class="pagination-wrap" id="trPaginationWrap"
+       data-current="{{ trainings.number }}"
+       data-total="{{ trainings.paginator.num_pages }}"
+       data-has-prev="{{ trainings.has_previous|yesno:'true,false' }}"
+       data-has-next="{{ trainings.has_next|yesno:'true,false' }}"
+       data-prev="{% if trainings.has_previous %}{{ trainings.previous_page_number }}{% else %}1{% endif %}"
+       data-next="{% if trainings.has_next %}{{ trainings.next_page_number }}{% else %}{{ trainings.paginator.num_pages }}{% endif %}">
+  </div>
+  <script>
+  (function(){
+    var wrap=document.getElementById('trPaginationWrap');
+    var current=Number(wrap.dataset.current), total=Number(wrap.dataset.total);
+    var hasPrev = wrap.dataset.hasPrev === 'true', hasNext = wrap.dataset.hasNext === 'true';
+    var prevPage = Number(wrap.dataset.prev), nextPage = Number(wrap.dataset.next);
+    function pageUrl(p){var params=new URLSearchParams(window.location.search);params.set('page_tr',p);params.set('tab','tr');return'?'+params.toString();}
+    var html='';
+    html+=hasPrev?'<a href="'+pageUrl(prevPage)+'" class="page-btn"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>';
+    var el={left:false,right:false};
+    for(var n=1;n<=total;n++){var a=(n===current),e=(n===1||n===total),nr=(n>=current-2&&n<=current+2);
+      if(a)html+='<span class="page-btn active">'+n+'</span>';
+      else if(e||nr)html+='<a href="'+pageUrl(n)+'" class="page-btn">'+n+'</a>';
+      else if(n===current-3&&!el.left){el.left=true;html+='<span class="page-ellipsis">…</span>';} 
+      else if(n===current+3&&!el.right){el.right=true;html+='<span class="page-ellipsis">…</span>';} 
+    }
+    html+=hasNext?'<a href="'+pageUrl(nextPage)+'" class="page-btn"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>';
+    wrap.innerHTML=html;
+  })();
+  </script>
+  {% endif %}
+
+</div><!-- /panelTr -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     EVENT MODALS
+     ══════════════════════════════════════════════════════════ -->
+
+<!-- Event: Create -->
+<div class="modal-backdrop" id="evCreateModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-calendar-plus"></i></div>
+      <div class="modal__header-title"><h3>New Event</h3><p>Fill in the details. Save as draft or publish immediately.</p></div>
+      <button class="modal__close" onclick="closeModal('evCreateModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" action="{% url 'event_create' %}" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="status" id="ec_status_field" value="draft">
+      <div class="modal__body">
+        <div class="form-group">
+          <label for="ec_title">Title <span class="req">*</span></label>
+          <input type="text" id="ec_title" name="title" class="form-control" placeholder="Enter event title…" required maxlength="300">
+        </div>
+        <div class="form-group">
+          <label for="ec_location">Location <span class="req">*</span></label>
+          <input type="text" id="ec_location" name="location" class="form-control" placeholder="e.g. Conference Room A, Online via Zoom…" required maxlength="300">
+        </div>
+        <div class="form-group">
+          <label for="ec_summary">Summary <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+          <input type="text" id="ec_summary" name="summary" class="form-control" placeholder="Short one-line description…" maxlength="500">
+        </div>
+        <div class="form-group">
+          <label for="ec_details">Details <span class="req">*</span></label>
+          <textarea id="ec_details" name="details" class="form-control" placeholder="Full event description, agenda, speakers, etc." required></textarea>
+        </div>
+        <div class="scheduler-section">
+          <h4><i class="fa-solid fa-clock"></i> Event Schedule</h4>
+          <div class="schedule-row">
+            <div class="form-group"><label for="ec_start_date">Start Date <span class="req">*</span></label><input type="date" id="ec_start_date" name="start_date" class="form-control" required></div>
+            <div class="form-group"><label for="ec_end_date">End Date <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label><input type="date" id="ec_end_date" name="end_date" class="form-control"></div>
+          </div>
+          <div class="schedule-row">
+            <div class="form-group"><label for="ec_start_time">Start Time</label><input type="time" id="ec_start_time" name="start_time" class="form-control"></div>
+            <div class="form-group"><label for="ec_end_time">End Time</label><input type="time" id="ec_end_time" name="end_time" class="form-control"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Attachments <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+          <div class="file-upload-zone">
+            <input type="file" name="attachments" id="ec_attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" onchange="handleFileSelect(this,'ec_fileList','')">
+            <i class="fa-solid fa-paperclip"></i>
+            <span><strong>Click to attach files</strong> or drag &amp; drop</span>
+          </div>
+          <div class="file-list" id="ec_fileList"></div>
+        </div>
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" checked onchange="toggleArchiveDateRow('ec_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" onchange="toggleArchiveDateRow('ec_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" onchange="toggleArchiveDateRow('ec_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="ec_archiveDateRow"><label><i class="fa-solid fa-calendar"></i> Archive on:</label><input type="date" name="archive_date" id="ec_archive_date"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('evCreateModal')">Cancel</button>
+        <button type="submit" class="btn btn-outline" onclick="document.getElementById('ec_status_field').value='draft'"><i class="fa-solid fa-floppy-disk"></i> Save as Draft</button>
+        <button type="submit" class="btn btn-primary" onclick="document.getElementById('ec_status_field').value='published'"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Event: Edit -->
+<div class="modal-backdrop" id="evEditModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-pen"></i></div>
+      <div class="modal__header-title"><h3>Edit Event</h3><p>Update the details below.</p></div>
+      <button class="modal__close" onclick="closeModal('evEditModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" id="evEditForm" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body">
+        <div class="form-group"><label for="ee_title">Title <span class="req">*</span></label><input type="text" id="ee_title" name="title" class="form-control" required maxlength="300"></div>
+        <div class="form-group"><label for="ee_location">Location <span class="req">*</span></label><input type="text" id="ee_location" name="location" class="form-control" required maxlength="300"></div>
+        <div class="form-group"><label for="ee_summary">Summary</label><input type="text" id="ee_summary" name="summary" class="form-control" maxlength="500"></div>
+        <div class="form-group"><label for="ee_details">Details <span class="req">*</span></label><textarea id="ee_details" name="details" class="form-control" required></textarea></div>
+        <div class="form-group"><label for="ee_status">Status</label><select id="ee_status" name="status" class="form-control"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></div>
+        <div class="scheduler-section">
+          <h4><i class="fa-solid fa-clock"></i> Event Schedule</h4>
+          <div class="schedule-row">
+            <div class="form-group"><label for="ee_start_date">Start Date <span class="req">*</span></label><input type="date" id="ee_start_date" name="start_date" class="form-control" required></div>
+            <div class="form-group"><label for="ee_end_date">End Date</label><input type="date" id="ee_end_date" name="end_date" class="form-control"></div>
+          </div>
+          <div class="schedule-row">
+            <div class="form-group"><label for="ee_start_time">Start Time</label><input type="time" id="ee_start_time" name="start_time" class="form-control"></div>
+            <div class="form-group"><label for="ee_end_time">End Time</label><input type="time" id="ee_end_time" name="end_time" class="form-control"></div>
+          </div>
+        </div>
+        <div id="ee_existingAttachments" style="display:none;"><div class="form-group"><label>Current Attachments</label><div class="file-list" id="ee_existingFileList"></div></div></div>
+        <div class="form-group">
+          <label>Add New Attachments</label>
+          <div class="file-upload-zone"><input type="file" name="attachments" id="ee_attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" onchange="handleFileSelect(this,'ee_fileList','')"><i class="fa-solid fa-paperclip"></i><span><strong>Click to attach files</strong> or drag &amp; drop<br>Leave empty to keep existing</span></div>
+          <div class="file-list" id="ee_fileList"></div>
+        </div>
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" id="ee_archDefault" onchange="toggleArchiveDateRow('ee_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" id="ee_archOnDate" onchange="toggleArchiveDateRow('ee_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" id="ee_archNever" onchange="toggleArchiveDateRow('ee_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="ee_archiveDateRow"><label><i class="fa-solid fa-calendar"></i> Archive on:</label><input type="date" name="archive_date" id="ee_archive_date"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('evEditModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Event: Detail -->
+<div class="modal-backdrop" id="evDetailModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-eye"></i></div>
+      <div class="modal__header-title"><h3 id="evDetailTitle">Event</h3><p id="evDetailSub"></p></div>
+      <button class="modal__close" onclick="closeModal('evDetailModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="evDetailBody"></div>
+    <div class="modal__footer"><button class="btn btn-outline" onclick="closeModal('evDetailModal')">Close</button></div>
+  </div>
+</div>
+
+<!-- Event: Delete -->
+<div class="modal-backdrop" id="evDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-sm modal-danger">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="modal__header-title"><h3>Delete Event</h3><p>This action cannot be undone.</p></div>
+      <button class="modal__close" onclick="closeModal('evDeleteModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body"><p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to permanently delete <strong id="evDeleteName"></strong>? All associated attachments will also be removed.</p></div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('evDeleteModal')">Cancel</button>
+      <form method="post" id="evDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     TRAINING MODALS
+     ══════════════════════════════════════════════════════════ -->
+
+<!-- Training: Create -->
+<div class="modal-backdrop" id="trCreateModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon blue"><i class="fa-solid fa-chalkboard-user"></i></div>
+      <div class="modal__header-title"><h3>New Training</h3><p>Fill in the details. Save as draft or publish immediately.</p></div>
+      <button class="modal__close" onclick="closeModal('trCreateModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" action="{% url 'training_create' %}" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="status" id="tc_status_field" value="draft">
+      <div class="modal__body">
+        <div class="form-group"><label for="tc_title">Title <span class="req">*</span></label><input type="text" id="tc_title" name="title" class="form-control blue-focus" placeholder="Enter training title…" required maxlength="300"></div>
+        <div class="form-group"><label for="tc_location">Location <span class="req">*</span></label><input type="text" id="tc_location" name="location" class="form-control blue-focus" placeholder="e.g. Training Room B, Online via Zoom…" required maxlength="300"></div>
+        <div class="form-group"><label for="tc_summary">Summary <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label><input type="text" id="tc_summary" name="summary" class="form-control blue-focus" placeholder="Short one-line description…" maxlength="500"></div>
+        <div class="form-group"><label for="tc_details">Details <span class="req">*</span></label><textarea id="tc_details" name="details" class="form-control blue-focus" placeholder="Full training description, objectives, agenda…" required></textarea></div>
+        <div class="section-box-blue">
+          <h4><i class="fa-solid fa-clipboard-list"></i> Training Information</h4>
+          <div class="form-row">
+            <div class="form-group"><label for="tc_organizer">Organizer <span class="req">*</span></label><input type="text" id="tc_organizer" name="organizer" class="form-control blue-focus" placeholder="e.g. HR Department, DILG…" required maxlength="300"></div>
+            <div class="form-group"><label for="tc_target_participants">Target Participants <span class="req">*</span></label><input type="text" id="tc_target_participants" name="target_participants" class="form-control blue-focus" placeholder="e.g. All Employees, Supervisors…" required maxlength="500"></div>
+          </div>
+          <div class="form-group"><label for="tc_requirements">Requirements <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label><textarea id="tc_requirements" name="requirements" class="form-control blue-focus" placeholder="Pre-requisites, materials to bring, dress code…" style="min-height:70px;"></textarea></div>
+          <div class="form-group"><label for="tc_contact_details">Contact Details <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label><input type="text" id="tc_contact_details" name="contact_details" class="form-control blue-focus" placeholder="e.g. hr@agency.gov.ph | (02) 123-4567" maxlength="500"></div>
+        </div>
+        <div class="section-box-blue">
+          <h4><i class="fa-solid fa-clock"></i> Training Schedule</h4>
+          <div class="schedule-row">
+            <div class="form-group"><label for="tc_start_date">Start Date <span class="req">*</span></label><input type="date" id="tc_start_date" name="start_date" class="form-control blue-focus" required></div>
+            <div class="form-group"><label for="tc_end_date">End Date <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label><input type="date" id="tc_end_date" name="end_date" class="form-control blue-focus"></div>
+          </div>
+          <div class="schedule-row">
+            <div class="form-group"><label for="tc_start_time">Start Time</label><input type="time" id="tc_start_time" name="start_time" class="form-control blue-focus"></div>
+            <div class="form-group"><label for="tc_end_time">End Time</label><input type="time" id="tc_end_time" name="end_time" class="form-control blue-focus"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Attachments <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+          <div class="file-upload-zone blue"><input type="file" name="attachments" id="tc_attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" onchange="handleFileSelect(this,'tc_fileList','blue')"><i class="fa-solid fa-paperclip"></i><span><strong>Click to attach files</strong> or drag &amp; drop</span></div>
+          <div class="file-list" id="tc_fileList"></div>
+        </div>
+        <div class="archive-section blue-arch">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" checked onchange="toggleArchiveDateRow('tc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" onchange="toggleArchiveDateRow('tc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" onchange="toggleArchiveDateRow('tc_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="tc_archiveDateRow"><label><i class="fa-solid fa-calendar"></i> Archive on:</label><input type="date" name="archive_date" id="tc_archive_date"></div>
+        </div>
+      </div>
+      <div class="modal__footer blue-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('trCreateModal')">Cancel</button>
+        <button type="submit" class="btn btn-outline" onclick="document.getElementById('tc_status_field').value='draft'"><i class="fa-solid fa-floppy-disk"></i> Save as Draft</button>
+        <button type="submit" class="btn btn-primary-tr" onclick="document.getElementById('tc_status_field').value='published'"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Training: Edit -->
+<div class="modal-backdrop" id="trEditModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon blue"><i class="fa-solid fa-pen"></i></div>
+      <div class="modal__header-title"><h3>Edit Training</h3><p>Update the details below.</p></div>
+      <button class="modal__close" onclick="closeModal('trEditModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" id="trEditForm" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body">
+        <div class="form-group"><label for="te_title">Title <span class="req">*</span></label><input type="text" id="te_title" name="title" class="form-control blue-focus" required maxlength="300"></div>
+        <div class="form-group"><label for="te_location">Location <span class="req">*</span></label><input type="text" id="te_location" name="location" class="form-control blue-focus" required maxlength="300"></div>
+        <div class="form-group"><label for="te_summary">Summary</label><input type="text" id="te_summary" name="summary" class="form-control blue-focus" maxlength="500"></div>
+        <div class="form-group"><label for="te_details">Details <span class="req">*</span></label><textarea id="te_details" name="details" class="form-control blue-focus" required></textarea></div>
+        <div class="form-group"><label for="te_status">Status</label><select id="te_status" name="status" class="form-control blue-focus"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></div>
+        <div class="section-box-blue">
+          <h4><i class="fa-solid fa-clipboard-list"></i> Training Information</h4>
+          <div class="form-row">
+            <div class="form-group"><label for="te_organizer">Organizer <span class="req">*</span></label><input type="text" id="te_organizer" name="organizer" class="form-control blue-focus" required maxlength="300"></div>
+            <div class="form-group"><label for="te_target_participants">Target Participants <span class="req">*</span></label><input type="text" id="te_target_participants" name="target_participants" class="form-control blue-focus" required maxlength="500"></div>
+          </div>
+          <div class="form-group"><label for="te_requirements">Requirements</label><textarea id="te_requirements" name="requirements" class="form-control blue-focus" style="min-height:70px;"></textarea></div>
+          <div class="form-group"><label for="te_contact_details">Contact Details</label><input type="text" id="te_contact_details" name="contact_details" class="form-control blue-focus" maxlength="500"></div>
+        </div>
+        <div class="section-box-blue">
+          <h4><i class="fa-solid fa-clock"></i> Training Schedule</h4>
+          <div class="schedule-row">
+            <div class="form-group"><label for="te_start_date">Start Date <span class="req">*</span></label><input type="date" id="te_start_date" name="start_date" class="form-control blue-focus" required></div>
+            <div class="form-group"><label for="te_end_date">End Date</label><input type="date" id="te_end_date" name="end_date" class="form-control blue-focus"></div>
+          </div>
+          <div class="schedule-row">
+            <div class="form-group"><label for="te_start_time">Start Time</label><input type="time" id="te_start_time" name="start_time" class="form-control blue-focus"></div>
+            <div class="form-group"><label for="te_end_time">End Time</label><input type="time" id="te_end_time" name="end_time" class="form-control blue-focus"></div>
+          </div>
+        </div>
+        <div id="te_existingAttachments" style="display:none;"><div class="form-group"><label>Current Attachments</label><div class="file-list" id="te_existingFileList"></div></div></div>
+        <div class="form-group">
+          <label>Add New Attachments</label>
+          <div class="file-upload-zone blue"><input type="file" name="attachments" id="te_attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" onchange="handleFileSelect(this,'te_fileList','blue')"><i class="fa-solid fa-paperclip"></i><span><strong>Click to attach files</strong> or drag &amp; drop<br>Leave empty to keep existing</span></div>
+          <div class="file-list" id="te_fileList"></div>
+        </div>
+        <div class="archive-section blue-arch">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" id="te_archDefault" onchange="toggleArchiveDateRow('te_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" id="te_archOnDate" onchange="toggleArchiveDateRow('te_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" id="te_archNever" onchange="toggleArchiveDateRow('te_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="te_archiveDateRow"><label><i class="fa-solid fa-calendar"></i> Archive on:</label><input type="date" name="archive_date" id="te_archive_date"></div>
+        </div>
+      </div>
+      <div class="modal__footer blue-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('trEditModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary-tr"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Training: Detail -->
+<div class="modal-backdrop" id="trDetailModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon blue"><i class="fa-solid fa-eye"></i></div>
+      <div class="modal__header-title"><h3 id="trDetailTitle">Training</h3><p id="trDetailSub"></p></div>
+      <button class="modal__close" onclick="closeModal('trDetailModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="trDetailBody"></div>
+    <div class="modal__footer blue-footer"><button class="btn btn-outline" onclick="closeModal('trDetailModal')">Close</button></div>
+  </div>
+</div>
+
+<!-- Training: Delete -->
+<div class="modal-backdrop" id="trDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-sm modal-danger">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="modal__header-title"><h3>Delete Training</h3><p>This action cannot be undone.</p></div>
+      <button class="modal__close" onclick="closeModal('trDeleteModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body"><p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to permanently delete <strong id="trDeleteName"></strong>? All associated attachments will also be removed.</p></div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('trDeleteModal')">Cancel</button>
+      <form method="post" id="trDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ JS DATA PAYLOADS ══ -->
+<script type="application/json" id="ev-data">[
+  {% for ev in events %}
+  {
+    "pk": {{ ev.pk }}, "title": "{{ ev.title|escapejs }}", "location": "{{ ev.location|escapejs }}",
+    "summary": "{{ ev.summary|default:''|escapejs }}", "details": "{{ ev.details|escapejs }}",
+    "status": "{{ ev.status }}", "status_label": "{{ ev.get_status_display }}",
+    "author": "{% if ev.author %}{{ ev.author.get_full_name|default:ev.author.username|escapejs }}{% else %}Unknown{% endif %}",
+    "created_at": "{{ ev.created_at|date:'M d, Y' }}",
+    "start_date": "{{ ev.start_date|date:'Y-m-d' }}", "start_date_fmt": "{{ ev.start_date|date:'M d, Y' }}",
+    "end_date": "{{ ev.end_date|date:'Y-m-d'|default:'' }}", "end_date_fmt": "{{ ev.end_date|date:'M d, Y'|default:'' }}",
+    "start_time": "{{ ev.start_time|time:'H:i'|default:'' }}", "start_time_fmt": "{{ ev.start_time|time:'g:i A'|default:'' }}",
+    "end_time": "{{ ev.end_time|time:'H:i'|default:'' }}", "end_time_fmt": "{{ ev.end_time|time:'g:i A'|default:'' }}",
+    "archive_policy": "{{ ev.archive_policy }}",
+    "archive_date_iso": "{{ ev.archive_date|date:'Y-m-d'|default:'' }}",
+    "archive_date_fmt": "{{ ev.archive_date|date:'M d, Y'|default:'' }}",
+    "edit_url": "{% url 'event_edit' ev.pk %}",
+    "delete_url": "{% url 'event_delete' ev.pk %}",
+    "toggle_url": "{% url 'event_toggle_status' ev.pk %}",
+    "attachments": [
+      {% for att in ev.attachments.all %}{"name": "{{ att.original_name|escapejs }}", "size": "{{ att.file_size_display }}", "url": "{{ att.file.url }}"}{% if not forloop.last %},{% endif %}{% endfor %}
+    ]
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]</script>
+
+<script type="application/json" id="tr-data">[
+  {% for tr in trainings %}
+  {
+    "pk": {{ tr.pk }}, "title": "{{ tr.title|escapejs }}", "location": "{{ tr.location|escapejs }}",
+    "summary": "{{ tr.summary|default:''|escapejs }}", "details": "{{ tr.details|escapejs }}",
+    "organizer": "{{ tr.organizer|escapejs }}", "target_participants": "{{ tr.target_participants|escapejs }}",
+    "requirements": "{{ tr.requirements|default:''|escapejs }}", "contact_details": "{{ tr.contact_details|default:''|escapejs }}",
+    "status": "{{ tr.status }}", "status_label": "{{ tr.get_status_display }}",
+    "author": "{% if tr.author %}{{ tr.author.get_full_name|default:tr.author.username|escapejs }}{% else %}Unknown{% endif %}",
+    "created_at": "{{ tr.created_at|date:'M d, Y' }}",
+    "start_date": "{{ tr.start_date|date:'Y-m-d' }}", "start_date_fmt": "{{ tr.start_date|date:'M d, Y' }}",
+    "end_date": "{{ tr.end_date|date:'Y-m-d'|default:'' }}", "end_date_fmt": "{{ tr.end_date|date:'M d, Y'|default:'' }}",
+    "start_time": "{{ tr.start_time|time:'H:i'|default:'' }}", "start_time_fmt": "{{ tr.start_time|time:'g:i A'|default:'' }}",
+    "end_time": "{{ tr.end_time|time:'H:i'|default:'' }}", "end_time_fmt": "{{ tr.end_time|time:'g:i A'|default:'' }}",
+    "archive_policy": "{{ tr.archive_policy }}",
+    "archive_date_iso": "{{ tr.archive_date|date:'Y-m-d'|default:'' }}",
+    "archive_date_fmt": "{{ tr.archive_date|date:'M d, Y'|default:'' }}",
+    "edit_url": "{% url 'training_edit' tr.pk %}",
+    "delete_url": "{% url 'training_delete' tr.pk %}",
+    "toggle_url": "{% url 'training_toggle_status' tr.pk %}",
+    "attachments": [
+      {% for att in tr.attachments.all %}{"name": "{{ att.original_name|escapejs }}", "size": "{{ att.file_size_display }}", "url": "{{ att.file.url }}"}{% if not forloop.last %},{% endif %}{% endfor %}
+    ]
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]</script>
+
+<script>
+var EV_DATA = JSON.parse(document.getElementById('ev-data').textContent || '[]');
+var TR_DATA = JSON.parse(document.getElementById('tr-data').textContent || '[]');
+</script>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+/* ══════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════ */
+function getCsrf() { return document.querySelector('[name=csrfmiddlewaretoken]').value; }
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+function getEv(pk) { return EV_DATA.find(e => e.pk === pk) || null; }
+function getTr(pk) { return TR_DATA.find(t => t.pk === pk) || null; }
+
+function getFileIcon(name) {
+  var ext = (name||'').split('.').pop().toLowerCase();
+  if (ext==='pdf')                          return 'fa-file-pdf';
+  if (['doc','docx'].includes(ext))         return 'fa-file-word';
+  if (['xls','xlsx','csv'].includes(ext))   return 'fa-file-excel';
+  if (['ppt','pptx'].includes(ext))         return 'fa-file-powerpoint';
+  if (['jpg','jpeg','png','gif','webp'].includes(ext)) return 'fa-file-image';
+  if (['zip','rar','7z'].includes(ext))     return 'fa-file-zipper';
+  return 'fa-file';
+}
+function formatBytes(bytes) {
+  if (bytes < 1024)    return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+/* ══════════════════════════════════════════════
+   TAB SYSTEM
+   ══════════════════════════════════════════════ */
+var ACTIVE_TAB = '{{ active_tab|default:"ev" }}';
+
+function switchTab(tab) {
+  ACTIVE_TAB = tab;
+  document.getElementById('panelEv').classList.toggle('active', tab === 'ev');
+  document.getElementById('panelTr').classList.toggle('active', tab === 'tr');
+  document.getElementById('tabEvBtn').className = 'tab-btn' + (tab === 'ev' ? ' active-ev' : '');
+  document.getElementById('tabTrBtn').className = 'tab-btn' + (tab === 'tr' ? ' active-tr' : '');
+  /* Update new-button visibility */
+}
+
+/* Init on load */
+(function(){
+  switchTab(ACTIVE_TAB);
+})();
+
+/* ══════════════════════════════════════════════
+   FILTER BY STATUS (per tab)
+   ══════════════════════════════════════════════ */
+function filterByStatus(tab, val) {
+  if (tab === 'ev') {
+    document.getElementById('evStatusHidden').value = val;
+    document.getElementById('evFilterForm').submit();
+  } else {
+    document.getElementById('trStatusHidden').value = val;
+    document.getElementById('trFilterForm').submit();
+  }
+}
+
+/* ══════════════════════════════════════════════
+   MODAL SYSTEM
+   ══════════════════════════════════════════════ */
+function openModal(id)  { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => { if (e.target === bd) closeModal(bd.id); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape')
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => closeModal(m.id));
+});
+
+/* ── Create modal dispatcher ── */
+function openCreateModal(type) {
+  openModal(type === 'ev' ? 'evCreateModal' : 'trCreateModal');
+}
+
+/* ── Archive date row toggle ── */
+function toggleArchiveDateRow(rowId, radio) {
+  document.getElementById(rowId).classList.toggle('visible', radio.value === 'on_date');
+}
+
+/* ── File select handler ── */
+function handleFileSelect(input, listId, colorClass) {
+  var list = document.getElementById(listId);
+  list.innerHTML = '';
+  Array.from(input.files).forEach(function(f) {
+    var item = document.createElement('div');
+    item.className = 'file-item' + (colorClass ? ' ' + colorClass : '');
+    item.innerHTML = '<i class="fa-solid ' + getFileIcon(f.name) + '"></i>'
+      + '<span class="file-name">' + escHtml(f.name) + '</span>'
+      + '<span class="file-size">' + formatBytes(f.size) + '</span>';
+    list.appendChild(item);
+  });
+}
+
+/* ══════════════════════════════════════════════
+   EVENT MODALS
+   ══════════════════════════════════════════════ */
+function openDetailModal(type, pk) {
+  if (type === 'ev') openEvDetail(pk);
+  else               openTrDetail(pk);
+}
+function openEditModal(type, pk) {
+  if (type === 'ev') openEvEdit(pk);
+  else               openTrEdit(pk);
+}
+function openDeleteModal(type, pk, title) {
+  if (type === 'ev') openEvDelete(pk, title);
+  else               openTrDelete(pk, title);
+}
+
+/* ── Event Detail ── */
+function openEvDetail(pk) {
+  var ev = getEv(pk); if (!ev) return;
+  document.getElementById('evDetailTitle').textContent = ev.title;
+  document.getElementById('evDetailSub').textContent =
+    ev.start_date_fmt + (ev.end_date_fmt ? ' – ' + ev.end_date_fmt : '') + ' · ' + ev.location;
+  var bc = {published:'status-badge-published',draft:'status-badge-draft',archived:'status-badge-archived'}[ev.status]||'';
+  var h = '<div class="detail-title">'+escHtml(ev.title)+'</div>';
+  h += '<div class="detail-meta"><span><span class="status-badge '+bc+'">'+escHtml(ev.status_label)+'</span></span>';
+  h += '<span><i class="fa-solid fa-location-dot"></i> '+escHtml(ev.location)+'</span>';
+  h += '<span><i class="fa-solid fa-user-pen"></i> '+escHtml(ev.author)+'</span></div>';
+  if (ev.summary) h += '<div class="detail-summary">'+escHtml(ev.summary)+'</div>';
+  h += '<div class="detail-schedule-box">';
+  h += '<div class="sched-item"><span class="sched-label">Start Date</span><span class="sched-val">'+escHtml(ev.start_date_fmt)+'</span></div>';
+  if (ev.end_date_fmt)    h += '<div class="sched-item"><span class="sched-label">End Date</span><span class="sched-val">'+escHtml(ev.end_date_fmt)+'</span></div>';
+  if (ev.start_time_fmt)  h += '<div class="sched-item"><span class="sched-label">Start Time</span><span class="sched-val">'+escHtml(ev.start_time_fmt)+'</span></div>';
+  if (ev.end_time_fmt)    h += '<div class="sched-item"><span class="sched-label">End Time</span><span class="sched-val">'+escHtml(ev.end_time_fmt)+'</span></div>';
+  h += '</div>';
+  h += '<div class="detail-section-label">Details</div><div class="detail-body">'+escHtml(ev.details)+'</div>';
+  if (ev.attachments && ev.attachments.length) {
+    h += '<div class="detail-section-label"><i class="fa-solid fa-paperclip" style="margin-right:4px;"></i>Attachments</div><div class="detail-attachments">';
+    ev.attachments.forEach(function(a){h+='<div class="detail-attachment-item"><i class="fa-solid '+getFileIcon(a.name)+'"></i><a href="'+escHtml(a.url)+'" target="_blank" rel="noopener">'+escHtml(a.name)+'</a><span class="att-size">'+escHtml(a.size)+'</span></div>';});
+    h += '</div>';
+  }
+  if (ev.archive_policy==='never') h+='<div class="detail-archive-note"><i class="fa-solid fa-infinity"></i> This item will not be archived automatically.</div>';
+  else if (ev.archive_policy==='on_date'&&ev.archive_date_fmt) h+='<div class="detail-archive-note"><i class="fa-solid fa-calendar-xmark"></i> Scheduled to archive on <strong>'+escHtml(ev.archive_date_fmt)+'</strong>.</div>';
+  document.getElementById('evDetailBody').innerHTML = h;
+  openModal('evDetailModal');
+}
+
+/* ── Event Edit ── */
+function openEvEdit(pk) {
+  var ev = getEv(pk); if (!ev) return;
+  document.getElementById('evEditForm').action = ev.edit_url;
+  document.getElementById('ee_title').value    = ev.title;
+  document.getElementById('ee_location').value = ev.location;
+  document.getElementById('ee_summary').value  = ev.summary;
+  document.getElementById('ee_details').value  = ev.details;
+  document.getElementById('ee_status').value   = ev.status;
+  document.getElementById('ee_start_date').value = ev.start_date;
+  document.getElementById('ee_end_date').value   = ev.end_date   || '';
+  document.getElementById('ee_start_time').value = ev.start_time || '';
+  document.getElementById('ee_end_time').value   = ev.end_time   || '';
+  var rm = {default:'ee_archDefault',on_date:'ee_archOnDate',never:'ee_archNever'};
+  var re = document.getElementById(rm[ev.archive_policy]||'ee_archDefault');
+  if (re) re.checked = true;
+  document.getElementById('ee_archiveDateRow').classList.toggle('visible', ev.archive_policy==='on_date');
+  document.getElementById('ee_archive_date').value = ev.archive_date_iso || '';
+  var ew = document.getElementById('ee_existingAttachments');
+  var el = document.getElementById('ee_existingFileList');
+  el.innerHTML = '';
+  if (ev.attachments && ev.attachments.length) {
+    ew.style.display = '';
+    ev.attachments.forEach(function(a){var i=document.createElement('div');i.className='file-item';i.innerHTML='<i class="fa-solid '+getFileIcon(a.name)+'"></i><span class="file-name"><a href="'+escHtml(a.url)+'" target="_blank" rel="noopener" style="color:var(--green-dark);">'+escHtml(a.name)+'</a></span><span class="file-size">'+escHtml(a.size)+'</span>';el.appendChild(i);});
+  } else { ew.style.display = 'none'; }
+  document.getElementById('ee_attachments').value = '';
+  document.getElementById('ee_fileList').innerHTML = '';
+  openModal('evEditModal');
+}
+
+/* ── Event Delete ── */
+function openEvDelete(pk, title) {
+  var ev = getEv(pk);
+  document.getElementById('evDeleteName').textContent = '"' + title + '"';
+  document.getElementById('evDeleteForm').action = ev ? ev.delete_url : '/events/'+pk+'/delete/';
+  openModal('evDeleteModal');
+}
+
+/* ══════════════════════════════════════════════
+   TRAINING MODALS
+   ══════════════════════════════════════════════ */
+
+/* ── Training Detail ── */
+function openTrDetail(pk) {
+  var tr = getTr(pk); if (!tr) return;
+  document.getElementById('trDetailTitle').textContent = tr.title;
+  document.getElementById('trDetailSub').textContent =
+    tr.start_date_fmt + (tr.end_date_fmt ? ' – ' + tr.end_date_fmt : '') + ' · ' + tr.location;
+  var bc = {published:'status-badge-published',draft:'status-badge-draft',archived:'status-badge-archived'}[tr.status]||'';
+  var h = '<div class="detail-title">'+escHtml(tr.title)+'</div>';
+  h += '<div class="detail-meta"><span><span class="status-badge '+bc+'">'+escHtml(tr.status_label)+'</span></span>';
+  h += '<span><i class="fa-solid fa-location-dot"></i> '+escHtml(tr.location)+'</span>';
+  h += '<span><i class="fa-solid fa-user-pen"></i> '+escHtml(tr.author)+'</span></div>';
+  if (tr.summary) h += '<div class="detail-summary blue">'+escHtml(tr.summary)+'</div>';
+  h += '<div class="detail-section-label"><i class="fa-solid fa-clipboard-list" style="margin-right:4px;color:#2563eb;"></i>Training Information</div>';
+  h += '<div class="detail-info-grid blue">';
+  h += '<div class="detail-info-item"><span class="info-label">Organizer</span><span class="info-val">'+escHtml(tr.organizer)+'</span></div>';
+  h += '<div class="detail-info-item"><span class="info-label">Target Participants</span><span class="info-val">'+escHtml(tr.target_participants)+'</span></div>';
+  if (tr.requirements)    h += '<div class="detail-info-item" style="grid-column:1/-1;"><span class="info-label">Requirements</span><span class="info-val" style="white-space:pre-wrap;">'+escHtml(tr.requirements)+'</span></div>';
+  if (tr.contact_details) h += '<div class="detail-info-item" style="grid-column:1/-1;"><span class="info-label">Contact Details</span><span class="info-val">'+escHtml(tr.contact_details)+'</span></div>';
+  h += '</div>';
+  h += '<div class="detail-section-label"><i class="fa-solid fa-clock" style="margin-right:4px;color:#2563eb;"></i>Schedule</div>';
+  h += '<div class="detail-schedule-box blue">';
+  h += '<div class="sched-item"><span class="sched-label">Start Date</span><span class="sched-val">'+escHtml(tr.start_date_fmt)+'</span></div>';
+  if (tr.end_date_fmt)    h += '<div class="sched-item"><span class="sched-label">End Date</span><span class="sched-val">'+escHtml(tr.end_date_fmt)+'</span></div>';
+  if (tr.start_time_fmt)  h += '<div class="sched-item"><span class="sched-label">Start Time</span><span class="sched-val">'+escHtml(tr.start_time_fmt)+'</span></div>';
+  if (tr.end_time_fmt)    h += '<div class="sched-item"><span class="sched-label">End Time</span><span class="sched-val">'+escHtml(tr.end_time_fmt)+'</span></div>';
+  h += '</div>';
+  h += '<div class="detail-section-label">Details</div><div class="detail-body">'+escHtml(tr.details)+'</div>';
+  if (tr.attachments && tr.attachments.length) {
+    h += '<div class="detail-section-label"><i class="fa-solid fa-paperclip" style="margin-right:4px;"></i>Attachments</div><div class="detail-attachments">';
+    tr.attachments.forEach(function(a){h+='<div class="detail-attachment-item blue"><i class="fa-solid '+getFileIcon(a.name)+'"></i><a href="'+escHtml(a.url)+'" target="_blank" rel="noopener">'+escHtml(a.name)+'</a><span class="att-size">'+escHtml(a.size)+'</span></div>';});
+    h += '</div>';
+  }
+  if (tr.archive_policy==='never') h+='<div class="detail-archive-note blue"><i class="fa-solid fa-infinity"></i> This item will not be archived automatically.</div>';
+  else if (tr.archive_policy==='on_date'&&tr.archive_date_fmt) h+='<div class="detail-archive-note blue"><i class="fa-solid fa-calendar-xmark"></i> Scheduled to archive on <strong>'+escHtml(tr.archive_date_fmt)+'</strong>.</div>';
+  document.getElementById('trDetailBody').innerHTML = h;
+  openModal('trDetailModal');
+}
+
+/* ── Training Edit ── */
+function openTrEdit(pk) {
+  var tr = getTr(pk); if (!tr) return;
+  document.getElementById('trEditForm').action = tr.edit_url;
+  document.getElementById('te_title').value    = tr.title;
+  document.getElementById('te_location').value = tr.location;
+  document.getElementById('te_summary').value  = tr.summary;
+  document.getElementById('te_details').value  = tr.details;
+  document.getElementById('te_status').value   = tr.status;
+  document.getElementById('te_organizer').value           = tr.organizer;
+  document.getElementById('te_target_participants').value = tr.target_participants;
+  document.getElementById('te_requirements').value        = tr.requirements;
+  document.getElementById('te_contact_details').value     = tr.contact_details;
+  document.getElementById('te_start_date').value = tr.start_date;
+  document.getElementById('te_end_date').value   = tr.end_date   || '';
+  document.getElementById('te_start_time').value = tr.start_time || '';
+  document.getElementById('te_end_time').value   = tr.end_time   || '';
+  var rm = {default:'te_archDefault',on_date:'te_archOnDate',never:'te_archNever'};
+  var re = document.getElementById(rm[tr.archive_policy]||'te_archDefault');
+  if (re) re.checked = true;
+  document.getElementById('te_archiveDateRow').classList.toggle('visible', tr.archive_policy==='on_date');
+  document.getElementById('te_archive_date').value = tr.archive_date_iso || '';
+  var ew = document.getElementById('te_existingAttachments');
+  var el = document.getElementById('te_existingFileList');
+  el.innerHTML = '';
+  if (tr.attachments && tr.attachments.length) {
+    ew.style.display = '';
+    tr.attachments.forEach(function(a){var i=document.createElement('div');i.className='file-item blue';i.innerHTML='<i class="fa-solid '+getFileIcon(a.name)+'"></i><span class="file-name"><a href="'+escHtml(a.url)+'" target="_blank" rel="noopener" style="color:#1d4ed8;">'+escHtml(a.name)+'</a></span><span class="file-size">'+escHtml(a.size)+'</span>';el.appendChild(i);});
+  } else { ew.style.display = 'none'; }
+  document.getElementById('te_attachments').value = '';
+  document.getElementById('te_fileList').innerHTML = '';
+  openModal('trEditModal');
+}
+
+/* ── Training Delete ── */
+function openTrDelete(pk, title) {
+  var tr = getTr(pk);
+  document.getElementById('trDeleteName').textContent = '"' + title + '"';
+  document.getElementById('trDeleteForm').action = tr ? tr.delete_url : '/trainings/'+pk+'/delete/';
+  openModal('trDeleteModal');
+}
+
+/* ══════════════════════════════════════════════
+   STATUS TOGGLE (AJAX)
+   ══════════════════════════════════════════════ */
+function toggleStatus(type, pk, action) {
+  var obj = type === 'ev' ? getEv(pk) : getTr(pk);
+  var url  = obj ? obj.toggle_url
+           : (type === 'ev' ? '/events/' : '/trainings/') + pk + '/toggle-status/';
+  fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=' + action
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) window.location.reload();
+    else showToast(data.error || 'Error.', true);
+  })
+  .catch(() => showToast('Network error.', true));
+}
+
+/* ══════════════════════════════════════════════
+   TOAST
+   ══════════════════════════════════════════════ */
+function showToast(msg, isError) {
+  var c = document.getElementById('toastContainer');
+  var t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' toast-error' : '');
+  t.innerHTML = '<i class="fa-solid ' + (isError ? 'fa-circle-exclamation' : 'fa-circle-check') + '"></i>' + escHtml(msg);
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1754 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Downloads{% endblock %}
+{% block page_title %}Downloads{% endblock %}
+{% block breadcrumb %}Downloads{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600&family=Source+Sans+3:wght@400;500;600&display=swap');
+
+/* ── Toasts ── */
+.toast-container {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast {
+  background: var(--green-dark); color: var(--white);
+  padding: 12px 18px; border-radius: 8px; font-size: .83rem;
+  box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 10px;
+  opacity: 0; transform: translateX(20px);
+  animation: toastIn .3s forwards, toastOut .3s 3.5s forwards;
+  pointer-events: all; max-width: 360px;
+}
+.toast.toast-error { background: #c0392b; }
+.toast i { flex-shrink: 0; }
+@keyframes toastIn  { to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+/* ── Page header ── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.page-header h2 {
+  font-family: 'EB Garamond', serif; font-size: 1.65rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.2;
+}
+.page-header h2 small {
+  display: block; font-family: 'Source Sans 3', sans-serif;
+  font-size: .75rem; color: var(--text-muted); font-weight: 400; margin-top: 3px;
+}
+.header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ── Main tab bar (2 tabs only: Forms + Files) ── */
+.tab-bar {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: 24px; overflow: hidden; background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+.tab-btn {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 13px 20px; font-size: .88rem; font-family: inherit; font-weight: 500;
+  border: none; background: transparent; cursor: pointer; color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  transition: color .18s, background .18s, border-color .18s;
+}
+.tab-btn:not(:last-child) { border-right: 1px solid var(--border); }
+.tab-btn i { font-size: .88rem; }
+.tab-btn:hover { background: var(--green-pale); color: var(--text-primary); }
+.tab-btn.active { background: var(--green-pale); color: var(--green-dark); border-bottom-color: var(--green-mid); font-weight: 600; }
+.tab-count {
+  background: var(--green-pale); color: var(--green-dark);
+  font-size: .68rem; padding: 1px 7px; border-radius: 20px; font-weight: 600;
+}
+.tab-btn.active .tab-count { background: var(--green-mid); color: var(--white); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Stat cards ── */
+.stat-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px;
+}
+@media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 480px) { .stat-row { grid-template-columns: 1fr 1fr; } }
+
+.stat-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  box-shadow: var(--shadow-sm); cursor: pointer;
+  transition: box-shadow .18s, border-color .18s, transform .15s;
+}
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); border-color: var(--green-accent); }
+.stat-card.active { border-color: var(--green-accent); background: var(--green-pale); }
+.stat-icon { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+.stat-icon.all       { background: rgba(45,106,79,.12);   color: var(--green-mid); }
+.stat-icon.published { background: rgba(39,174,96,.15);   color: #219150; }
+.stat-icon.draft     { background: rgba(243,156,18,.15);  color: #c87f00; }
+.stat-icon.archived  { background: rgba(100,100,100,.12); color: #666; }
+.stat-body { flex: 1; min-width: 0; }
+.stat-value { font-family: 'EB Garamond', serif; font-size: 1.55rem; font-weight: 600; color: var(--text-primary); line-height: 1; }
+.stat-label { font-size: .71rem; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .6px; font-weight: 500; }
+
+/* ── Toolbar ── */
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.search-box { flex: 1; min-width: 180px; position: relative; }
+.search-box i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: .82rem; pointer-events: none; }
+.search-box input {
+  width: 100%; padding: 8px 11px 8px 32px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: .84rem; font-family: inherit;
+  background: var(--white); color: var(--text-primary); outline: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+.search-box input:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.toolbar-select {
+  padding: 8px 28px 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: .82rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  transition: border-color .18s, box-shadow .18s; white-space: nowrap;
+}
+.toolbar-select:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.toolbar-select.has-value { border-color: var(--green-accent); background-color: var(--green-pale); color: var(--green-dark); font-weight: 500; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px;
+  border-radius: 8px; font-size: .84rem; font-family: inherit; font-weight: 500;
+  border: none; cursor: pointer; transition: background .18s, box-shadow .18s, transform .15s;
+  white-space: nowrap; line-height: 1; text-decoration: none;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--green-mid); color: var(--white); }
+.btn-primary:hover { background: var(--green-dark); box-shadow: var(--shadow-sm); }
+.btn-outline { background: var(--white); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--green-pale); border-color: var(--green-accent); }
+.btn-danger { background: #c0392b; color: var(--white); }
+.btn-danger:hover { background: #a93226; }
+.btn-sm { padding: 6px 12px; font-size: .78rem; }
+
+/* ── Manage dropdown (settings) ── */
+.manage-dropdown-wrap { position: relative; }
+.manage-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px;
+  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow-md); z-index: 300; overflow: hidden;
+  display: none;
+}
+.manage-dropdown.open { display: block; }
+.manage-dropdown-section { padding: 6px 0; }
+.manage-dropdown-label {
+  padding: 6px 14px 4px; font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .7px; font-weight: 600; color: var(--text-muted);
+}
+.manage-dropdown-item {
+  display: flex; align-items: center; gap: 9px; padding: 9px 14px;
+  font-size: .84rem; color: var(--text-primary); cursor: pointer;
+  transition: background .12s;
+}
+.manage-dropdown-item:hover { background: var(--green-pale); color: var(--green-dark); }
+.manage-dropdown-item i { font-size: .84rem; color: var(--text-muted); width: 16px; text-align: center; }
+.manage-dropdown-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ── Results bar ── */
+.results-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.results-bar__count { font-size: .8rem; color: var(--text-muted); }
+.results-bar__count strong { color: var(--text-primary); font-weight: 600; }
+.results-bar__view { display: flex; gap: 4px; }
+.view-btn {
+  width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 7px; border: 1px solid var(--border); background: var(--white);
+  color: var(--text-muted); cursor: pointer; font-size: .84rem;
+  transition: background .15s, color .15s;
+}
+.view-btn.active { background: var(--green-pale); color: var(--green-dark); border-color: var(--green-accent); }
+
+/* ── Download Card Grid (image-style) ── */
+.dl-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.dl-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+  padding: 0; overflow: hidden; box-shadow: var(--shadow-sm);
+  transition: box-shadow .18s, transform .15s, border-color .18s;
+  display: flex; flex-direction: column;
+}
+.dl-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); border-color: rgba(45,106,79,.25); }
+.dl-card__inner { display: flex; align-items: flex-start; gap: 14px; padding: 16px; flex: 1; }
+.dl-card__icon-wrap {
+  width: 52px; height: 60px; flex-shrink: 0; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(220,40,40,.07); border: 1.5px solid rgba(220,40,40,.15);
+  position: relative;
+}
+.dl-card__icon-wrap .fa-file-pdf { font-size: 1.6rem; color: #c0392b; }
+.dl-card__icon-wrap .fa-file-word { font-size: 1.6rem; color: #2980b9; }
+.dl-card__icon-wrap .fa-file-excel { font-size: 1.6rem; color: #27ae60; }
+.dl-card__icon-wrap .fa-file-powerpoint { font-size: 1.6rem; color: #d35400; }
+.dl-card__icon-wrap .fa-file-image { font-size: 1.6rem; color: #8e44ad; }
+.dl-card__icon-wrap .fa-file-zipper { font-size: 1.6rem; color: #e67e22; }
+.dl-card__icon-wrap .fa-file-lines { font-size: 1.6rem; color: #7f8c8d; }
+.dl-card__icon-wrap .fa-file { font-size: 1.6rem; color: #95a5a6; }
+.dl-card__icon-wrap.word-bg   { background: rgba(41,128,185,.07); border-color: rgba(41,128,185,.15); }
+.dl-card__icon-wrap.excel-bg  { background: rgba(39,174,96,.07); border-color: rgba(39,174,96,.15); }
+.dl-card__icon-wrap.ppt-bg    { background: rgba(211,84,0,.07); border-color: rgba(211,84,0,.15); }
+.dl-card__icon-wrap.img-bg    { background: rgba(142,68,173,.07); border-color: rgba(142,68,173,.15); }
+.dl-card__icon-wrap.zip-bg    { background: rgba(230,126,34,.07); border-color: rgba(230,126,34,.15); }
+.dl-card__icon-wrap.txt-bg    { background: rgba(127,140,141,.07); border-color: rgba(127,140,141,.15); }
+
+/* file type label at bottom of icon */
+.dl-card__ext-label {
+  position: absolute; bottom: -1px; left: 0; right: 0; text-align: center;
+  font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--white); background: #c0392b; border-radius: 0 0 6px 6px; padding: 1px 0;
+}
+.dl-card__icon-wrap.word-bg   .dl-card__ext-label { background: #2980b9; }
+.dl-card__icon-wrap.excel-bg  .dl-card__ext-label { background: #27ae60; }
+.dl-card__icon-wrap.ppt-bg    .dl-card__ext-label { background: #d35400; }
+.dl-card__icon-wrap.img-bg    .dl-card__ext-label { background: #8e44ad; }
+.dl-card__icon-wrap.zip-bg    .dl-card__ext-label { background: #e67e22; }
+.dl-card__icon-wrap.txt-bg    .dl-card__ext-label { background: #7f8c8d; }
+
+.dl-card__body { flex: 1; min-width: 0; }
+.dl-card__title {
+  font-weight: 600; color: var(--green-dark); font-size: .88rem; line-height: 1.4;
+  text-decoration: none; display: block; cursor: pointer;
+  transition: color .15s;
+}
+.dl-card__title:hover { color: var(--green-mid); text-decoration: underline; }
+.dl-card__meta {
+  font-size: .73rem; color: var(--text-muted); margin-top: 4px;
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+}
+.dl-card__meta i { font-size: .67rem; }
+.dl-card__dl-count {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: .72rem; color: var(--text-muted); margin-top: 5px;
+}
+.dl-card__tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.tag-pill {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px;
+  background: rgba(52,152,219,.08); border: 1px solid rgba(52,152,219,.2);
+  color: #1a6fa8; border-radius: 20px; font-size: .68rem; font-weight: 500; white-space: nowrap;
+}
+.tag-pill i { font-size: .6rem; }
+
+/* ── Status badge (card footer) ── */
+.dl-card__footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 16px; border-top: 1px solid var(--border);
+  background: rgba(0,0,0,.015);
+}
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
+  border-radius: 20px; font-size: .69rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px; white-space: nowrap;
+}
+.status-badge-published { background: rgba(39,174,96,.12); color: #1a7a3c; }
+.status-badge-draft     { background: rgba(243,156,18,.12); color: #a06800; }
+.status-badge-archived  { background: rgba(100,100,100,.1); color: #555; }
+
+/* row actions */
+.row-actions { display: flex; align-items: center; gap: 3px; }
+.btn-icon {
+  width: 28px; height: 28px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: 6px;
+  font-size: .78rem; border: 1px solid var(--border);
+  background: var(--white); color: var(--text-muted);
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s; flex-shrink: 0;
+}
+.btn-icon:hover { background: var(--green-pale); color: var(--green-dark); border-color: var(--green-accent); }
+.btn-icon.btn-icon-danger { border-color: rgba(192,57,43,.3); color: #c0392b; }
+.btn-icon.btn-icon-danger:hover { background: rgba(192,57,43,.08); border-color: #c0392b; }
+
+/* ── Category section header ── */
+.cat-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px; margin-top: 28px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.cat-section-header:first-child { margin-top: 0; }
+.cat-section-title {
+  font-family: 'EB Garamond', serif; font-size: 1.15rem; font-weight: 600;
+  color: var(--text-primary); display: flex; align-items: center; gap: 8px;
+}
+.cat-section-title .cat-count-badge {
+  font-family: 'Source Sans 3', sans-serif; font-size: .72rem; font-weight: 600;
+  background: var(--green-pale); color: var(--green-dark); padding: 2px 9px;
+  border-radius: 20px;
+}
+.cat-section-toggle {
+  background: none; border: none; cursor: pointer; color: var(--text-muted);
+  font-size: .88rem; padding: 4px 8px; border-radius: 6px;
+  transition: background .15s, color .15s;
+}
+.cat-section-toggle:hover { background: var(--green-pale); color: var(--green-dark); }
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 56px 20px; background: var(--white);
+  border: 2px dashed var(--border); border-radius: 12px;
+  gap: 10px; color: var(--text-muted); text-align: center;
+}
+.empty-state i { font-size: 2.5rem; color: var(--green-light); }
+.empty-state h3 { font-family: 'EB Garamond', serif; font-size: 1.15rem; color: var(--text-primary); }
+.empty-state p { font-size: .85rem; max-width: 300px; line-height: 1.6; }
+
+/* ── Pagination ── */
+.pagination-wrap { display: flex; align-items: center; justify-content: center; margin-top: 28px; gap: 4px; flex-wrap: wrap; }
+.page-btn {
+  min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .83rem; font-family: inherit; font-weight: 500;
+  border: 1px solid var(--border); background: var(--white); color: var(--text-primary);
+  cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, color .15s; line-height: 1;
+}
+.page-btn:hover  { background: var(--green-pale); border-color: var(--green-accent); color: var(--green-dark); }
+.page-btn.active { background: var(--green-mid); border-color: var(--green-mid); color: var(--white); cursor: default; font-weight: 600; }
+.page-btn.disabled { opacity: .4; pointer-events: none; }
+.page-ellipsis { min-width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; font-size: .83rem; color: var(--text-muted); }
+
+/* ── Category/Tag management panels (sub-panels inside modal or inline) ── */
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.cat-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px;
+  box-shadow: var(--shadow-sm); transition: box-shadow .18s, transform .18s;
+}
+.cat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.cat-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .88rem; flex-shrink: 0; }
+.cat-icon-green { background: rgba(45,106,79,.1); color: var(--green-mid); }
+.cat-icon-blue  { background: rgba(52,152,219,.1); color: #2980b9; }
+.cat-body { flex: 1; min-width: 0; }
+.cat-name { font-weight: 600; color: var(--text-primary); font-size: .88rem; line-height: 1.3; word-break: break-word; }
+.cat-meta { font-size: .72rem; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cat-actions { display: flex; gap: 4px; margin-top: 8px; }
+
+/* ── Inline sub-panel for manage ── */
+.manage-panel {
+  display: none; background: var(--white); border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px;
+  box-shadow: var(--shadow-sm); margin-bottom: 20px;
+}
+.manage-panel.open { display: block; }
+.manage-panel-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;
+}
+.manage-panel-header h3 { font-family: 'EB Garamond', serif; font-size: 1.1rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.manage-panel-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1rem; padding: 4px; border-radius: 5px; transition: color .15s, background .15s; }
+.manage-panel-close:hover { color: var(--green-dark); background: var(--green-pale); }
+.panel-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+
+/* ── Modal system ── */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(10,31,20,.55);
+  z-index: 800; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(2px);
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: 14px; width: 100%;
+  max-width: 680px; max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-lg); animation: modalIn .22s cubic-bezier(.4,0,.2,1); overflow: hidden;
+}
+.modal-sm  { max-width: 460px; }
+.modal-xs  { max-width: 380px; }
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal__header {
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0;
+}
+.modal__header-icon {
+  width: 38px; height: 38px; border-radius: 9px; background: var(--green-pale);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--green-mid); font-size: .95rem; flex-shrink: 0;
+}
+.modal__header-title { flex: 1; min-width: 0; }
+.modal__header-title h3 { font-family: 'EB Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
+.modal__header-title p  { font-size: .77rem; color: var(--text-muted); margin-top: 2px; }
+.modal__close {
+  width: 30px; height: 30px; border-radius: 6px; background: transparent; border: none;
+  cursor: pointer; color: var(--text-muted); font-size: .9rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s; flex-shrink: 0;
+}
+.modal__close:hover { background: var(--green-pale); color: var(--green-dark); }
+.modal__body {
+  padding: 20px 24px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 16px; min-height: 0;
+}
+.modal__footer {
+  padding: 14px 24px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; flex-shrink: 0; background: var(--green-pale);
+}
+.modal-danger .modal__header-icon { background: rgba(192,57,43,.1); color: #c0392b; }
+
+/* ── Form elements ── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: .8rem; font-weight: 600; color: var(--text-primary); letter-spacing: .2px; }
+.form-group label .req { color: #c0392b; margin-left: 2px; }
+.form-control {
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: .85rem; font-family: inherit; color: var(--text-primary);
+  background: var(--white); outline: none;
+  transition: border-color .18s, box-shadow .18s; width: 100%;
+}
+.form-control:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.form-hint { font-size: .74rem; color: var(--text-muted); margin-top: 1px; }
+
+/* ── Tags input ── */
+.tags-input-wrap {
+  border: 1px solid var(--border); border-radius: 8px; background: var(--white);
+  padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 5px; cursor: text;
+  transition: border-color .18s, box-shadow .18s; min-height: 40px; align-items: center;
+}
+.tags-input-wrap:focus-within { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+  background: rgba(52,152,219,.1); border: 1px solid rgba(52,152,219,.25);
+  color: #1a6fa8; border-radius: 20px; font-size: .75rem; font-weight: 500;
+}
+.tag-chip button { background: none; border: none; cursor: pointer; color: #1a6fa8; padding: 0; display: flex; align-items: center; font-size: .72rem; opacity: .7; }
+.tag-chip button:hover { opacity: 1; }
+.tags-text-input { border: none; outline: none; font-size: .83rem; font-family: inherit; color: var(--text-primary); background: transparent; flex: 1; min-width: 80px; padding: 2px 4px; }
+.tags-suggestions { position: absolute; top: 100%; left: 0; right: 0; z-index: 100; background: var(--white); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-md); margin-top: 3px; max-height: 180px; overflow-y: auto; }
+.tags-suggestions-item { padding: 8px 12px; font-size: .83rem; cursor: pointer; color: var(--text-primary); transition: background .12s; }
+.tags-suggestions-item:hover { background: var(--green-pale); }
+.tags-suggestions-item.create-new { color: var(--green-dark); font-weight: 500; }
+
+/* ── File upload ── */
+.file-upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 18px;
+  text-align: center; cursor: pointer;
+  transition: border-color .18s, background .18s; position: relative; background: var(--white);
+}
+.file-upload-zone:hover { border-color: var(--green-accent); background: var(--green-pale); }
+.file-upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.file-upload-zone i { font-size: 1.5rem; color: var(--green-light); margin-bottom: 5px; display: block; }
+.file-upload-zone span { font-size: .81rem; color: var(--text-muted); line-height: 1.5; display: block; }
+.file-upload-zone strong { color: var(--green-mid); }
+.file-preview { display: none; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 12px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; font-size: .8rem; }
+.file-preview.visible { display: flex; }
+.file-preview i { color: var(--green-mid); font-size: .9rem; flex-shrink: 0; }
+.file-preview .fname { flex: 1; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.file-preview .fsize { color: var(--text-muted); flex-shrink: 0; }
+
+/* ── Current file strip in edit ── */
+.current-file-strip { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; font-size: .8rem; margin-bottom: 6px; }
+.current-file-strip i { color: var(--green-mid); }
+.current-file-strip a { color: var(--green-dark); font-weight: 500; text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.current-file-strip a:hover { text-decoration: underline; }
+.clear-file-btn { padding: 3px 8px; border-radius: 5px; font-size: .72rem; border: 1px solid rgba(192,57,43,.3); color: #c0392b; background: transparent; cursor: pointer; }
+.clear-file-btn:hover { background: rgba(192,57,43,.08); }
+
+/* ── Archive section ── */
+.archive-section { background: var(--green-pale); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.archive-section h4 { font-size: .8rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; margin: 0; }
+.archive-section h4 i { color: var(--green-mid); }
+.archive-options { display: flex; flex-direction: column; gap: 8px; }
+.archive-radio { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: var(--white); border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+.archive-radio:has(input:checked) { border-color: var(--green-accent); background: rgba(82,183,136,.06); }
+.archive-radio input[type="radio"] { margin-top: 2px; accent-color: var(--green-mid); flex-shrink: 0; }
+.archive-radio-text strong { display: block; font-size: .82rem; color: var(--text-primary); }
+.archive-radio-text span   { font-size: .74rem; color: var(--text-muted); }
+.archive-date-row { display: none; gap: 8px; align-items: center; flex-wrap: wrap; }
+.archive-date-row.visible { display: flex; }
+.archive-date-row label { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
+.archive-date-row input { padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: .83rem; font-family: inherit; color: var(--text-primary); background: var(--white); outline: none; transition: border-color .18s; }
+.archive-date-row input:focus { border-color: var(--green-accent); }
+
+/* ── Detail view ── */
+.detail-title { font-family: 'EB Garamond', serif; font-size: 1.4rem; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.detail-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: .77rem; color: var(--text-muted); padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.detail-meta span { display: flex; align-items: center; gap: 5px; }
+.detail-section-label { font-size: .75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.detail-grid-item { display: flex; flex-direction: column; gap: 2px; }
+.detail-grid-label { font-size: .69rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; }
+.detail-grid-val   { font-size: .85rem; color: var(--text-primary); font-weight: 500; line-height: 1.4; }
+.detail-att-box { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; font-size: .83rem; }
+.detail-att-box i { color: var(--green-mid); font-size: 1rem; flex-shrink: 0; }
+.detail-att-box a { color: var(--green-dark); font-weight: 600; text-decoration: none; flex: 1; }
+.detail-att-box a:hover { text-decoration: underline; }
+.detail-att-box .att-size { color: var(--text-muted); font-size: .75rem; }
+.detail-archive-note { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; font-size: .78rem; color: var(--text-muted); }
+.detail-archive-note i { color: var(--green-mid); }
+.detail-tags-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* ── Category pill ── */
+.category-pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
+  background: rgba(45,106,79,.08); border: 1px solid rgba(45,106,79,.18);
+  color: var(--green-dark); border-radius: 20px; font-size: .72rem; font-weight: 600; white-space: nowrap;
+}
+
+/* ── Collapsible category section ── */
+.cat-section-items { }
+.cat-section-items.collapsed { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Toasts -->
+<div class="toast-container" id="toastContainer">
+  {% for msg in messages %}
+    <div class="toast {% if 'error' in msg.tags %}toast-error{% endif %}">
+      <i class="fa-solid {% if 'error' in msg.tags %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+      {{ msg }}
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Page header -->
+<div class="page-header">
+  <h2>Downloads<small>Manage downloadable forms and files</small></h2>
+  <div class="header-actions">
+    {% if can_manage %}
+    <!-- Manage dropdown: Categories + Tags -->
+    <div class="manage-dropdown-wrap" id="manageDropdownWrap">
+      <button class="btn btn-outline" id="manageDropdownBtn" onclick="toggleManageDropdown()">
+        <i class="fa-solid fa-sliders"></i> Manage <i class="fa-solid fa-chevron-down" style="font-size:.7rem;"></i>
+      </button>
+      <div class="manage-dropdown" id="manageDropdown">
+        <div class="manage-dropdown-section">
+          <div class="manage-dropdown-label">Organize</div>
+          <div class="manage-dropdown-item" onclick="openManagePanel('categories'); closeManageDropdown();">
+            <i class="fa-solid fa-tags"></i> Categories
+            <span style="margin-left:auto;font-size:.7rem;background:var(--green-pale);color:var(--green-dark);padding:1px 7px;border-radius:20px;font-weight:600;">{{ all_categories.count }}</span>
+          </div>
+          <div class="manage-dropdown-item" onclick="openManagePanel('tags'); closeManageDropdown();">
+            <i class="fa-solid fa-hashtag"></i> Tags
+            <span style="margin-left:auto;font-size:.7rem;background:var(--green-pale);color:var(--green-dark);padding:1px 7px;border-radius:20px;font-weight:600;">{{ all_tags_list.count }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btnNewDownload" onclick="openCreateModal('forms')">
+      <i class="fa-solid fa-file-circle-plus"></i> New Download
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Inline Manage Panel (Categories / Tags) ── -->
+{% if can_manage %}
+<div class="manage-panel" id="managePanelCategories">
+  <div class="manage-panel-header">
+    <h3><i class="fa-solid fa-tags" style="color:var(--green-mid);font-size:.95rem;"></i> Categories</h3>
+    <button class="manage-panel-close" onclick="closeManagePanel('categories')"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-toolbar">
+    <form method="get" id="catSearchForm" style="flex:1;display:flex;gap:8px;flex-wrap:wrap;">
+      <input type="hidden" name="tab" value="{{ active_tab|default:'forms' }}">
+      <div class="search-box" style="flex:1;min-width:180px;">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="cat_search" value="{{ cat_search }}" placeholder="Search categories…" onchange="document.getElementById('catSearchForm').submit()">
+      </div>
+      {% if cat_search %}<a href="?tab={{ active_tab|default:'forms' }}&manage=categories" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>{% endif %}
+    </form>
+    <button class="btn btn-primary btn-sm" onclick="openModal('catCreateModal')">
+      <i class="fa-solid fa-plus"></i> Add Category
+    </button>
+  </div>
+  {% if cats_qs %}
+  <div class="cat-grid">
+    {% for cat in cats_qs %}
+    <div class="cat-card">
+      <div class="cat-icon cat-icon-green"><i class="fa-solid fa-tag"></i></div>
+      <div class="cat-body">
+        <div class="cat-name">{{ cat.name }}</div>
+        <div class="cat-meta">
+          <span><i class="fa-solid fa-layer-group" style="font-size:.65rem;"></i> {{ cat.get_tab_display }}</span>
+          <span>{{ cat.download_count }} item{{ cat.download_count|pluralize }}</span>
+        </div>
+        <div class="cat-actions">
+          <button class="btn btn-outline btn-sm" onclick="openCatEditModal({{ cat.pk }},'{{ cat.name|escapejs }}','{{ cat.tab }}')"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button class="btn btn-sm" style="background:rgba(192,57,43,.08);color:#c0392b;border:1px solid rgba(192,57,43,.3);" onclick="openCatDeleteModal({{ cat.pk }},'{{ cat.name|escapejs }}',{{ cat.download_count }})"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:32px 20px;">
+    <i class="fa-solid fa-tags"></i><h3>No categories found</h3>
+    <p>{% if cat_search %}No categories match "{{ cat_search }}".{% else %}Click "Add Category" to create one.{% endif %}</p>
+  </div>
+  {% endif %}
+</div>
+
+<div class="manage-panel" id="managePanelTags">
+  <div class="manage-panel-header">
+    <h3><i class="fa-solid fa-hashtag" style="color:#2980b9;font-size:.95rem;"></i> Tags</h3>
+    <button class="manage-panel-close" onclick="closeManagePanel('tags')"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-toolbar">
+    <form method="get" id="tagSearchForm" style="flex:1;display:flex;gap:8px;flex-wrap:wrap;">
+      <input type="hidden" name="tab" value="{{ active_tab|default:'forms' }}">
+      <div class="search-box" style="flex:1;min-width:180px;">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="tag_search" value="{{ tag_search }}" placeholder="Search tags…" onchange="document.getElementById('tagSearchForm').submit()">
+      </div>
+      {% if tag_search %}<a href="?tab={{ active_tab|default:'forms' }}&manage=tags" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>{% endif %}
+    </form>
+    <button class="btn btn-primary btn-sm" onclick="openModal('tagCreateModal')">
+      <i class="fa-solid fa-plus"></i> Add Tag
+    </button>
+  </div>
+  {% if tags_qs %}
+  <div class="cat-grid">
+    {% for tag in tags_qs %}
+    <div class="cat-card">
+      <div class="cat-icon cat-icon-blue"><i class="fa-solid fa-hashtag"></i></div>
+      <div class="cat-body">
+        <div class="cat-name">{{ tag.name }}</div>
+        <div class="cat-meta"><span>{{ tag.download_count }} item{{ tag.download_count|pluralize }}</span></div>
+        <div class="cat-actions">
+          <button class="btn btn-outline btn-sm" onclick="openTagEditModal({{ tag.pk }},'{{ tag.name|escapejs }}')"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button class="btn btn-sm" style="background:rgba(192,57,43,.08);color:#c0392b;border:1px solid rgba(192,57,43,.3);" onclick="openTagDeleteModal({{ tag.pk }},'{{ tag.name|escapejs }}',{{ tag.download_count }})"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:32px 20px;">
+    <i class="fa-solid fa-hashtag"></i><h3>No tags found</h3>
+    <p>{% if tag_search %}No tags match "{{ tag_search }}".{% else %}Click "Add Tag" to create one.{% endif %}</p>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Main tab bar — ONLY Forms and Files -->
+<div class="tab-bar">
+  <button class="tab-btn" id="tabFormsBtn" onclick="switchTab('forms')">
+    <i class="fa-solid fa-file-alt"></i> Forms
+    <span class="tab-count">{{ forms_total_count }}</span>
+  </button>
+  <button class="tab-btn" id="tabFilesBtn" onclick="switchTab('files')">
+    <i class="fa-solid fa-folder-open"></i> Files
+    <span class="tab-count">{{ files_total_count }}</span>
+  </button>
+</div>
+
+
+<!-- ════════════════════════════════════
+     FORMS TAB
+     ════════════════════════════════════ -->
+<div class="tab-panel" id="panelForms">
+
+  <!-- Stat cards -->
+  <div class="stat-row">
+    <div class="stat-card {% if not forms_status_filter %}active{% endif %}" onclick="filterByStatus('forms','')">
+      <div class="stat-icon all"><i class="fa-solid fa-file-alt"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ forms_total_count }}</div><div class="stat-label">Total</div></div>
+    </div>
+    <div class="stat-card {% if forms_status_filter == 'published' %}active{% endif %}" onclick="filterByStatus('forms','published')">
+      <div class="stat-icon published"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ forms_published_count }}</div><div class="stat-label">Published</div></div>
+    </div>
+    <div class="stat-card {% if forms_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('forms','draft')">
+      <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ forms_draft_count }}</div><div class="stat-label">Drafts</div></div>
+    </div>
+    <div class="stat-card {% if forms_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('forms','archived')">
+      <div class="stat-icon archived"><i class="fa-solid fa-box-archive"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ forms_archived_count }}</div><div class="stat-label">Archived</div></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <form method="get" id="formsFilterForm">
+    <input type="hidden" name="tab" value="forms">
+    <input type="hidden" name="forms_status" id="formsStatusHidden" value="{{ forms_status_filter }}">
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="forms_search" value="{{ forms_search }}" placeholder="Search title, category, tag…" onchange="document.getElementById('formsFilterForm').submit()">
+      </div>
+      <select name="forms_cat" class="toolbar-select {% if forms_cat_filter %}has-value{% endif %}" onchange="document.getElementById('formsFilterForm').submit()">
+        <option value="">All categories</option>
+        {% for cat in forms_categories %}
+        <option value="{{ cat.pk }}" {% if forms_cat_filter == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="forms_tag" class="toolbar-select {% if forms_tag_filter %}has-value{% endif %}" onchange="document.getElementById('formsFilterForm').submit()">
+        <option value="">All tags</option>
+        {% for tag in forms_all_tags %}
+        <option value="{{ tag.pk }}" {% if forms_tag_filter == tag.pk|stringformat:'s' %}selected{% endif %}>{{ tag.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="forms_per_page" class="toolbar-select {% if forms_per_page != 10 %}has-value{% endif %}" onchange="document.getElementById('formsFilterForm').submit()">
+        <option value="5"   {% if forms_per_page == 5   %}selected{% endif %}>5 per page</option>
+        <option value="10"  {% if forms_per_page == 10  %}selected{% endif %}>10 per page</option>
+        <option value="20"  {% if forms_per_page == 20  %}selected{% endif %}>20 per page</option>
+        <option value="40"  {% if forms_per_page == 40  %}selected{% endif %}>40 per page</option>
+        <option value="100" {% if forms_per_page == 100 %}selected{% endif %}>100 per page</option>
+      </select>
+      {% if forms_search or forms_status_filter or forms_cat_filter or forms_tag_filter or forms_per_page != 10 %}
+      <a href="?tab=forms" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+      {% endif %}
+      <!-- {% if can_manage %}
+      <button type="button" class="btn btn-primary btn-sm" onclick="openCreateModal('forms')">
+        <i class="fa-solid fa-plus"></i> Add Form
+      </button>
+      {% endif %} -->
+    </div>
+  </form>
+
+  <!-- Results bar -->
+  <div class="results-bar" id="formsResultsBar">
+    <span class="results-bar__count">
+      Showing <strong>{{ forms_items.start_index }}–{{ forms_items.end_index }}</strong>
+      of <strong>{{ forms_items.paginator.count }}</strong> form{{ forms_items.paginator.count|pluralize }}
+    </span>
+  </div>
+
+  <!-- Cards injected by JS -->
+  <div id="formsCardContainer"></div>
+
+  <!-- Pagination -->
+  {% if forms_items.paginator.num_pages > 1 %}
+  <div class="pagination-wrap" id="formsPagination"></div>
+  <script>
+  (function(){
+    function pageUrl(p){var params=new URLSearchParams(window.location.search);params.set('page_forms',p);params.set('tab','forms');return'?'+params.toString();}
+    var current={{ forms_items.number }},total={{ forms_items.paginator.num_pages }};
+    var hasPrev={{ forms_items.has_previous|yesno:"true,false" }},hasNext={{ forms_items.has_next|yesno:"true,false" }};
+    var prevPage={% if forms_items.has_previous %}{{ forms_items.previous_page_number }}{% else %}1{% endif %};
+    var nextPage={% if forms_items.has_next %}{{ forms_items.next_page_number }}{% else %}{{ forms_items.paginator.num_pages }}{% endif %};
+    var wrap=document.getElementById('formsPagination'),html='';
+    html+=hasPrev?'<a href="'+pageUrl(prevPage)+'" class="page-btn"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>';
+    var el={left:false,right:false};
+    for(var n=1;n<=total;n++){var a=(n===current),e=(n===1||n===total),nr=(n>=current-2&&n<=current+2);
+      if(a)html+='<span class="page-btn active">'+n+'</span>';
+      else if(e||nr)html+='<a href="'+pageUrl(n)+'" class="page-btn">'+n+'</a>';
+      else if(n===current-3&&!el.left){el.left=true;html+='<span class="page-ellipsis">…</span>';}
+      else if(n===current+3&&!el.right){el.right=true;html+='<span class="page-ellipsis">…</span>';}
+    }
+    html+=hasNext?'<a href="'+pageUrl(nextPage)+'" class="page-btn"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>';
+    wrap.innerHTML=html;
+  })();
+  </script>
+  {% endif %}
+
+</div><!-- /panelForms -->
+
+
+<!-- ════════════════════════════════════
+     FILES TAB
+     ════════════════════════════════════ -->
+<div class="tab-panel" id="panelFiles">
+
+  <!-- Stat cards -->
+  <div class="stat-row">
+    <div class="stat-card {% if not files_status_filter %}active{% endif %}" onclick="filterByStatus('files','')">
+      <div class="stat-icon all"><i class="fa-solid fa-folder-open"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ files_total_count }}</div><div class="stat-label">Total</div></div>
+    </div>
+    <div class="stat-card {% if files_status_filter == 'published' %}active{% endif %}" onclick="filterByStatus('files','published')">
+      <div class="stat-icon published"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ files_published_count }}</div><div class="stat-label">Published</div></div>
+    </div>
+    <div class="stat-card {% if files_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('files','draft')">
+      <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ files_draft_count }}</div><div class="stat-label">Drafts</div></div>
+    </div>
+    <div class="stat-card {% if files_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('files','archived')">
+      <div class="stat-icon archived"><i class="fa-solid fa-box-archive"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ files_archived_count }}</div><div class="stat-label">Archived</div></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <form method="get" id="filesFilterForm">
+    <input type="hidden" name="tab" value="files">
+    <input type="hidden" name="files_status" id="filesStatusHidden" value="{{ files_status_filter }}">
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="files_search" value="{{ files_search }}" placeholder="Search title, category, tag…" onchange="document.getElementById('filesFilterForm').submit()">
+      </div>
+      <select name="files_cat" class="toolbar-select {% if files_cat_filter %}has-value{% endif %}" onchange="document.getElementById('filesFilterForm').submit()">
+        <option value="">All categories</option>
+        {% for cat in files_categories %}
+        <option value="{{ cat.pk }}" {% if files_cat_filter == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="files_tag" class="toolbar-select {% if files_tag_filter %}has-value{% endif %}" onchange="document.getElementById('filesFilterForm').submit()">
+        <option value="">All tags</option>
+        {% for tag in files_all_tags %}
+        <option value="{{ tag.pk }}" {% if files_tag_filter == tag.pk|stringformat:'s' %}selected{% endif %}>{{ tag.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="files_per_page" class="toolbar-select {% if files_per_page != 10 %}has-value{% endif %}" onchange="document.getElementById('filesFilterForm').submit()">
+        <option value="5"   {% if files_per_page == 5   %}selected{% endif %}>5 per page</option>
+        <option value="10"  {% if files_per_page == 10  %}selected{% endif %}>10 per page</option>
+        <option value="20"  {% if files_per_page == 20  %}selected{% endif %}>20 per page</option>
+        <option value="40"  {% if files_per_page == 40  %}selected{% endif %}>40 per page</option>
+        <option value="100" {% if files_per_page == 100 %}selected{% endif %}>100 per page</option>
+      </select>
+      {% if files_search or files_status_filter or files_cat_filter or files_tag_filter or files_per_page != 10 %}
+      <a href="?tab=files" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+      {% endif %}
+      <!-- {% if can_manage %}
+      <button type="button" class="btn btn-primary btn-sm" onclick="openCreateModal('files')">
+        <i class="fa-solid fa-plus"></i> Add File
+      </button>
+      {% endif %} -->
+    </div>
+  </form>
+
+  <!-- Results bar -->
+  <div class="results-bar" id="filesResultsBar">
+    <span class="results-bar__count">
+      Showing <strong>{{ files_items.start_index }}–{{ files_items.end_index }}</strong>
+      of <strong>{{ files_items.paginator.count }}</strong> file{{ files_items.paginator.count|pluralize }}
+    </span>
+  </div>
+
+  <!-- Cards injected by JS -->
+  <div id="filesCardContainer"></div>
+
+  <!-- Pagination -->
+  {% if files_items.paginator.num_pages > 1 %}
+  <div class="pagination-wrap" id="filesPagination"></div>
+  <script>
+  (function(){
+    function pageUrl(p){var params=new URLSearchParams(window.location.search);params.set('page_files',p);params.set('tab','files');return'?'+params.toString();}
+    var current={{ files_items.number }},total={{ files_items.paginator.num_pages }};
+    var hasPrev={{ files_items.has_previous|yesno:"true,false" }},hasNext={{ files_items.has_next|yesno:"true,false" }};
+    var prevPage={% if files_items.has_previous %}{{ files_items.previous_page_number }}{% else %}1{% endif %};
+    var nextPage={% if files_items.has_next %}{{ files_items.next_page_number }}{% else %}{{ files_items.paginator.num_pages }}{% endif %};
+    var wrap=document.getElementById('filesPagination'),html='';
+    html+=hasPrev?'<a href="'+pageUrl(prevPage)+'" class="page-btn"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>';
+    var el={left:false,right:false};
+    for(var n=1;n<=total;n++){var a=(n===current),e=(n===1||n===total),nr=(n>=current-2&&n<=current+2);
+      if(a)html+='<span class="page-btn active">'+n+'</span>';
+      else if(e||nr)html+='<a href="'+pageUrl(n)+'" class="page-btn">'+n+'</a>';
+      else if(n===current-3&&!el.left){el.left=true;html+='<span class="page-ellipsis">…</span>';}
+      else if(n===current+3&&!el.right){el.right=true;html+='<span class="page-ellipsis">…</span>';}
+    }
+    html+=hasNext?'<a href="'+pageUrl(nextPage)+'" class="page-btn"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>';
+    wrap.innerHTML=html;
+  })();
+  </script>
+  {% endif %}
+
+</div><!-- /panelFiles -->
+
+
+<!-- ════════════════════════════════════════════════════
+     JS DATA PAYLOADS
+     ════════════════════════════════════════════════════ -->
+<script>
+var DL_DATA = {};
+{% for item in forms_items %}
+DL_DATA[{{ item.pk }}] = {
+  pk: {{ item.pk }},
+  title:            "{{ item.title|escapejs }}",
+  tab:              "{{ item.tab|escapejs }}",
+  category:         "{{ item.category.name|escapejs }}",
+  category_pk:      {{ item.category.pk }},
+  tags:             [{% for t in item.tags.all %}"{{ t.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  tags_input:       "{% for t in item.tags.all %}{{ t.name|escapejs }}{% if not forloop.last %}, {% endif %}{% endfor %}",
+  status:           "{{ item.status|escapejs }}",
+  status_label:     "{{ item.get_status_display|escapejs }}",
+  archive_policy:   "{{ item.archive_policy|escapejs }}",
+  archive_date_iso: "{% if item.archive_date %}{{ item.archive_date|date:'Y-m-d' }}{% endif %}",
+  archive_date_fmt: "{% if item.archive_date %}{{ item.archive_date|date:'M d, Y'|escapejs }}{% endif %}",
+  author:           "{% if item.author %}{{ item.author.get_full_name|default:item.author.username|escapejs }}{% else %}Unknown{% endif %}",
+  created_at:       "{{ item.created_at|date:'M d, Y'|escapejs }}",
+  attachment_name:  "{{ item.attachment_name|escapejs }}",
+  attachment_url:   "{% if item.attachment %}{{ item.attachment.url|escapejs }}{% endif %}",
+  attachment_size:  "{{ item.file_size_display|escapejs }}",
+  file_ext:         "{{ item.file_extension|escapejs }}",
+  download_count:   {{ item.download_count|default:0 }},
+  edit_url:         "{% url 'download_edit'   item.pk %}",
+  delete_url:       "{% url 'download_delete' item.pk %}",
+  toggle_url:       "{% url 'download_toggle_status' item.pk %}"
+};
+{% endfor %}
+{% for item in files_items %}
+DL_DATA[{{ item.pk }}] = {
+  pk: {{ item.pk }},
+  title:            "{{ item.title|escapejs }}",
+  tab:              "{{ item.tab|escapejs }}",
+  category:         "{{ item.category.name|escapejs }}",
+  category_pk:      {{ item.category.pk }},
+  tags:             [{% for t in item.tags.all %}"{{ t.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  tags_input:       "{% for t in item.tags.all %}{{ t.name|escapejs }}{% if not forloop.last %}, {% endif %}{% endfor %}",
+  status:           "{{ item.status|escapejs }}",
+  status_label:     "{{ item.get_status_display|escapejs }}",
+  archive_policy:   "{{ item.archive_policy|escapejs }}",
+  archive_date_iso: "{% if item.archive_date %}{{ item.archive_date|date:'Y-m-d' }}{% endif %}",
+  archive_date_fmt: "{% if item.archive_date %}{{ item.archive_date|date:'M d, Y'|escapejs }}{% endif %}",
+  author:           "{% if item.author %}{{ item.author.get_full_name|default:item.author.username|escapejs }}{% else %}Unknown{% endif %}",
+  created_at:       "{{ item.created_at|date:'M d, Y'|escapejs }}",
+  attachment_name:  "{{ item.attachment_name|escapejs }}",
+  attachment_url:   "{% if item.attachment %}{{ item.attachment.url|escapejs }}{% endif %}",
+  attachment_size:  "{{ item.file_size_display|escapejs }}",
+  file_ext:         "{{ item.file_extension|escapejs }}",
+  download_count:   {{ item.download_count|default:0 }},
+  edit_url:         "{% url 'download_edit'   item.pk %}",
+  delete_url:       "{% url 'download_delete' item.pk %}",
+  toggle_url:       "{% url 'download_toggle_status' item.pk %}"
+};
+{% endfor %}
+
+var ALL_CATEGORIES_FORMS = [{% for cat in all_categories %}{% if cat.tab == 'forms' %}{"pk":{{ cat.pk }},"name":"{{ cat.name|escapejs }}","tab":"{{ cat.tab }}"}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}];
+var ALL_CATEGORIES_FILES = [{% for cat in all_categories %}{% if cat.tab == 'files' %}{"pk":{{ cat.pk }},"name":"{{ cat.name|escapejs }}","tab":"{{ cat.tab }}"}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}];
+var ALL_TAGS_LIST = [{% for tag in all_tags_list %}{"pk":{{ tag.pk }},"name":"{{ tag.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
+</script>
+
+
+<!-- ════════════════════════════════════
+     CARD RENDERING (grouped by category)
+     ════════════════════════════════════ -->
+<script>
+(function(){
+  var canManage = {% if can_manage %}true{% else %}false{% endif %};
+
+  function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+  function escJs(s) { return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+  function truncate(s, n) { s = String(s||''); return s.length > n ? s.slice(0,n-1)+'…' : s; }
+
+  function getFileInfo(name) {
+    var ext = (name || '').split('.').pop().toLowerCase();
+    if (ext === 'pdf')                                        return {icon:'fa-file-pdf',   cls:'',        label:'PDF'};
+    if (['doc','docx'].indexOf(ext) !== -1)                   return {icon:'fa-file-word',  cls:'word-bg', label: ext.toUpperCase()};
+    if (['xls','xlsx','csv'].indexOf(ext) !== -1)             return {icon:'fa-file-excel', cls:'excel-bg',label: ext.toUpperCase()};
+    if (['ppt','pptx'].indexOf(ext) !== -1)                   return {icon:'fa-file-powerpoint',cls:'ppt-bg',label: ext.toUpperCase()};
+    if (['jpg','jpeg','png','gif','webp'].indexOf(ext) !== -1)return {icon:'fa-file-image', cls:'img-bg',  label: ext.toUpperCase()};
+    if (['zip','rar','7z'].indexOf(ext) !== -1)               return {icon:'fa-file-zipper',cls:'zip-bg',  label: ext.toUpperCase()};
+    if (['txt','md'].indexOf(ext) !== -1)                     return {icon:'fa-file-lines', cls:'txt-bg',  label: ext.toUpperCase()};
+    return {icon:'fa-file', cls:'', label: ext ? ext.toUpperCase() : 'FILE'};
+  }
+
+  function buildCard(item) {
+    var fi = getFileInfo(item.attachment_name || item.file_ext);
+    var bcMap = {published:'status-badge-published', draft:'status-badge-draft', archived:'status-badge-archived'};
+    var siMap = {published:'fa-circle-check', draft:'fa-pen-to-square', archived:'fa-box-archive'};
+
+    var h = '<div class="dl-card" id="dlRow' + item.pk + '">';
+    h += '<div class="dl-card__inner">';
+
+    // Icon
+    h += '<div class="dl-card__icon-wrap ' + fi.cls + '">';
+    h += '<i class="fa-solid ' + fi.icon + '"></i>';
+    h += '<span class="dl-card__ext-label">' + escHtml(fi.label) + '</span>';
+    h += '</div>';
+
+    // Body
+    h += '<div class="dl-card__body">';
+    h += '<span class="dl-card__title" onclick="openDetailModal(' + item.pk + ')">' + escHtml(item.title) + '</span>';
+    h += '<div class="dl-card__meta">';
+    h += '<i class="fa-solid fa-user-pen"></i> ' + escHtml(item.author);
+    h += '&nbsp;·&nbsp;<i class="fa-solid fa-calendar"></i> ' + escHtml(item.created_at);
+    h += '</div>';
+
+    // Download count
+    h += '<div class="dl-card__dl-count"><i class="fa-solid fa-arrow-down" style="font-size:.65rem;"></i> ';
+    h += item.download_count + ' download' + (item.download_count === 1 ? '' : 's');
+    h += '</div>';
+
+    // Tags
+    if (item.tags && item.tags.length) {
+      h += '<div class="dl-card__tags">';
+      item.tags.forEach(function(t) {
+        h += '<span class="tag-pill"><i class="fa-solid fa-hashtag" style="font-size:.58rem;"></i>' + escHtml(t) + '</span>';
+      });
+      h += '</div>';
+    }
+
+    h += '</div></div>';/* close body + inner */
+
+    // Footer: status + actions
+    h += '<div class="dl-card__footer">';
+    h += '<span class="status-badge ' + (bcMap[item.status]||'') + '"><i class="fa-solid ' + (siMap[item.status]||'fa-circle') + '"></i>' + escHtml(item.status_label) + '</span>';
+
+    if (canManage) {
+      h += '<div class="row-actions">';
+      h += '<button class="btn-icon" title="Edit" onclick="openEditModal(' + item.pk + ')"><i class="fa-solid fa-pen"></i></button>';
+      if (item.status === 'draft') {
+        h += '<button class="btn-icon" title="Publish" onclick="toggleStatus(' + item.pk + ',\'publish\')" style="color:var(--green-mid);border-color:rgba(45,106,79,.3);"><i class="fa-solid fa-paper-plane"></i></button>';
+      } else if (item.status === 'published') {
+        h += '<button class="btn-icon" title="Unpublish" onclick="toggleStatus(' + item.pk + ',\'draft\')"><i class="fa-solid fa-pen-to-square"></i></button>';
+      } else if (item.status === 'archived') {
+        h += '<button class="btn-icon" title="Unarchive" onclick="toggleStatus(' + item.pk + ',\'unarchive\')"><i class="fa-solid fa-box-open"></i></button>';
+      }
+      if (item.status !== 'archived') {
+        h += '<button class="btn-icon" title="Archive" onclick="toggleStatus(' + item.pk + ',\'archive\')"><i class="fa-solid fa-box-archive"></i></button>';
+      }
+      h += '<button class="btn-icon btn-icon-danger" title="Delete" onclick="openDeleteModal(' + item.pk + ',\'' + escJs(item.title) + '\')"><i class="fa-solid fa-trash"></i></button>';
+      h += '</div>';
+    }
+    h += '</div>';/* footer */
+    h += '</div>';/* card */
+    return h;
+  }
+
+  function buildGroupedCards(items, containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    if (!items || items.length === 0) {
+      container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-file-circle-xmark"></i><h3>No downloads found</h3><p>No results match your current filters.</p></div>';
+      return;
+    }
+
+    // Group by category
+    var catOrder = [];
+    var catMap = {};
+    items.forEach(function(item) {
+      var cat = item.category || 'Uncategorized';
+      if (!catMap[cat]) { catMap[cat] = []; catOrder.push(cat); }
+      catMap[cat].push(item);
+    });
+
+    var html = '';
+    catOrder.forEach(function(cat, idx) {
+      var catItems = catMap[cat];
+      var sectionId = 'catSection_' + containerId + '_' + idx;
+      html += '<div class="cat-section-header">';
+      html += '<div class="cat-section-title">';
+      html += escHtml(cat);
+      html += '<span class="cat-count-badge">' + catItems.length + '</span>';
+      html += '</div>';
+      html += '<button class="cat-section-toggle" onclick="toggleCatSection(\'' + sectionId + '\', this)" title="Collapse">';
+      html += '<i class="fa-solid fa-chevron-up"></i>';
+      html += '</button>';
+      html += '</div>';
+      html += '<div class="dl-card-grid cat-section-items" id="' + sectionId + '">';
+      catItems.forEach(function(item) { html += buildCard(item); });
+      html += '</div>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  // Separate items by tab
+  var formsItems = [];
+  var filesItems = [];
+  try {
+    Object.keys(DL_DATA).forEach(function(k) {
+      var d = DL_DATA[k];
+      if (d.tab === 'forms') formsItems.push(d);
+      else filesItems.push(d);
+    });
+  } catch(e) { console.error('DL_DATA error:', e); }
+
+  buildGroupedCards(formsItems, 'formsCardContainer');
+  buildGroupedCards(filesItems, 'filesCardContainer');
+
+  window.toggleCatSection = function(sectionId, btn) {
+    var el = document.getElementById(sectionId);
+    if (!el) return;
+    var collapsed = el.classList.toggle('collapsed');
+    btn.innerHTML = collapsed
+      ? '<i class="fa-solid fa-chevron-down"></i>'
+      : '<i class="fa-solid fa-chevron-up"></i>';
+    btn.title = collapsed ? 'Expand' : 'Collapse';
+  };
+})();
+</script>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: CREATE
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="dlCreateModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-file-circle-plus"></i></div>
+      <div class="modal__header-title">
+        <h3 id="createModalTitle">New Download</h3>
+        <p id="createModalSub">Fill in the details below. Save as draft or publish immediately.</p>
+      </div>
+      <button class="modal__close" onclick="closeModal('dlCreateModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" action="{% url 'download_create' %}" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="status" id="dc_status_field" value="draft">
+      <input type="hidden" name="tab_type" id="dc_tab_type" value="forms">
+      <div class="modal__body">
+        <div class="form-group">
+          <label for="dc_title">Title <span class="req">*</span></label>
+          <input type="text" id="dc_title" name="title" class="form-control" placeholder="Enter a descriptive title…" required maxlength="300">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="dc_category">Category <span class="req">*</span></label>
+            <select id="dc_category" name="category" class="form-control" required>
+              <option value="">— Select category —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tags <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+            <div style="position:relative;">
+              <div class="tags-input-wrap" id="dc_tagsWrap" onclick="document.getElementById('dc_tagsText').focus()">
+                <input type="text" id="dc_tagsText" class="tags-text-input" placeholder="Type tag and press Enter or comma…" oninput="tagsInputHandler('dc')" onkeydown="tagsKeyDown(event,'dc')">
+              </div>
+              <div class="tags-suggestions" id="dc_tagsSuggestions" style="display:none;"></div>
+              <input type="hidden" name="tags_input" id="dc_tags_input_hidden">
+            </div>
+            <span class="form-hint">Press Enter or , to add. Type to search existing tags.</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="dc_attachment">Attachment <span class="req">*</span></label>
+          <div class="file-upload-zone">
+            <input type="file" name="attachment" id="dc_attachment" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.rar,.txt" onchange="handleSingleFile(this,'dc_filePreview')" required>
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span><strong>Click to upload</strong> or drag &amp; drop<br>PDF, Word, Excel, images, ZIP and more</span>
+          </div>
+          <div class="file-preview" id="dc_filePreview">
+            <i class="fa-solid fa-file" id="dc_fileIcon"></i>
+            <span class="fname" id="dc_fileName"></span>
+            <span class="fsize" id="dc_fileSize"></span>
+          </div>
+        </div>
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="default" checked onchange="toggleArchiveDateRow('dc_archiveDateRow',this)">
+              <div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div>
+            </label>
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="on_date" onchange="toggleArchiveDateRow('dc_archiveDateRow',this)">
+              <div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div>
+            </label>
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="never" onchange="toggleArchiveDateRow('dc_archiveDateRow',this)">
+              <div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div>
+            </label>
+          </div>
+          <div class="archive-date-row" id="dc_archiveDateRow">
+            <label><i class="fa-solid fa-calendar"></i> Archive on:</label>
+            <input type="date" name="archive_date" id="dc_archive_date">
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('dlCreateModal')">Cancel</button>
+        <button type="submit" class="btn btn-outline" onclick="document.getElementById('dc_status_field').value='draft'"><i class="fa-solid fa-floppy-disk"></i> Save as Draft</button>
+        <button type="submit" class="btn btn-primary" onclick="document.getElementById('dc_status_field').value='published'"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: EDIT
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="dlEditModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-pen"></i></div>
+      <div class="modal__header-title"><h3>Edit Download</h3><p>Update the details below.</p></div>
+      <button class="modal__close" onclick="closeModal('dlEditModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" id="dlEditForm" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body">
+        <div class="form-group">
+          <label for="de_title">Title <span class="req">*</span></label>
+          <input type="text" id="de_title" name="title" class="form-control" required maxlength="300">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="de_category">Category <span class="req">*</span></label>
+            <select id="de_category" name="category" class="form-control" required>
+              <option value="">— Select category —</option>
+              {% for cat in all_categories %}
+              <option value="{{ cat.pk }}">{{ cat.name }} ({{ cat.get_tab_display }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="de_status">Status</label>
+            <select id="de_status" name="status" class="form-control">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tags <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+          <div style="position:relative;">
+            <div class="tags-input-wrap" id="de_tagsWrap" onclick="document.getElementById('de_tagsText').focus()">
+              <input type="text" id="de_tagsText" class="tags-text-input" placeholder="Type tag and press Enter or comma…" oninput="tagsInputHandler('de')" onkeydown="tagsKeyDown(event,'de')">
+            </div>
+            <div class="tags-suggestions" id="de_tagsSuggestions" style="display:none;"></div>
+            <input type="hidden" name="tags_input" id="de_tags_input_hidden">
+          </div>
+          <span class="form-hint">Press Enter or , to add. Type to search existing tags.</span>
+        </div>
+        <div id="de_currentFileWrap" style="display:none;">
+          <label style="font-size:.8rem;font-weight:600;color:var(--text-primary);">Current Attachment</label>
+          <div class="current-file-strip" id="de_currentFileStrip">
+            <i class="fa-solid fa-file" id="de_currentFileIcon"></i>
+            <a href="#" id="de_currentFileLink" target="_blank" rel="noopener"></a>
+            <span id="de_currentFileSize" style="color:var(--text-muted);font-size:.75rem;margin-left:4px;"></span>
+            <button type="button" class="clear-file-btn" onclick="clearEditFile()"><i class="fa-solid fa-xmark"></i> Remove</button>
+          </div>
+          <input type="hidden" name="clear_attachment" id="de_clearAttachment" value="0">
+        </div>
+        <div class="form-group">
+          <label>Replace Attachment <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+          <div class="file-upload-zone">
+            <input type="file" name="attachment" id="de_attachment" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.rar,.txt" onchange="handleSingleFile(this,'de_filePreview')">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span><strong>Click to upload new file</strong> or drag &amp; drop<br>Leave empty to keep existing</span>
+          </div>
+          <div class="file-preview" id="de_filePreview">
+            <i class="fa-solid fa-file" id="de_fileIcon"></i>
+            <span class="fname" id="de_fileName"></span>
+            <span class="fsize" id="de_fileSize"></span>
+          </div>
+        </div>
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="default" id="de_archDefault" onchange="toggleArchiveDateRow('de_archiveDateRow',this)"><div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="on_date" id="de_archOnDate" onchange="toggleArchiveDateRow('de_archiveDateRow',this)"><div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div></label>
+            <label class="archive-radio"><input type="radio" name="archive_policy" value="never" id="de_archNever" onchange="toggleArchiveDateRow('de_archiveDateRow',this)"><div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div></label>
+          </div>
+          <div class="archive-date-row" id="de_archiveDateRow">
+            <label><i class="fa-solid fa-calendar"></i> Archive on:</label>
+            <input type="date" name="archive_date" id="de_archive_date">
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('dlEditModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: DETAIL
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="dlDetailModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-eye"></i></div>
+      <div class="modal__header-title"><h3 id="detailDlTitle">Download</h3><p id="detailDlSub"></p></div>
+      <button class="modal__close" onclick="closeModal('dlDetailModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="detailDlBody"></div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('dlDetailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: DELETE
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="dlDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-sm modal-danger">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="modal__header-title"><h3>Delete Download</h3><p>This action cannot be undone.</p></div>
+      <button class="modal__close" onclick="closeModal('dlDeleteModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body">
+      <p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to permanently delete <strong id="deleteDlName"></strong>? The attached file will also be removed.</p>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('dlDeleteModal')">Cancel</button>
+      <form method="post" id="dlDeleteForm" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: CATEGORY
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="catCreateModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-tag"></i></div><div class="modal__header-title"><h3>Add Category</h3><p>Create a new download category.</p></div><button class="modal__close" onclick="closeModal('catCreateModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" action="{% url 'download_category_add' %}" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body">
+        <div class="form-group"><label for="cc_name">Category Name <span class="req">*</span></label><input type="text" id="cc_name" name="name" class="form-control" placeholder="e.g. Leave Forms" required maxlength="200" autofocus></div>
+        <div class="form-group"><label for="cc_tab">Tab <span class="req">*</span></label><select id="cc_tab" name="tab" class="form-control"><option value="forms">Forms</option><option value="files">Files</option></select></div>
+      </div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('catCreateModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Category</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="catEditModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-pen"></i></div><div class="modal__header-title"><h3>Edit Category</h3><p>Rename this category.</p></div><button class="modal__close" onclick="closeModal('catEditModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" id="catEditForm" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body">
+        <div class="form-group"><label for="ce_name">Category Name <span class="req">*</span></label><input type="text" id="ce_name" name="name" class="form-control" required maxlength="200"></div>
+        <div class="form-group"><label for="ce_tab">Tab <span class="req">*</span></label><select id="ce_tab" name="tab" class="form-control"><option value="forms">Forms</option><option value="files">Files</option></select></div>
+      </div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('catEditModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="catDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs modal-danger">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="modal__header-title"><h3>Delete Category</h3><p>This cannot be undone.</p></div><button class="modal__close" onclick="closeModal('catDeleteModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal__body">
+      <p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to delete <strong id="catDeleteName"></strong>?</p>
+      <p id="catDeleteWarning" style="display:none;font-size:.82rem;color:#c0392b;background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.2);padding:8px 12px;border-radius:7px;margin-top:4px;"></p>
+    </div>
+    <div class="modal__footer"><button class="btn btn-outline" onclick="closeModal('catDeleteModal')">Cancel</button><form method="post" id="catDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" id="catDeleteSubmit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form></div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: TAG
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="tagCreateModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon" style="background:rgba(52,152,219,.1);color:#2980b9;"><i class="fa-solid fa-hashtag"></i></div><div class="modal__header-title"><h3>Add Tag</h3><p>Create a new download tag.</p></div><button class="modal__close" onclick="closeModal('tagCreateModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" action="{% url 'download_tag_add' %}" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body"><div class="form-group"><label for="tc_name">Tag Name <span class="req">*</span></label><input type="text" id="tc_name" name="name" class="form-control" placeholder="e.g. HR, Finance, 2025" required maxlength="100" autofocus></div></div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('tagCreateModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Tag</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tagEditModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon" style="background:rgba(52,152,219,.1);color:#2980b9;"><i class="fa-solid fa-pen"></i></div><div class="modal__header-title"><h3>Edit Tag</h3><p>Rename this tag.</p></div><button class="modal__close" onclick="closeModal('tagEditModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" id="tagEditForm" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body"><div class="form-group"><label for="te_name">Tag Name <span class="req">*</span></label><input type="text" id="te_name" name="name" class="form-control" required maxlength="100"></div></div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('tagEditModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tagDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs modal-danger">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="modal__header-title"><h3>Delete Tag</h3><p>This cannot be undone.</p></div><button class="modal__close" onclick="closeModal('tagDeleteModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal__body"><p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to delete the tag <strong id="tagDeleteName"></strong>? It will be removed from all downloads.</p></div>
+    <div class="modal__footer"><button class="btn btn-outline" onclick="closeModal('tagDeleteModal')">Cancel</button><form method="post" id="tagDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form></div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+/* ════════════════════════════════════════
+   UTILITY HELPERS
+   ════════════════════════════════════════ */
+function getCsrf() { return document.querySelector('[name=csrfmiddlewaretoken]').value; }
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+function escJs(s) { return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+function getItem(pk) { return DL_DATA[pk] || null; }
+
+function getFileIcon(name) {
+  var ext = (name || '').split('.').pop().toLowerCase();
+  if (ext === 'pdf')                                          return 'fa-file-pdf';
+  if (['doc','docx'].indexOf(ext) !== -1)                    return 'fa-file-word';
+  if (['xls','xlsx','csv'].indexOf(ext) !== -1)              return 'fa-file-excel';
+  if (['ppt','pptx'].indexOf(ext) !== -1)                    return 'fa-file-powerpoint';
+  if (['jpg','jpeg','png','gif','webp'].indexOf(ext) !== -1) return 'fa-file-image';
+  if (['zip','rar','7z'].indexOf(ext) !== -1)                return 'fa-file-zipper';
+  if (['txt','md'].indexOf(ext) !== -1)                      return 'fa-file-lines';
+  return 'fa-file';
+}
+function formatBytes(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024)    return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+/* ════════════════════════════════════════
+   MANAGE DROPDOWN
+   ════════════════════════════════════════ */
+function toggleManageDropdown() {
+  document.getElementById('manageDropdown').classList.toggle('open');
+}
+function closeManageDropdown() {
+  document.getElementById('manageDropdown').classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('manageDropdownWrap');
+  if (wrap && !wrap.contains(e.target)) closeManageDropdown();
+});
+
+function openManagePanel(type) {
+  document.getElementById('managePanelCategories').classList.toggle('open', type === 'categories');
+  document.getElementById('managePanelTags').classList.toggle('open', type === 'tags');
+}
+function closeManagePanel(type) {
+  document.getElementById('managePanel' + type.charAt(0).toUpperCase() + type.slice(1)).classList.remove('open');
+}
+
+/* ════════════════════════════════════════
+   TAB SWITCHING
+   ════════════════════════════════════════ */
+var ACTIVE_TAB = '{{ active_tab|default:"forms" }}';
+
+function switchTab(tab) {
+  ACTIVE_TAB = tab;
+  ['forms','files'].forEach(function(t) {
+    var panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (panel) panel.classList.toggle('active', t === tab);
+    var btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Btn');
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  var btnNew = document.getElementById('btnNewDownload');
+  if (btnNew) {
+    btnNew.innerHTML = '<i class="fa-solid fa-file-circle-plus"></i> ' + (tab === 'forms' ? 'Add Form' : 'Add File');
+    btnNew.onclick = function(){ openCreateModal(tab); };
+  }
+}
+(function(){ switchTab(ACTIVE_TAB); })();
+
+/* ════════════════════════════════════════
+   FILTER BY STATUS
+   ════════════════════════════════════════ */
+function filterByStatus(tabKey, val) {
+  document.getElementById(tabKey + 'StatusHidden').value = val;
+  document.getElementById(tabKey + 'FilterForm').submit();
+}
+
+/* ════════════════════════════════════════
+   MODAL SYSTEM
+   ════════════════════════════════════════ */
+function openModal(id)  { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+
+document.querySelectorAll('.modal-backdrop').forEach(function(bd) {
+  bd.addEventListener('click', function(e) { if (e.target === bd) closeModal(bd.id); });
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape')
+    document.querySelectorAll('.modal-backdrop.open').forEach(function(m) { closeModal(m.id); });
+});
+
+/* ════════════════════════════════════════
+   ARCHIVE DATE ROW TOGGLE
+   ════════════════════════════════════════ */
+function toggleArchiveDateRow(rowId, radio) {
+  document.getElementById(rowId).classList.toggle('visible', radio.value === 'on_date');
+}
+
+/* ════════════════════════════════════════
+   FILE PREVIEW
+   ════════════════════════════════════════ */
+function handleSingleFile(input, previewId) {
+  var preview = document.getElementById(previewId);
+  if (!input.files || !input.files[0]) { preview.classList.remove('visible'); return; }
+  var f = input.files[0];
+  var prefix = previewId.replace('_filePreview','');
+  var iconEl = document.getElementById(prefix + '_fileIcon');
+  var nameEl = document.getElementById(prefix + '_fileName');
+  var sizeEl = document.getElementById(prefix + '_fileSize');
+  if (iconEl) iconEl.className = 'fa-solid ' + getFileIcon(f.name);
+  if (nameEl) nameEl.textContent = f.name;
+  if (sizeEl) sizeEl.textContent = formatBytes(f.size);
+  preview.classList.add('visible');
+}
+
+/* ════════════════════════════════════════
+   TAGS INPUT WIDGET
+   ════════════════════════════════════════ */
+var _tagsState = {};
+
+function initTagsState(prefix) { if (!_tagsState[prefix]) _tagsState[prefix] = { chips: [] }; }
+
+function renderTagChips(prefix) {
+  initTagsState(prefix);
+  var wrap = document.getElementById(prefix + '_tagsWrap');
+  var textInput = document.getElementById(prefix + '_tagsText');
+  wrap.querySelectorAll('.tag-chip').forEach(function(c){ c.remove(); });
+  _tagsState[prefix].chips.forEach(function(name, i) {
+    var chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.innerHTML = escHtml(name) + '<button type="button" onclick="removeTagChip(\''+prefix+'\','+i+')" title="Remove"><i class="fa-solid fa-xmark"></i></button>';
+    wrap.insertBefore(chip, textInput);
+  });
+  document.getElementById(prefix + '_tags_input_hidden').value = _tagsState[prefix].chips.join(', ');
+}
+
+function addTagChip(prefix, name) {
+  name = name.trim(); if (!name) return;
+  initTagsState(prefix);
+  if (_tagsState[prefix].chips.indexOf(name) === -1) { _tagsState[prefix].chips.push(name); renderTagChips(prefix); }
+  document.getElementById(prefix + '_tagsText').value = '';
+  hideSuggestions(prefix);
+}
+
+function removeTagChip(prefix, idx) { initTagsState(prefix); _tagsState[prefix].chips.splice(idx, 1); renderTagChips(prefix); }
+
+function tagsKeyDown(e, prefix) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    var val = document.getElementById(prefix + '_tagsText').value.replace(/,/g,'').trim();
+    if (val) addTagChip(prefix, val);
+  } else if (e.key === 'Backspace') {
+    var val = document.getElementById(prefix + '_tagsText').value;
+    if (!val && _tagsState[prefix] && _tagsState[prefix].chips.length) { initTagsState(prefix); _tagsState[prefix].chips.pop(); renderTagChips(prefix); }
+  }
+}
+
+function tagsInputHandler(prefix) {
+  var q = document.getElementById(prefix + '_tagsText').value.trim().toLowerCase();
+  var suggestions = document.getElementById(prefix + '_tagsSuggestions');
+  if (!q) { hideSuggestions(prefix); return; }
+  initTagsState(prefix);
+  var existing = ALL_TAGS_LIST.filter(function(t){ return t.name.toLowerCase().indexOf(q) !== -1 && _tagsState[prefix].chips.indexOf(t.name) === -1; });
+  var html = '';
+  existing.slice(0,8).forEach(function(t){ html += '<div class="tags-suggestions-item" onclick="addTagChip(\''+prefix+'\',\''+escJs(t.name)+'\')"><i class="fa-solid fa-hashtag" style="font-size:.7rem;margin-right:5px;color:var(--text-muted);"></i>'+escHtml(t.name)+'</div>'; });
+  var exactMatch = ALL_TAGS_LIST.some(function(t){ return t.name.toLowerCase() === q; });
+  if (!exactMatch) { var raw = document.getElementById(prefix + '_tagsText').value.replace(/,/g,'').trim(); html += '<div class="tags-suggestions-item create-new" onclick="addTagChip(\''+prefix+'\',\''+escJs(raw)+'\')"><i class="fa-solid fa-plus" style="font-size:.7rem;margin-right:5px;"></i>Create "'+escHtml(raw)+'"</div>'; }
+  if (html) { suggestions.innerHTML = html; suggestions.style.display = ''; } else hideSuggestions(prefix);
+}
+
+function hideSuggestions(prefix) { var el = document.getElementById(prefix + '_tagsSuggestions'); if (el) { el.style.display = 'none'; el.innerHTML = ''; } }
+
+document.addEventListener('click', function(e) {
+  ['dc','de'].forEach(function(prefix){
+    var wrap = document.getElementById(prefix + '_tagsWrap');
+    var sugg = document.getElementById(prefix + '_tagsSuggestions');
+    if (wrap && sugg && !wrap.contains(e.target) && !sugg.contains(e.target)) hideSuggestions(prefix);
+  });
+});
+
+/* ════════════════════════════════════════
+   CREATE MODAL
+   ════════════════════════════════════════ */
+function openCreateModal(tabType) {
+  document.getElementById('dc_tab_type').value = tabType;
+  document.getElementById('createModalTitle').textContent = tabType === 'forms' ? 'New Form' : 'New File';
+
+  var cats = tabType === 'forms' ? ALL_CATEGORIES_FORMS : ALL_CATEGORIES_FILES;
+  var sel = document.getElementById('dc_category');
+  sel.innerHTML = '<option value="">— Select category —</option>';
+  cats.forEach(function(c){ sel.innerHTML += '<option value="'+c.pk+'">'+escHtml(c.name)+'</option>'; });
+
+  document.getElementById('dc_title').value = '';
+  document.getElementById('dc_attachment').value = '';
+  document.getElementById('dc_filePreview').classList.remove('visible');
+  document.getElementById('dc_archive_date').value = '';
+  document.querySelector('#dlCreateModal [name="archive_policy"][value="default"]').checked = true;
+  document.getElementById('dc_archiveDateRow').classList.remove('visible');
+
+  initTagsState('dc'); _tagsState['dc'].chips = []; renderTagChips('dc');
+  openModal('dlCreateModal');
+}
+
+/* ════════════════════════════════════════
+   EDIT MODAL
+   ════════════════════════════════════════ */
+function openEditModal(pk) {
+  var item = getItem(pk); if (!item) return;
+  document.getElementById('dlEditForm').action = item.edit_url;
+  document.getElementById('de_title').value    = item.title;
+  document.getElementById('de_status').value   = item.status;
+  document.getElementById('de_category').value = String(item.category_pk);
+
+  var archMap = {default:'de_archDefault', on_date:'de_archOnDate', never:'de_archNever'};
+  var archEl = document.getElementById(archMap[item.archive_policy] || 'de_archDefault');
+  if (archEl) archEl.checked = true;
+  document.getElementById('de_archiveDateRow').classList.toggle('visible', item.archive_policy === 'on_date');
+  document.getElementById('de_archive_date').value = item.archive_date_iso || '';
+
+  var wrap = document.getElementById('de_currentFileWrap');
+  if (item.attachment_url) {
+    wrap.style.display = '';
+    document.getElementById('de_currentFileIcon').className = 'fa-solid ' + getFileIcon(item.attachment_name);
+    var link = document.getElementById('de_currentFileLink'); link.href = item.attachment_url; link.textContent = item.attachment_name;
+    document.getElementById('de_currentFileSize').textContent = item.attachment_size ? '(' + item.attachment_size + ')' : '';
+  } else { wrap.style.display = 'none'; }
+  document.getElementById('de_clearAttachment').value = '0';
+  document.getElementById('de_attachment').value = '';
+  document.getElementById('de_filePreview').classList.remove('visible');
+
+  initTagsState('de'); _tagsState['de'].chips = item.tags ? item.tags.slice() : []; renderTagChips('de');
+  openModal('dlEditModal');
+}
+
+function clearEditFile() { document.getElementById('de_clearAttachment').value = '1'; document.getElementById('de_currentFileWrap').style.display = 'none'; }
+
+/* ════════════════════════════════════════
+   DETAIL MODAL
+   ════════════════════════════════════════ */
+function openDetailModal(pk) {
+  var item = getItem(pk); if (!item) return;
+  document.getElementById('detailDlTitle').textContent = item.title;
+  document.getElementById('detailDlSub').textContent   = item.category + ' · ' + item.tab.charAt(0).toUpperCase() + item.tab.slice(1);
+
+  var bc = {published:'status-badge-published',draft:'status-badge-draft',archived:'status-badge-archived'}[item.status]||'';
+  var h = '<div class="detail-title">'+escHtml(item.title)+'</div>';
+  h += '<div class="detail-meta">';
+  h += '<span><span class="status-badge '+bc+'">'+escHtml(item.status_label)+'</span></span>';
+  h += '<span><i class="fa-solid fa-tag"></i> '+escHtml(item.category)+'</span>';
+  h += '<span><i class="fa-solid fa-user-pen"></i> '+escHtml(item.author)+'</span>';
+  h += '<span><i class="fa-solid fa-calendar"></i> '+escHtml(item.created_at)+'</span>';
+  h += '</div>';
+
+  if (item.tags && item.tags.length) {
+    h += '<div class="detail-section-label"><i class="fa-solid fa-hashtag" style="margin-right:4px;"></i>Tags</div>';
+    h += '<div class="detail-tags-wrap">';
+    item.tags.forEach(function(t){ h += '<span class="tag-pill"><i class="fa-solid fa-hashtag" style="font-size:.6rem;"></i>'+escHtml(t)+'</span>'; });
+    h += '</div>';
+  }
+
+  h += '<div class="detail-grid">';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Category</span><span class="detail-grid-val">'+escHtml(item.category)+'</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Status</span><span class="detail-grid-val">'+escHtml(item.status_label)+'</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Added</span><span class="detail-grid-val">'+escHtml(item.created_at)+'</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Downloads</span><span class="detail-grid-val">'+item.download_count+'</span></div>';
+  h += '</div>';
+
+  if (item.attachment_url) {
+    h += '<div class="detail-section-label"><i class="fa-solid fa-paperclip" style="margin-right:4px;"></i>Attachment</div>';
+    h += '<div class="detail-att-box"><i class="fa-solid '+getFileIcon(item.attachment_name)+'"></i>';
+    h += '<a href="'+escHtml(item.attachment_url)+'" target="_blank" rel="noopener">'+escHtml(item.attachment_name)+'</a>';
+    if (item.attachment_size) h += '<span class="att-size">'+escHtml(item.attachment_size)+'</span>';
+    h += '</div>';
+  }
+
+  if (item.archive_policy === 'never') {
+    h += '<div class="detail-archive-note"><i class="fa-solid fa-infinity"></i> This item will not be archived automatically.</div>';
+  } else if (item.archive_policy === 'on_date' && item.archive_date_fmt) {
+    h += '<div class="detail-archive-note"><i class="fa-solid fa-calendar-xmark"></i> Scheduled to archive on <strong>'+escHtml(item.archive_date_fmt)+'</strong>.</div>';
+  }
+
+  document.getElementById('detailDlBody').innerHTML = h;
+  openModal('dlDetailModal');
+}
+
+/* ════════════════════════════════════════
+   DELETE MODAL
+   ════════════════════════════════════════ */
+function openDeleteModal(pk, title) {
+  var item = getItem(pk);
+  document.getElementById('deleteDlName').textContent = '"' + title + '"';
+  document.getElementById('dlDeleteForm').action = item ? item.delete_url : '/downloads/' + pk + '/delete/';
+  openModal('dlDeleteModal');
+}
+
+/* ════════════════════════════════════════
+   CATEGORY MODALS
+   ════════════════════════════════════════ */
+function openCatEditModal(pk, name, tab) {
+  document.getElementById('catEditForm').action = '/downloads/categories/' + pk + '/edit/';
+  document.getElementById('ce_name').value = name;
+  document.getElementById('ce_tab').value  = tab || 'forms';
+  openModal('catEditModal');
+}
+
+function openCatDeleteModal(pk, name, count) {
+  document.getElementById('catDeleteName').textContent = '"' + name + '"';
+  document.getElementById('catDeleteForm').action = '/downloads/categories/' + pk + '/delete/';
+  var warn = document.getElementById('catDeleteWarning');
+  var btn  = document.getElementById('catDeleteSubmit');
+  if (count > 0) {
+    warn.style.display = '';
+    warn.textContent = '⚠ This category has ' + count + ' item' + (count === 1 ? '' : 's') + ' assigned. Reassign or delete them before deleting this category.';
+    btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed';
+  } else {
+    warn.style.display = 'none';
+    btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = '';
+  }
+  openModal('catDeleteModal');
+}
+
+/* ════════════════════════════════════════
+   TAG MODALS
+   ════════════════════════════════════════ */
+function openTagEditModal(pk, name) {
+  document.getElementById('tagEditForm').action = '/downloads/tags/' + pk + '/edit/';
+  document.getElementById('te_name').value = name;
+  openModal('tagEditModal');
+}
+
+function openTagDeleteModal(pk, name, count) {
+  document.getElementById('tagDeleteName').textContent = '"' + name + '"';
+  document.getElementById('tagDeleteForm').action = '/downloads/tags/' + pk + '/delete/';
+  openModal('tagDeleteModal');
+}
+
+/* ════════════════════════════════════════
+   STATUS TOGGLE (AJAX)
+   ════════════════════════════════════════ */
+function toggleStatus(pk, action) {
+  var item = getItem(pk);
+  var url  = item ? item.toggle_url : '/downloads/' + pk + '/toggle-status/';
+  fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=' + encodeURIComponent(action)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){ if (data.success) window.location.reload(); else showToast(data.error || 'Error changing status.', true); })
+  .catch(function(){ showToast('Network error.', true); });
+}
+
+/* ════════════════════════════════════════
+   TOAST
+   ════════════════════════════════════════ */
+function showToast(msg, isError) {
+  var c = document.getElementById('toastContainer');
+  var t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' toast-error' : '');
+  t.innerHTML = '<i class="fa-solid ' + (isError ? 'fa-circle-exclamation' : 'fa-circle-check') + '"></i>' + escHtml(msg);
+  c.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 4200);
+}
+
+/* Open manage panel if URL says to */
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var manage = params.get('manage');
+  if (manage === 'categories' || manage === 'tags') openManagePanel(manage);
+})();
+</script>
+{% endblock %}
