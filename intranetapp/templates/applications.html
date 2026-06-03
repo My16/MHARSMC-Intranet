@@ -41,7 +41,10 @@
 
 /* ── Stat cards ── */
 .stat-row {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
 }
 @media (max-width: 700px) { .stat-row { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 420px) { .stat-row { grid-template-columns: 1fr 1fr; } }
@@ -475,10 +478,12 @@ textarea.form-control { resize: vertical; min-height: 90px; line-height: 1.6; }
     <div class="stat-icon published"><i class="fa-solid fa-circle-check"></i></div>
     <div class="stat-body"><div class="stat-value">{{ published_count }}</div><div class="stat-label">Published</div></div>
   </div>
-  <div class="stat-card {% if status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('draft')">
-    <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
-    <div class="stat-body"><div class="stat-value">{{ draft_count }}</div><div class="stat-label">Drafts</div></div>
-  </div>
+  {% if can_manage %}
+    <div class="stat-card {% if status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('draft')">
+      <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ draft_count }}</div><div class="stat-label">Drafts</div></div>
+    </div>
+  {% endif %}
 </div>
 
 <!-- Toolbar -->

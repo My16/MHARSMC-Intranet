@@ -177,6 +177,16 @@
   font-family: 'EB Garamond', serif; font-size: 1.08rem; font-weight: 600;
   color: var(--text-primary); line-height: 1.3;
 }
+
+/* ── Clickable name button ── */
+.emp-name-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: 'EB Garamond', serif; font-size: 1.08rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.3; text-align: center;
+  transition: color .15s;
+}
+.emp-name-btn:hover { color: var(--green-dark); text-decoration: underline; }
+
 .emp-position {
   font-size: .77rem; color: var(--green-mid); font-weight: 500;
   background: var(--green-pale); border: 1px solid var(--green-light);
@@ -201,6 +211,24 @@
 .emp-contact-row a { color: var(--text-muted); text-decoration: none; }
 .emp-contact-row a:hover { color: var(--green-dark); text-decoration: underline; }
 .emp-no-contact { font-size: .74rem; color: var(--text-muted); font-style: italic; }
+
+/* ── Employee profile modal specifics ── */
+.emp-modal-avatar {
+  width: 82px; height: 82px; border-radius: 50%;
+  background: var(--green-mid); color: var(--white);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; font-weight: 700; letter-spacing: .5px;
+  overflow: hidden; flex-shrink: 0; border: 4px solid var(--green-light);
+}
+.emp-modal-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.emp-modal-name {
+  font-family: 'EB Garamond', serif; font-size: 1.28rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.3; text-align: center;
+}
+.emp-modal-contacts {
+  display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 320px;
+  border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;
+}
 
 /* ── Offices table ── */
 .off-card {
@@ -294,6 +322,7 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   box-shadow: var(--shadow-lg); animation: modalIn .22s cubic-bezier(.4,0,.2,1); overflow: hidden;
 }
 .modal-sm { max-width: 420px; }
+.modal-profile { max-width: 400px; }
 @keyframes modalIn {
   from { opacity: 0; transform: scale(.96) translateY(8px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -318,14 +347,16 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   display: flex; align-items: center; justify-content: center;
   transition: background .15s, color .15s; flex-shrink: 0;
 }
-.modal__close:hover { background: #eff6ff; color: #1d4ed8; }
+.modal__close:hover { background: #f0f0f0; color: var(--text-primary); }
 .modal__body { padding: 20px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.modal__body.centered { align-items: center; text-align: center; }
 .modal__footer {
   padding: 14px 24px; border-top: 1px solid var(--border);
   display: flex; align-items: center; justify-content: flex-end;
   gap: 8px; flex-shrink: 0; background: #f8faff;
 }
 .modal__footer.danger-footer { background: #fff5f5; }
+.modal__footer.centered-footer { justify-content: center; background: transparent; border-top: none; padding-top: 0; }
 
 /* ── Form elements ── */
 .form-group { display: flex; flex-direction: column; gap: 5px; }
@@ -424,9 +455,7 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
               title="Filter by department">
         <option value="">All Departments</option>
         {% for dept in dept_values %}
-          <option value="{{ dept }}" {% if dept == emp_dept %}selected{% endif %}>
-            {% if ' — ' in dept %}{{ dept|slice:"0:"|cut:"" }}{% endif %}{{ dept }}
-          </option>
+          <option value="{{ dept }}" {% if dept == emp_dept %}selected{% endif %}>{{ dept }}</option>
         {% endfor %}
       </select>
       <select name="emp_per_page" class="toolbar-select {% if emp_per_page != 20 %}has-value{% endif %}"
@@ -457,6 +486,7 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   <div class="emp-grid">
     {% for profile in employees %}
     <div class="emp-card">
+
       <!-- Avatar -->
       <div class="emp-avatar">
         {% if profile.avatar %}
@@ -466,8 +496,18 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
         {% endif %}
       </div>
 
-      <!-- Name -->
-      <div class="emp-name">{{ profile.get_full_name_with_middle }}</div>
+      <!-- Clickable name -->
+      <button class="emp-name-btn"
+              onclick="openEmpModal(this)"
+              data-name="{{ profile.get_full_name_with_middle|escape }}"
+              data-position="{{ profile.position|default:''|escape }}"
+              data-dept="{{ profile.department|default:''|escape }}"
+              data-email="{{ profile.user.email|default:''|escape }}"
+              data-mobile="{{ profile.mobile_number|default:''|escape }}"
+              data-avatar="{% if profile.avatar %}{{ profile.avatar.url }}{% endif %}"
+              data-initials="{{ profile.user.first_name|slice:':1'|upper }}{{ profile.user.last_name|slice:':1'|upper }}">
+        {{ profile.get_full_name_with_middle }}
+      </button>
 
       <!-- Position badge -->
       {% if profile.position %}
@@ -500,6 +540,7 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
           <span class="emp-no-contact">No contact info on file</span>
         {% endif %}
       </div>
+
     </div>
     {% endfor %}
   </div>
@@ -710,6 +751,41 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
 
 
 <!-- ══════════════════════════════════════════════════════════
+     EMPLOYEE PROFILE MODAL
+══════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="empProfileModal" role="dialog" aria-modal="true" aria-labelledby="empModalNameLabel">
+  <div class="modal modal-profile">
+    <!-- Close row -->
+    <div style="display:flex; justify-content:flex-end; padding: 14px 16px 0; flex-shrink:0;">
+      <button class="modal__close" onclick="closeModal('empProfileModal')" type="button" aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <!-- Body -->
+    <div class="modal__body centered" style="padding-top: 10px; padding-bottom: 24px;">
+      <!-- Avatar -->
+      <div class="emp-modal-avatar" id="empModalAvatar"></div>
+      <!-- Name -->
+      <div class="emp-modal-name" id="empModalName" id="empModalNameLabel"></div>
+      <!-- Position -->
+      <span class="emp-position" id="empModalPosition" style="display:none;"></span>
+      <!-- Department -->
+      <div class="emp-dept" id="empModalDept" style="display:none;">
+        <i class="fa-solid fa-building"></i>
+        <span id="empModalDeptText"></span>
+      </div>
+      <!-- Contacts -->
+      <div class="emp-modal-contacts" id="empModalContacts"></div>
+    </div>
+    <!-- Footer -->
+    <div class="modal__footer centered-footer" style="padding-bottom: 22px;">
+      <button type="button" class="btn btn-outline" onclick="closeModal('empProfileModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
      OFFICE MODALS
 ══════════════════════════════════════════════════════════ -->
 
@@ -834,7 +910,6 @@ function switchTab(tab) {
   document.getElementById('tabEmpBtn').className = 'tab-btn' + (tab === 'employees' ? ' active-emp' : '');
   document.getElementById('tabOffBtn').className = 'tab-btn' + (tab === 'offices'   ? ' active-off' : '');
 
-  /* Show/hide page-header add button */
   var hdrBtn = document.getElementById('hdrAddOfficeBtn');
   if (hdrBtn) hdrBtn.style.display = (tab === 'offices') ? '' : 'none';
 }
@@ -850,6 +925,71 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape')
     document.querySelectorAll('.modal-backdrop.open').forEach(function(m) { closeModal(m.id); });
 });
+
+/* ── Employee profile modal ── */
+function openEmpModal(btn) {
+  var name     = btn.dataset.name;
+  var position = btn.dataset.position;
+  var dept     = btn.dataset.dept;
+  var email    = btn.dataset.email;
+  var mobile   = btn.dataset.mobile;
+  var avatar   = btn.dataset.avatar;
+  var initials = btn.dataset.initials;
+
+  /* Avatar */
+  var av = document.getElementById('empModalAvatar');
+  if (avatar) {
+    av.innerHTML = '<img src="' + avatar + '" alt="' + name + '">';
+  } else {
+    av.textContent = initials || '?';
+  }
+
+  /* Name */
+  document.getElementById('empModalName').textContent = name;
+
+  /* Position */
+  var posEl = document.getElementById('empModalPosition');
+  if (position) {
+    posEl.textContent = position;
+    posEl.style.display = '';
+  } else {
+    posEl.style.display = 'none';
+  }
+
+  /* Department */
+  var deptEl  = document.getElementById('empModalDept');
+  var deptTxt = document.getElementById('empModalDeptText');
+  if (dept) {
+    deptTxt.textContent = dept;
+    deptEl.style.display = '';
+  } else {
+    deptEl.style.display = 'none';
+  }
+
+  /* Contacts */
+  var contacts = document.getElementById('empModalContacts');
+  var html = '';
+  if (email) {
+    html += '<div class="emp-contact-row">'
+          + '<i class="fa-solid fa-envelope"></i>'
+          + '<a href="mailto:' + email + '">' + email + '</a>'
+          + '</div>';
+  }
+  if (mobile) {
+    html += '<div class="emp-contact-row">'
+          + '<i class="fa-solid fa-phone"></i>'
+          + '<a href="tel:' + mobile + '">' + mobile + '</a>'
+          + '</div>';
+  }
+  if (!email && !mobile) {
+    html = '<span class="emp-no-contact">No contact info on file</span>';
+  }
+  contacts.innerHTML = html;
+  /* hide the border-top divider if no contacts at all */
+  contacts.style.borderTop = (email || mobile) ? '' : 'none';
+
+  openModal('empProfileModal');
+}
 
 /* ── Office CRUD modals ── */
 function openOfficeEdit(btn) {
@@ -867,8 +1007,8 @@ function openOfficeDelete(btn) {
   var pk   = btn.dataset.pk;
   var name = btn.dataset.name;
 
-  document.getElementById('offDeleteForm').action        = '/directory/offices/' + pk + '/delete/';
-  document.getElementById('offDeleteName').textContent   = '"' + name + '"';
+  document.getElementById('offDeleteForm').action      = '/directory/offices/' + pk + '/delete/';
+  document.getElementById('offDeleteName').textContent = '"' + name + '"';
   openModal('offDeleteModal');
 }
 

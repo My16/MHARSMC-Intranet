@@ -67,7 +67,10 @@
 
 /* ── Stat cards ── */
 .stat-row {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
 }
 @media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
 @media (max-width: 480px) { .stat-row { grid-template-columns: 1fr 1fr; } }
@@ -555,14 +558,16 @@ textarea.form-control { resize: vertical; min-height: 110px; line-height: 1.6; }
       <div class="stat-icon published"><i class="fa-solid fa-circle-check"></i></div>
       <div class="stat-body"><div class="stat-value">{{ ev_published_count }}</div><div class="stat-label">Published</div></div>
     </div>
-    <div class="stat-card ev-stat-card {% if ev_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('ev','draft')">
-      <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
-      <div class="stat-body"><div class="stat-value">{{ ev_draft_count }}</div><div class="stat-label">Drafts</div></div>
-    </div>
-    <div class="stat-card ev-stat-card {% if ev_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('ev','archived')">
-      <div class="stat-icon archived"><i class="fa-solid fa-box-archive"></i></div>
-      <div class="stat-body"><div class="stat-value">{{ ev_archived_count }}</div><div class="stat-label">Archived</div></div>
-    </div>
+    {% if can_manage %}
+      <div class="stat-card ev-stat-card {% if ev_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('ev','draft')">
+        <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ ev_draft_count }}</div><div class="stat-label">Drafts</div></div>
+      </div>
+      <div class="stat-card ev-stat-card {% if ev_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('ev','archived')">
+        <div class="stat-icon archived"><i class="fa-solid fa-box-archive"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ ev_archived_count }}</div><div class="stat-label">Archived</div></div>
+      </div>
+    {% endif %}
   </div>
 
   <!-- Toolbar -->
@@ -732,14 +737,16 @@ textarea.form-control { resize: vertical; min-height: 110px; line-height: 1.6; }
       <div class="stat-icon tr-published"><i class="fa-solid fa-circle-check"></i></div>
       <div class="stat-body"><div class="stat-value">{{ tr_published_count }}</div><div class="stat-label">Published</div></div>
     </div>
-    <div class="stat-card tr-stat-card {% if tr_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('tr','draft')">
-      <div class="stat-icon tr-draft"><i class="fa-solid fa-pen-to-square"></i></div>
-      <div class="stat-body"><div class="stat-value">{{ tr_draft_count }}</div><div class="stat-label">Drafts</div></div>
-    </div>
-    <div class="stat-card tr-stat-card {% if tr_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('tr','archived')">
-      <div class="stat-icon tr-archived"><i class="fa-solid fa-box-archive"></i></div>
-      <div class="stat-body"><div class="stat-value">{{ tr_archived_count }}</div><div class="stat-label">Archived</div></div>
-    </div>
+    {% if can_manage %}
+      <div class="stat-card tr-stat-card {% if tr_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('tr','draft')">
+        <div class="stat-icon tr-draft"><i class="fa-solid fa-pen-to-square"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ tr_draft_count }}</div><div class="stat-label">Drafts</div></div>
+      </div>
+      <div class="stat-card tr-stat-card {% if tr_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('tr','archived')">
+        <div class="stat-icon tr-archived"><i class="fa-solid fa-box-archive"></i></div>
+        <div class="stat-body"><div class="stat-value">{{ tr_archived_count }}</div><div class="stat-label">Archived</div></div>
+      </div>
+    {% endif %}
   </div>
 
   <!-- Toolbar -->

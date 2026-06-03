@@ -115,7 +115,10 @@
 
 /* ── Stat cards ── */
 .stat-row {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
 }
 @media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
 @media (max-width: 480px) { .stat-row { grid-template-columns: 1fr 1fr; } }
@@ -649,14 +652,16 @@ textarea.form-control { resize: vertical; min-height: 110px; line-height: 1.6; }
         <div class="stat-icon u-published"><i class="fa-solid fa-circle-check"></i></div>
         <div class="stat-body"><div class="stat-value">{{ union_published_count }}</div><div class="stat-label">Published</div></div>
       </div>
-      <div class="stat-card u-stat-card {% if union_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('union','draft')">
-        <div class="stat-icon u-draft"><i class="fa-solid fa-pen-to-square"></i></div>
-        <div class="stat-body"><div class="stat-value">{{ union_draft_count }}</div><div class="stat-label">Drafts</div></div>
-      </div>
-      <div class="stat-card u-stat-card {% if union_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('union','archived')">
-        <div class="stat-icon u-archived"><i class="fa-solid fa-box-archive"></i></div>
-        <div class="stat-body"><div class="stat-value">{{ union_archived_count }}</div><div class="stat-label">Archived</div></div>
-      </div>
+      {% if can_manage %}
+        <div class="stat-card u-stat-card {% if union_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('union','draft')">
+          <div class="stat-icon u-draft"><i class="fa-solid fa-pen-to-square"></i></div>
+          <div class="stat-body"><div class="stat-value">{{ union_draft_count }}</div><div class="stat-label">Drafts</div></div>
+        </div>
+        <div class="stat-card u-stat-card {% if union_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('union','archived')">
+          <div class="stat-icon u-archived"><i class="fa-solid fa-box-archive"></i></div>
+          <div class="stat-body"><div class="stat-value">{{ union_archived_count }}</div><div class="stat-label">Archived</div></div>
+        </div>
+      {% endif %}
     </div>
 
     <!-- Toolbar -->
@@ -920,14 +925,16 @@ textarea.form-control { resize: vertical; min-height: 110px; line-height: 1.6; }
         <div class="stat-icon c-published"><i class="fa-solid fa-circle-check"></i></div>
         <div class="stat-body"><div class="stat-value">{{ coop_published_count }}</div><div class="stat-label">Published</div></div>
       </div>
-      <div class="stat-card c-stat-card {% if coop_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('coop','draft')">
-        <div class="stat-icon c-draft"><i class="fa-solid fa-pen-to-square"></i></div>
-        <div class="stat-body"><div class="stat-value">{{ coop_draft_count }}</div><div class="stat-label">Drafts</div></div>
-      </div>
-      <div class="stat-card c-stat-card {% if coop_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('coop','archived')">
-        <div class="stat-icon c-archived"><i class="fa-solid fa-box-archive"></i></div>
-        <div class="stat-body"><div class="stat-value">{{ coop_archived_count }}</div><div class="stat-label">Archived</div></div>
-      </div>
+      {% if can_manage %}
+        <div class="stat-card c-stat-card {% if coop_status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('coop','draft')">
+          <div class="stat-icon c-draft"><i class="fa-solid fa-pen-to-square"></i></div>
+          <div class="stat-body"><div class="stat-value">{{ coop_draft_count }}</div><div class="stat-label">Drafts</div></div>
+        </div>
+        <div class="stat-card c-stat-card {% if coop_status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('coop','archived')">
+          <div class="stat-icon c-archived"><i class="fa-solid fa-box-archive"></i></div>
+          <div class="stat-body"><div class="stat-value">{{ coop_archived_count }}</div><div class="stat-label">Archived</div></div>
+        </div>
+      {% endif %}
     </div>
 
     <form method="get" id="coopFilterForm">

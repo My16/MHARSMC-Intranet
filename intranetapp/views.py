@@ -406,11 +406,12 @@ def _can_manage_press_releases(user):
 def press_releases(request):
     from .models import PressRelease
 
+    can_manage = _can_manage_press_releases(request.user)
+
     search_query  = request.GET.get('search', '').strip()
     status_filter = request.GET.get('status', '')
-    month_filter  = request.GET.get('month', '')   # format: "YYYY-MM"
+    month_filter  = request.GET.get('month', '')
 
-    # Validate and parse per_page
     try:
         per_page = int(request.GET.get('per_page', 10))
     except (ValueError, TypeError):
@@ -420,16 +421,19 @@ def press_releases(request):
 
     qs = PressRelease.objects.select_related('author').order_by('-created_at')
 
+    if not can_manage:
+        qs = qs.filter(status='published')
+        status_filter = ''
+
     if search_query:
         qs = qs.filter(
             Q(title__icontains=search_query) |
             Q(details__icontains=search_query)
         )
 
-    if status_filter in ('draft', 'published', 'archived'):
+    if can_manage and status_filter in ('draft', 'published', 'archived'):
         qs = qs.filter(status=status_filter)
 
-    # Month/year filter — expects "YYYY-MM"
     month_filter_label = ''
     if month_filter:
         try:
@@ -437,50 +441,48 @@ def press_releases(request):
             qs = qs.filter(created_at__year=int(year), created_at__month=int(month))
             month_filter_label = datetime.date(int(year), int(month), 1).strftime('%B %Y')
         except (ValueError, AttributeError):
-            month_filter = ''  # ignore malformed value
+            month_filter = ''
 
-    # Build month options from ALL records (ignore current month filter so the
-    # dropdown always shows every available month, not just the filtered subset)
-    all_dates = (
-        PressRelease.objects
-        .dates('created_at', 'month', order='DESC')
-    )
+    all_dates = PressRelease.objects.dates('created_at', 'month', order='DESC')
     available_months = [
-        {
-            'value': d.strftime('%Y-%m'),
-            'label': d.strftime('%B %Y'),
-        }
+        {'value': d.strftime('%Y-%m'), 'label': d.strftime('%B %Y')}
         for d in all_dates
     ]
 
-    # Stats (always over the full table, not the filtered queryset)
-    total_count     = PressRelease.objects.count()
-    published_count = PressRelease.objects.filter(status='published').count()
-    draft_count     = PressRelease.objects.filter(status='draft').count()
-    archived_count  = PressRelease.objects.filter(status='archived').count()
+    if can_manage:
+        total_count     = PressRelease.objects.count()
+        published_count = PressRelease.objects.filter(status='published').count()
+        draft_count     = PressRelease.objects.filter(status='draft').count()
+        archived_count  = PressRelease.objects.filter(status='archived').count()
+    else:
+        total_count     = PressRelease.objects.filter(status='published').count()
+        published_count = total_count
+        draft_count     = None
+        archived_count  = None
 
-    # Paginate — strip and fall back to 1 if page param is empty or non-numeric
     paginator   = Paginator(qs, per_page)
     page_number = request.GET.get('page', '').strip() or 1
-    page_obj    = paginator.get_page(page_number)  # get_page handles out-of-range safely
+    page_obj    = paginator.get_page(page_number)
 
-    can_manage = _can_manage_press_releases(request.user)
-    can_view = request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.has_module_access('press_releases'))
+    can_view = request.user.is_superuser or (
+        hasattr(request.user, 'profile') and
+        request.user.profile.has_module_access('press_releases')
+    )
 
     return render(request, 'press_releases.html', {
-        'press_releases':    page_obj,          # now a Page object, not a raw queryset
-        'search_query':      search_query,
-        'status_filter':     status_filter,
-        'month_filter':      month_filter,
+        'press_releases':     page_obj,
+        'search_query':       search_query,
+        'status_filter':      status_filter,
+        'month_filter':       month_filter,
         'month_filter_label': month_filter_label,
-        'available_months':  available_months,
-        'per_page':          per_page,
-        'total_count':       total_count,
-        'published_count':   published_count,
-        'draft_count':       draft_count,
-        'archived_count':    archived_count,
-        'can_manage':        can_manage,
-        'can_view':          can_view,
+        'available_months':   available_months,
+        'per_page':           per_page,
+        'total_count':        total_count,
+        'published_count':    published_count,
+        'draft_count':        draft_count,
+        'archived_count':     archived_count,
+        'can_manage':         can_manage,
+        'can_view':           can_view,
     })
 
 
@@ -646,6 +648,7 @@ def _can_manage_events(user):
 def events_trainings(request):
     from .models import Event, Training
 
+    can_manage = _can_manage_events(request.user)
     active_tab = request.GET.get('tab', 'ev')
 
     # ── EVENTS ────────────────────────────────────────────────
@@ -664,12 +667,16 @@ def events_trainings(request):
              .prefetch_related('attachments')
              .order_by('-start_date', '-created_at'))
 
+    if not can_manage:
+        ev_qs = ev_qs.filter(status='published')
+        ev_status = ''
+
     if ev_search:
         ev_qs = ev_qs.filter(
             Q(title__icontains=ev_search) | Q(details__icontains=ev_search) |
             Q(location__icontains=ev_search) | Q(summary__icontains=ev_search))
 
-    if ev_status in ('draft', 'published', 'archived'):
+    if can_manage and ev_status in ('draft', 'published', 'archived'):
         ev_qs = ev_qs.filter(status=ev_status)
 
     ev_month_label = ''
@@ -690,6 +697,17 @@ def events_trainings(request):
     ev_page_number = request.GET.get('page_ev', '').strip() or 1
     ev_page_obj    = ev_paginator.get_page(ev_page_number)
 
+    if can_manage:
+        ev_total_count     = Event.objects.count()
+        ev_published_count = Event.objects.filter(status='published').count()
+        ev_draft_count     = Event.objects.filter(status='draft').count()
+        ev_archived_count  = Event.objects.filter(status='archived').count()
+    else:
+        ev_total_count     = Event.objects.filter(status='published').count()
+        ev_published_count = ev_total_count
+        ev_draft_count     = None
+        ev_archived_count  = None
+
     # ── TRAININGS ──────────────────────────────────────────────
     tr_search = request.GET.get('tr_search', '').strip()
     tr_status = request.GET.get('tr_status', '')
@@ -706,13 +724,17 @@ def events_trainings(request):
              .prefetch_related('attachments')
              .order_by('-start_date', '-created_at'))
 
+    if not can_manage:
+        tr_qs = tr_qs.filter(status='published')
+        tr_status = ''
+
     if tr_search:
         tr_qs = tr_qs.filter(
             Q(title__icontains=tr_search) | Q(details__icontains=tr_search) |
             Q(location__icontains=tr_search) | Q(summary__icontains=tr_search) |
             Q(organizer__icontains=tr_search) | Q(target_participants__icontains=tr_search))
 
-    if tr_status in ('draft', 'published', 'archived'):
+    if can_manage and tr_status in ('draft', 'published', 'archived'):
         tr_qs = tr_qs.filter(status=tr_status)
 
     tr_month_label = ''
@@ -733,41 +755,49 @@ def events_trainings(request):
     tr_page_number = request.GET.get('page_tr', '').strip() or 1
     tr_page_obj    = tr_paginator.get_page(tr_page_number)
 
-    can_manage = _can_manage_events(request.user)
+    if can_manage:
+        tr_total_count     = Training.objects.count()
+        tr_published_count = Training.objects.filter(status='published').count()
+        tr_draft_count     = Training.objects.filter(status='draft').count()
+        tr_archived_count  = Training.objects.filter(status='archived').count()
+    else:
+        tr_total_count     = Training.objects.filter(status='published').count()
+        tr_published_count = tr_total_count
+        tr_draft_count     = None
+        tr_archived_count  = None
 
-    can_view = request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.has_module_access('events_trainings'))
+    can_view = request.user.is_superuser or (
+        hasattr(request.user, 'profile') and
+        request.user.profile.has_module_access('events_trainings')
+    )
 
     return render(request, 'events_trainings.html', {
-        # shared
-        'active_tab':        active_tab,
-        'can_manage':        can_manage,
-        # events
-        'events':            ev_page_obj,
-        'ev_search_query':   ev_search,
-        'ev_status_filter':  ev_status,
-        'ev_month_filter':   ev_month,
+        'active_tab':            active_tab,
+        'can_manage':            can_manage,
+        'events':                ev_page_obj,
+        'ev_search_query':       ev_search,
+        'ev_status_filter':      ev_status,
+        'ev_month_filter':       ev_month,
         'ev_month_filter_label': ev_month_label,
         'ev_available_months':   ev_available_months,
-        'ev_per_page':       ev_per_page,
-        'ev_total_count':    Event.objects.count(),
-        'ev_published_count':Event.objects.filter(status='published').count(),
-        'ev_draft_count':    Event.objects.filter(status='draft').count(),
-        'ev_archived_count': Event.objects.filter(status='archived').count(),
-        # trainings
-        'trainings':         tr_page_obj,
-        'tr_search_query':   tr_search,
-        'tr_status_filter':  tr_status,
-        'tr_month_filter':   tr_month,
+        'ev_per_page':           ev_per_page,
+        'ev_total_count':        ev_total_count,
+        'ev_published_count':    ev_published_count,
+        'ev_draft_count':        ev_draft_count,
+        'ev_archived_count':     ev_archived_count,
+        'trainings':             tr_page_obj,
+        'tr_search_query':       tr_search,
+        'tr_status_filter':      tr_status,
+        'tr_month_filter':       tr_month,
         'tr_month_filter_label': tr_month_label,
         'tr_available_months':   tr_available_months,
-        'tr_per_page':       tr_per_page,
-        'tr_total_count':    Training.objects.count(),
-        'tr_published_count':Training.objects.filter(status='published').count(),
-        'tr_draft_count':    Training.objects.filter(status='draft').count(),
-        'tr_archived_count': Training.objects.filter(status='archived').count(),
-        'can_view':          can_view,
+        'tr_per_page':           tr_per_page,
+        'tr_total_count':        tr_total_count,
+        'tr_published_count':    tr_published_count,
+        'tr_draft_count':        tr_draft_count,
+        'tr_archived_count':     tr_archived_count,
+        'can_view':              can_view,
     })
-
 
 # ── Create ─────────────────────────────────────────────────────────────────────
 
@@ -1246,39 +1276,45 @@ def _can_manage_issuances(user):
 @login_required
 def issuances(request):
     from .models import Issuance, IssuanceCategory
- 
-    active_tab = request.GET.get('tab', 'issuances')   # 'issuances' | 'categories'
- 
-    # ── ISSUANCES tab ──────────────────────────────────────────────────────────
+
+    can_manage = _can_manage_issuances(request.user)
+    active_tab = request.GET.get('tab', 'issuances')
+
     search_query    = request.GET.get('search', '').strip()
     status_filter   = request.GET.get('status', '')
     category_filter = request.GET.get('category', '')
     month_filter    = request.GET.get('month', '')
- 
+
     try:
         per_page = int(request.GET.get('per_page', 10))
     except (ValueError, TypeError):
         per_page = 10
     if per_page not in (5, 10, 20, 40, 100):
         per_page = 10
- 
+
     qs = (
         Issuance.objects
         .select_related('category', 'author')
         .order_by('-issuance_date', '-created_at')
     )
- 
+
+    if not can_manage:
+        qs = qs.filter(status='published')
+        status_filter = ''
+
     if search_query:
         qs = qs.filter(
             Q(issuance_no__icontains=search_query) |
             Q(summary__icontains=search_query) |
             Q(category__name__icontains=search_query)
         )
-    if status_filter in ('draft', 'published', 'archived'):
+
+    if can_manage and status_filter in ('draft', 'published', 'archived'):
         qs = qs.filter(status=status_filter)
+
     if category_filter:
         qs = qs.filter(category_id=category_filter)
- 
+
     month_filter_label = ''
     if month_filter:
         try:
@@ -1288,64 +1324,66 @@ def issuances(request):
             month_filter_label = datetime.date(int(year), int(month), 1).strftime('%B %Y')
         except (ValueError, AttributeError):
             month_filter = ''
- 
-    # Month options (all records, not filtered subset)
+
     all_dates = Issuance.objects.dates('issuance_date', 'month', order='DESC')
     available_months = [
         {'value': d.strftime('%Y-%m'), 'label': d.strftime('%B %Y')}
         for d in all_dates
     ]
- 
-    total_count     = Issuance.objects.count()
-    published_count = Issuance.objects.filter(status='published').count()
-    draft_count     = Issuance.objects.filter(status='draft').count()
-    archived_count  = Issuance.objects.filter(status='archived').count()
- 
+
+    if can_manage:
+        total_count     = Issuance.objects.count()
+        published_count = Issuance.objects.filter(status='published').count()
+        draft_count     = Issuance.objects.filter(status='draft').count()
+        archived_count  = Issuance.objects.filter(status='archived').count()
+    else:
+        total_count     = Issuance.objects.filter(status='published').count()
+        published_count = total_count
+        draft_count     = None
+        archived_count  = None
+
     from django.core.paginator import Paginator
     paginator   = Paginator(qs, per_page)
     page_number = request.GET.get('page', '').strip() or 1
     page_obj    = paginator.get_page(page_number)
- 
-    # ── CATEGORIES tab ─────────────────────────────────────────────────────────
+
     cat_search = request.GET.get('cat_search', '').strip()
     categories_qs = IssuanceCategory.objects.all()
     if cat_search:
         categories_qs = categories_qs.filter(name__icontains=cat_search)
- 
-    all_categories = IssuanceCategory.objects.all()  # for dropdowns
- 
-    can_manage = _can_manage_issuances(request.user)
+
+    all_categories = IssuanceCategory.objects.all()
 
     if active_tab not in ('issuances', 'categories'):
         active_tab = 'issuances'
     if not can_manage and active_tab == 'categories':
         active_tab = 'issuances'
 
-    can_view = request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.has_module_access('issuances'))
- 
+    can_view = request.user.is_superuser or (
+        hasattr(request.user, 'profile') and
+        request.user.profile.has_module_access('issuances')
+    )
+
     return render(request, 'issuances.html', {
-        'active_tab':        active_tab,
-        'can_manage':        can_manage,
-        'can_view':          can_view,
-        # issuances
-        'issuances':         page_obj,
-        'search_query':      search_query,
-        'status_filter':     status_filter,
-        'category_filter':   category_filter,
-        'month_filter':      month_filter,
+        'active_tab':         active_tab,
+        'can_manage':         can_manage,
+        'can_view':           can_view,
+        'issuances':          page_obj,
+        'search_query':       search_query,
+        'status_filter':      status_filter,
+        'category_filter':    category_filter,
+        'month_filter':       month_filter,
         'month_filter_label': month_filter_label,
-        'available_months':  available_months,
-        'per_page':          per_page,
-        'total_count':       total_count,
-        'published_count':   published_count,
-        'draft_count':       draft_count,
-        'archived_count':    archived_count,
-        # categories
-        'categories':        categories_qs,
-        'all_categories':    all_categories,
-        'cat_search':        cat_search,
-    })
- 
+        'available_months':   available_months,
+        'per_page':           per_page,
+        'total_count':        total_count,
+        'published_count':    published_count,
+        'draft_count':        draft_count,
+        'archived_count':     archived_count,
+        'categories':         categories_qs,
+        'all_categories':     all_categories,
+        'cat_search':         cat_search,
+    }) 
  
 # ── Create ─────────────────────────────────────────────────────────────────────
  
@@ -1607,29 +1645,33 @@ def _can_manage_wiki(user):
 @login_required
 def wiki(request):
     from .models import WikiArticle, WikiTag
- 
+
+    can_manage = _can_manage_wiki(request.user)
     active_tab = request.GET.get('tab', 'articles')
- 
-    # ── ARTICLES tab ───────────────────────────────────────────────────────────
+
     search_query  = request.GET.get('search', '').strip()
     status_filter = request.GET.get('status', '')
     tag_filter    = request.GET.get('tag', '')
     month_filter  = request.GET.get('month', '')
- 
+
     try:
         per_page = int(request.GET.get('per_page', 10))
     except (ValueError, TypeError):
         per_page = 10
     if per_page not in (5, 10, 20, 40, 100):
         per_page = 10
- 
+
     qs = (
         WikiArticle.objects
         .select_related('author')
         .prefetch_related('tags')
         .order_by('-created_at')
     )
- 
+
+    if not can_manage:
+        qs = qs.filter(status='published')
+        status_filter = ''
+
     if search_query:
         qs = qs.filter(
             Q(title__icontains=search_query) |
@@ -1637,13 +1679,13 @@ def wiki(request):
             Q(reference__icontains=search_query) |
             Q(tags__name__icontains=search_query)
         ).distinct()
- 
-    if status_filter in ('draft', 'published', 'archived'):
+
+    if can_manage and status_filter in ('draft', 'published', 'archived'):
         qs = qs.filter(status=status_filter)
- 
+
     if tag_filter:
         qs = qs.filter(tags__pk=tag_filter)
- 
+
     month_filter_label = ''
     if month_filter:
         try:
@@ -1653,63 +1695,62 @@ def wiki(request):
             month_filter_label = datetime.date(int(year), int(month), 1).strftime('%B %Y')
         except (ValueError, AttributeError):
             month_filter = ''
- 
-    # Month options (all records)
+
     all_dates = WikiArticle.objects.dates('created_at', 'month', order='DESC')
     available_months = [
         {'value': d.strftime('%Y-%m'), 'label': d.strftime('%B %Y')}
         for d in all_dates
     ]
- 
-    total_count     = WikiArticle.objects.count()
-    published_count = WikiArticle.objects.filter(status='published').count()
-    draft_count     = WikiArticle.objects.filter(status='draft').count()
-    archived_count  = WikiArticle.objects.filter(status='archived').count()
- 
+
+    if can_manage:
+        total_count     = WikiArticle.objects.count()
+        published_count = WikiArticle.objects.filter(status='published').count()
+        draft_count     = WikiArticle.objects.filter(status='draft').count()
+        archived_count  = WikiArticle.objects.filter(status='archived').count()
+    else:
+        total_count     = WikiArticle.objects.filter(status='published').count()
+        published_count = total_count
+        draft_count     = None
+        archived_count  = None
+
     paginator   = Paginator(qs, per_page)
     page_number = request.GET.get('page', '').strip() or 1
     page_obj    = paginator.get_page(page_number)
- 
-    # ── TAGS tab ───────────────────────────────────────────────────────────────
+
     tag_search = request.GET.get('tag_search', '').strip()
     all_tags_qs = WikiTag.objects.all()
     all_tags_filtered = all_tags_qs.filter(name__icontains=tag_search) if tag_search else all_tags_qs
- 
-    can_manage = _can_manage_wiki(request.user)
- 
+
     if active_tab not in ('articles', 'tags'):
         active_tab = 'articles'
     if not can_manage and active_tab == 'tags':
         active_tab = 'articles'
- 
+
     can_view = request.user.is_superuser or (
         hasattr(request.user, 'profile') and
         request.user.profile.has_module_access('wiki')
     )
- 
+
     return render(request, 'wiki.html', {
-        'active_tab':        active_tab,
-        'can_manage':        can_manage,
-        'can_view':          can_view,
-        # articles
-        'articles':          page_obj,
-        'search_query':      search_query,
-        'status_filter':     status_filter,
-        'tag_filter':        tag_filter,
-        'month_filter':      month_filter,
+        'active_tab':         active_tab,
+        'can_manage':         can_manage,
+        'can_view':           can_view,
+        'articles':           page_obj,
+        'search_query':       search_query,
+        'status_filter':      status_filter,
+        'tag_filter':         tag_filter,
+        'month_filter':       month_filter,
         'month_filter_label': month_filter_label,
-        'available_months':  available_months,
-        'per_page':          per_page,
-        'total_count':       total_count,
-        'published_count':   published_count,
-        'draft_count':       draft_count,
-        'archived_count':    archived_count,
-        # tags
-        'all_tags':          all_tags_qs,
-        'all_tags_filtered': all_tags_filtered,
-        'tag_search':        tag_search,
-    })
- 
+        'available_months':   available_months,
+        'per_page':           per_page,
+        'total_count':        total_count,
+        'published_count':    published_count,
+        'draft_count':        draft_count,
+        'archived_count':     archived_count,
+        'all_tags':           all_tags_qs,
+        'all_tags_filtered':  all_tags_filtered,
+        'tag_search':         tag_search,
+    }) 
  
 def _resolve_tags(tags_input):
     """
@@ -2082,7 +2123,9 @@ def employees_corner(request):
     if not _has_corner_access(request.user):
         return render(request, 'permission_denied.html')
 
-    active_tab = request.GET.get('tab', 'union')
+    can_manage = _can_manage_corner(request.user)
+
+    active_tab  = request.GET.get('tab', 'union')
     inner_union = request.GET.get('inner_union', 'postings')
     inner_coop  = request.GET.get('inner_coop', 'postings')
 
@@ -2111,8 +2154,20 @@ def employees_corner(request):
     union_base_qs = EmployeeCornerPost.objects.filter(category=EmployeeCornerPost.CATEGORY_UNION)
     coop_base_qs  = EmployeeCornerPost.objects.filter(category=EmployeeCornerPost.CATEGORY_COOP)
 
-    union_posts_qs = _apply_post_filters(union_base_qs, union_search_query, union_month_filter, union_status_filter)
-    coop_posts_qs  = _apply_post_filters(coop_base_qs,  coop_search_query,  coop_month_filter,  coop_status_filter)
+    if not can_manage:
+        union_status_filter = ''
+        coop_status_filter  = ''
+        union_posts_qs = _apply_post_filters(
+            union_base_qs.filter(status=EmployeeCornerPost.STATUS_PUBLISHED),
+            union_search_query, union_month_filter, ''
+        )
+        coop_posts_qs = _apply_post_filters(
+            coop_base_qs.filter(status=EmployeeCornerPost.STATUS_PUBLISHED),
+            coop_search_query, coop_month_filter, ''
+        )
+    else:
+        union_posts_qs = _apply_post_filters(union_base_qs, union_search_query, union_month_filter, union_status_filter)
+        coop_posts_qs  = _apply_post_filters(coop_base_qs,  coop_search_query,  coop_month_filter,  coop_status_filter)
 
     union_paginator = Paginator(union_posts_qs, union_per_page)
     coop_paginator  = Paginator(coop_posts_qs,  coop_per_page)
@@ -2123,44 +2178,61 @@ def employees_corner(request):
     union_posts_with_files = union_base_qs.prefetch_related('attachments').filter(attachments__isnull=False).distinct()
     coop_posts_with_files  = coop_base_qs.prefetch_related('attachments').filter(attachments__isnull=False).distinct()
 
+    if can_manage:
+        union_published_count = union_base_qs.filter(status=EmployeeCornerPost.STATUS_PUBLISHED).count()
+        union_draft_count     = union_base_qs.filter(status=EmployeeCornerPost.STATUS_DRAFT).count()
+        union_archived_count  = union_base_qs.filter(status=EmployeeCornerPost.STATUS_ARCHIVED).count()
+        union_total_count     = union_base_qs.count()
+        coop_published_count  = coop_base_qs.filter(status=EmployeeCornerPost.STATUS_PUBLISHED).count()
+        coop_draft_count      = coop_base_qs.filter(status=EmployeeCornerPost.STATUS_DRAFT).count()
+        coop_archived_count   = coop_base_qs.filter(status=EmployeeCornerPost.STATUS_ARCHIVED).count()
+        coop_total_count      = coop_base_qs.count()
+    else:
+        union_published_count = union_base_qs.filter(status=EmployeeCornerPost.STATUS_PUBLISHED).count()
+        union_draft_count     = None
+        union_archived_count  = None
+        union_total_count     = union_published_count
+        coop_published_count  = coop_base_qs.filter(status=EmployeeCornerPost.STATUS_PUBLISHED).count()
+        coop_draft_count      = None
+        coop_archived_count   = None
+        coop_total_count      = coop_published_count
+
     context = {
-        'active_tab': active_tab,
+        'active_tab':  active_tab,
         'inner_union': inner_union,
-        'inner_coop': inner_coop,
+        'inner_coop':  inner_coop,
+        'can_manage':  can_manage,
 
-        'union_total_count': union_base_qs.count(),
-        'union_post_count': union_base_qs.count(),
-        'union_published_count': union_base_qs.filter(status=EmployeeCornerPost.STATUS_PUBLISHED).count(),
-        'union_draft_count': union_base_qs.filter(status=EmployeeCornerPost.STATUS_DRAFT).count(),
-        'union_archived_count': union_base_qs.filter(status=EmployeeCornerPost.STATUS_ARCHIVED).count(),
-        'union_file_count': PostAttachment.objects.filter(post__category=EmployeeCornerPost.CATEGORY_UNION).count(),
-        'union_posts': union_posts,
+        'union_total_count':      union_total_count,
+        'union_post_count':       union_base_qs.count(),
+        'union_published_count':  union_published_count,
+        'union_draft_count':      union_draft_count,
+        'union_archived_count':   union_archived_count,
+        'union_file_count':       PostAttachment.objects.filter(post__category=EmployeeCornerPost.CATEGORY_UNION).count(),
+        'union_posts':            union_posts,
         'union_posts_with_files': union_posts_with_files,
-        'union_search_query': union_search_query,
-        'union_month_filter': union_month_filter,
+        'union_search_query':     union_search_query,
+        'union_month_filter':     union_month_filter,
         'union_available_months': _month_choices_for_posts(union_base_qs),
-        'union_status_filter': union_status_filter,
-        'union_per_page': union_per_page,
+        'union_status_filter':    union_status_filter,
+        'union_per_page':         union_per_page,
 
-        'coop_total_count': coop_base_qs.count(),
-        'coop_post_count': coop_base_qs.count(),
-        'coop_published_count': coop_base_qs.filter(status=EmployeeCornerPost.STATUS_PUBLISHED).count(),
-        'coop_draft_count': coop_base_qs.filter(status=EmployeeCornerPost.STATUS_DRAFT).count(),
-        'coop_archived_count': coop_base_qs.filter(status=EmployeeCornerPost.STATUS_ARCHIVED).count(),
-        'coop_file_count': PostAttachment.objects.filter(post__category=EmployeeCornerPost.CATEGORY_COOP).count(),
-        'coop_posts': coop_posts,
+        'coop_total_count':      coop_total_count,
+        'coop_post_count':       coop_base_qs.count(),
+        'coop_published_count':  coop_published_count,
+        'coop_draft_count':      coop_draft_count,
+        'coop_archived_count':   coop_archived_count,
+        'coop_file_count':       PostAttachment.objects.filter(post__category=EmployeeCornerPost.CATEGORY_COOP).count(),
+        'coop_posts':            coop_posts,
         'coop_posts_with_files': coop_posts_with_files,
-        'coop_search_query': coop_search_query,
-        'coop_month_filter': coop_month_filter,
+        'coop_search_query':     coop_search_query,
+        'coop_month_filter':     coop_month_filter,
         'coop_available_months': _month_choices_for_posts(coop_base_qs),
-        'coop_status_filter': coop_status_filter,
-        'coop_per_page': coop_per_page,
-
-        'can_manage': _can_manage_corner(request.user),
+        'coop_status_filter':    coop_status_filter,
+        'coop_per_page':         coop_per_page,
     }
 
     return render(request, 'employees_corner.html', context)
-
 
 def _normalize_section(section):
     return section if section in (EmployeeCornerPost.CATEGORY_UNION, EmployeeCornerPost.CATEGORY_COOP) else EmployeeCornerPost.CATEGORY_UNION
@@ -2732,6 +2804,10 @@ def downloads(request):
             .order_by('-created_at')
         )
 
+        if not can_manage:
+            qs = qs.filter(status='published')
+            status_filter = ''
+
         if search:
             qs = qs.filter(
                 Q(title__icontains=search) |
@@ -2739,7 +2815,7 @@ def downloads(request):
                 Q(tags__name__icontains=search)
             ).distinct()
 
-        if status_filter in ('draft', 'published', 'archived'):
+        if can_manage and status_filter in ('draft', 'published', 'archived'):
             qs = qs.filter(status=status_filter)
 
         if cat_filter:
@@ -2748,30 +2824,36 @@ def downloads(request):
         if tag_filter:
             qs = qs.filter(tags__pk=tag_filter)
 
-        total_count     = Download.objects.filter(tab=tab_key).count()
-        published_count = Download.objects.filter(tab=tab_key, status='published').count()
-        draft_count     = Download.objects.filter(tab=tab_key, status='draft').count()
-        archived_count  = Download.objects.filter(tab=tab_key, status='archived').count()
+        if can_manage:
+            total_count     = Download.objects.filter(tab=tab_key).count()
+            published_count = Download.objects.filter(tab=tab_key, status='published').count()
+            draft_count     = Download.objects.filter(tab=tab_key, status='draft').count()
+            archived_count  = Download.objects.filter(tab=tab_key, status='archived').count()
+        else:
+            total_count     = Download.objects.filter(tab=tab_key, status='published').count()
+            published_count = total_count
+            draft_count     = None
+            archived_count  = None
 
-        paginator  = Paginator(qs, per_page)
-        page_obj   = paginator.get_page(request.GET.get(f'page_{tab_key}', '').strip() or 1)
+        paginator = Paginator(qs, per_page)
+        page_obj  = paginator.get_page(request.GET.get(f'page_{tab_key}', '').strip() or 1)
 
         categories = DownloadCategory.objects.filter(tab=tab_key)
         all_tags   = DownloadTag.objects.all()
 
         return {
-            f'{tab_key}_items':          page_obj,
-            f'{tab_key}_search':         search,
-            f'{tab_key}_status_filter':  status_filter,
-            f'{tab_key}_cat_filter':     cat_filter,
-            f'{tab_key}_tag_filter':     tag_filter,
-            f'{tab_key}_per_page':       per_page,
-            f'{tab_key}_total_count':    total_count,
-            f'{tab_key}_published_count':published_count,
-            f'{tab_key}_draft_count':    draft_count,
-            f'{tab_key}_archived_count': archived_count,
-            f'{tab_key}_categories':     categories,
-            f'{tab_key}_all_tags':       all_tags,
+            f'{tab_key}_items':           page_obj,
+            f'{tab_key}_search':          search,
+            f'{tab_key}_status_filter':   status_filter,
+            f'{tab_key}_cat_filter':      cat_filter,
+            f'{tab_key}_tag_filter':      tag_filter,
+            f'{tab_key}_per_page':        per_page,
+            f'{tab_key}_total_count':     total_count,
+            f'{tab_key}_published_count': published_count,
+            f'{tab_key}_draft_count':     draft_count,
+            f'{tab_key}_archived_count':  archived_count,
+            f'{tab_key}_categories':      categories,
+            f'{tab_key}_all_tags':        all_tags,
         }
 
     ctx = {
@@ -2782,13 +2864,11 @@ def downloads(request):
     ctx.update(_build_tab('forms', request))
     ctx.update(_build_tab('files', request))
 
-    # Categories management tab
     cat_search = request.GET.get('cat_search', '').strip()
     cats_qs    = DownloadCategory.objects.all()
     if cat_search:
         cats_qs = cats_qs.filter(name__icontains=cat_search)
 
-    # Tags management tab
     tag_search = request.GET.get('tag_search', '').strip()
     tags_qs    = DownloadTag.objects.all()
     if tag_search:
