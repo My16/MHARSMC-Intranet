@@ -31,13 +31,15 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',  # ASGI server for Django Channels
+    'channels',  # For real-time features (if needed in the future)
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'intranetapp',  # Custom application for Intranet
+    'intranetapp.apps.IntranetAppConfig',  # Register the intranetapp
 ]
 
 MIDDLEWARE = [
@@ -68,7 +70,18 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'intranet.wsgi.application'
+
+ASGI_APPLICATION = 'intranet.asgi.application'
+
+# Redis Channel Layer Configuration for Django Channels
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}
 
 
 # Database

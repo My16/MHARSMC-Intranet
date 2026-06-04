@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ pr.title }}{% endblock %}
+{% block breadcrumb %}Press Releases{% endblock %}
+
+{% block content %}
+<div style="background:var(--white);border-radius:12px;padding:28px;box-shadow:var(--shadow-sm);">
+  
+  {% if pr.image %}
+  <img src="{{ pr.image.url }}" alt="{{ pr.title }}"
+       style="width:100%;max-height:400px;object-fit:cover;border-radius:8px;margin-bottom:20px;">
+  {% endif %}
+
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <span style="background:var(--green-pale);color:var(--green-mid);
+                 padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600;">
+      {{ pr.get_status_display }}
+    </span>
+    <span style="color:var(--text-muted);font-size:.8rem;">
+      {{ pr.created_at|date:"F d, Y" }}
+    </span>
+    {% if pr.author %}
+    <span style="color:var(--text-muted);font-size:.8rem;">
+      by {{ pr.author.get_full_name|default:pr.author.username }}
+    </span>
+    {% endif %}
+  </div>
+
+  <h1 style="font-family:'EB Garamond',serif;font-size:1.8rem;
+             color:var(--text-primary);margin-bottom:16px;">
+    {{ pr.title }}
+  </h1>
+
+  <div style="color:var(--text-primary);line-height:1.7;font-size:.95rem;">
+    {{ pr.details|linebreaks }}
+  </div>
+
+  <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+    <a href="{% url 'press_releases' %}"
+       style="color:var(--green-mid);font-size:.85rem;font-weight:600;">
+      ← Back to Press Releases
+    </a>
+    {% if can_manage %}
+    <button style="margin-left:16px;background:var(--green-mid);color:var(--white);
+                   border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:.85rem;">
+      Edit
+    </button>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

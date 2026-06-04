@@ -15,6 +15,39 @@ from .models import UserProfile, Role, DEPARTMENT_CHOICES, EmployeeCornerPost, P
 from .forms import UserForm, UserEditForm, UserProfileForm
 
 
+from django.http import JsonResponse
+from .models import Notification
+
+@login_required
+def notifications_list(request):
+    notifs = (
+        Notification.objects
+        .filter(recipient=request.user)
+        .select_related('actor')[:20]
+    )
+    data = [
+        {
+            'id':         n.pk,
+            'notif_type': n.notif_type,
+            'title':      n.title,
+            'message':    n.message,
+            'url':        n.url,
+            'is_read':    n.is_read,
+            'actor':      n.actor.get_full_name() if n.actor else 'System',
+            'created_at': n.created_at.strftime('%b %d, %Y %I:%M %p'),
+        }
+        for n in notifs
+    ]
+    return JsonResponse({'notifications': data})
+
+
+@login_required
+def notifications_mark_all_read(request):
+    if request.method == 'POST':
+        Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False}, status=405)
+
 # ── Module registry ────────────────────────────────────────────────────────────
 MODULE_CHOICES = [
     ('press_releases',   'Press Releases'),

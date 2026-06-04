@@ -107,5 +107,9 @@ urlpatterns = [
     # Settings
     path('settings/',          views.settings_profile,  name='settings_profile'),
     path('settings/password/', views.settings_password, name='settings_password'),
+
+    # Notifications
+    path('notifications/',           views.notifications_list,           name='notifications_list'),
+    path('notifications/mark-read/', views.notifications_mark_all_read,  name='notifications_mark_read'),
     
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

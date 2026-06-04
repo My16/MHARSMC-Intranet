@@ -1094,3 +1094,45 @@ class Download(models.Model):
             if '.' in name:
                 return name.rsplit('.', 1)[1].lower()
         return ''
+    
+
+
+class Notification(models.Model):
+    TYPE_PRESS_RELEASE = 'press_release'
+    TYPE_EVENT         = 'event'
+    TYPE_TRAINING      = 'training'
+    TYPE_ISSUANCE      = 'issuance'
+    TYPE_WIKI          = 'wiki'
+    TYPE_DOWNLOAD      = 'download'
+    TYPE_APPLICATION   = 'application'
+    TYPE_CORNER_POST   = 'corner_post'
+
+    TYPE_CHOICES = [
+        (TYPE_PRESS_RELEASE, 'Press Release'),
+        (TYPE_EVENT,         'Event'),
+        (TYPE_TRAINING,      'Training'),
+        (TYPE_ISSUANCE,      'Issuance'),
+        (TYPE_WIKI,          'Wiki Article'),
+        (TYPE_DOWNLOAD,      'Download'),
+        (TYPE_APPLICATION,   'Application'),
+        (TYPE_CORNER_POST,   'Employee Corner Post'),
+    ]
+
+    recipient   = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    notif_type  = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    title       = models.CharField(max_length=255)
+    message     = models.TextField(blank=True)
+    url         = models.CharField(max_length=500, blank=True)
+    is_read     = models.BooleanField(default=False)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    actor       = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='sent_notifications'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'[{self.notif_type}] → {self.recipient.username}: {self.title}'
