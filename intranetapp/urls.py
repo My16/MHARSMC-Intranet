@@ -112,4 +112,15 @@ urlpatterns = [
     path('notifications/',           views.notifications_list,           name='notifications_list'),
     path('notifications/mark-read/', views.notifications_mark_all_read,  name='notifications_mark_read'),
     
+
+    path('messenger/',                                  views.messenger,                name='messenger'),
+    path('messenger/users/',                            views.messenger_users,          name='messenger_users'),
+    path('messenger/conversations/',                    views.messenger_conversations,  name='messenger_conversations'),
+    path('messenger/conversations/start/',              views.messenger_start,          name='messenger_start'),
+    path('messenger/conversations/<int:conv_id>/messages/', views.messenger_messages,  name='messenger_messages'),
+    path('messenger/conversations/<int:conv_id>/send/',     views.messenger_send,      name='messenger_send'),
+    path('messenger/conversations/<int:conv_id>/read/', views.messenger_read,           name='messenger_read'),
+    path('messenger/conversations/<int:conv_id>/delete/', views.messenger_delete_conversation, name='messenger_delete_conversation'),
+
+
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

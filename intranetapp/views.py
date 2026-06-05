@@ -3202,3 +3202,163 @@ def download_tag_delete(request, pk):
         messages.success(request, f'Tag "{name}" has been deleted.')
 
     return redirect('/downloads/?tab=tags')
+
+
+
+
+@login_required
+def messenger(request):
+    return render(request, 'messenger.html')
+
+@login_required
+def messenger_users(request):
+    from .models import UserProfile
+    profiles = UserProfile.objects.select_related('user').filter(
+        user__is_active=True, user__is_superuser=False
+    ).exclude(user=request.user)
+    users = [{
+        'id':         p.user.pk,
+        'username':   p.user.username,
+        'name':       p.get_full_name_with_middle(),
+        'initials':   p.user.first_name[:1].upper() + p.user.last_name[:1].upper(),
+        'avatar':     p.avatar.url if p.avatar else None,
+        'position':   p.position,
+        'department': p.department,
+        'bio':        p.bio,
+        'mobile':     p.mobile_number,
+        'is_online':  p.is_online,
+    } for p in profiles]
+    return JsonResponse({'users': users})
+
+@login_required
+def messenger_conversations(request):
+    from .models import Conversation, Message
+    convs = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
+    result = []
+    for c in convs:
+        other   = c.participants.exclude(pk=request.user.pk).first()
+        if not other: continue
+        profile = getattr(other, 'profile', None)
+        last_msg = c.messages.last()
+        unread   = c.messages.filter(is_read=False).exclude(sender=request.user).count()
+        
+        last_preview = last_msg.body[:60] if last_msg and last_msg.body else ''
+        if not last_preview and last_msg and last_msg.attachment:
+            last_preview = "Sent an attachment"
+            
+        result.append({
+            'id': c.pk,
+            'recipient': {
+                'id':         other.pk,
+                'username':   other.username,
+                'name':       other.get_full_name() or other.username,
+                'initials':   other.first_name[:1].upper() + other.last_name[:1].upper(),
+                'avatar':     profile.avatar.url if profile and profile.avatar else None,
+                'position':   profile.position if profile else '',
+                'department': profile.department if profile else '',
+                'bio':        profile.bio if profile else '',
+                'mobile':     profile.mobile_number if profile else '',
+                'is_online': getattr(profile, 'is_online', False),
+            },
+            'last_message':      last_preview,
+            'last_message_time': last_msg.created_at.isoformat() if last_msg else None,
+            'unread_count':      unread,
+        })
+    return JsonResponse({'conversations': result})
+
+@login_required
+def messenger_messages(request, conv_id):
+    from .models import Conversation, Message
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    msgs = conv.messages.select_related('sender').all()
+    return JsonResponse({'messages': [{
+        'id':         m.pk,
+        'body':       m.body,
+        'sender_id':  m.sender.pk,
+        'created_at': m.created_at.isoformat(),
+        'attachment_url': m.attachment.url if m.attachment else None,
+        'attachment_name': m.attachment_name,
+        'is_image': m.is_image,
+    } for m in msgs]})
+
+@login_required
+def messenger_send(request, conv_id):
+    if request.method == 'POST':
+        from .models import Conversation, Message
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+        body = request.POST.get('body', '').strip()
+        attachment = request.FILES.get('attachment')
+        
+        if not body and not attachment:
+            return JsonResponse({'success': False, 'error': 'Empty message'}, status=400)
+            
+        msg = Message.objects.create(
+            conversation=conv,
+            sender=request.user,
+            body=body,
+            attachment=attachment,
+            attachment_name=attachment.name if attachment else ''
+        )
+        
+        conv.updated_at = msg.created_at
+        conv.save()
+        
+        channel_layer = get_channel_layer()
+        msg_data = {
+            'id': msg.pk,
+            'body': msg.body,
+            'sender_id': request.user.pk,
+            'created_at': msg.created_at.isoformat(),
+            'attachment_url': msg.attachment.url if msg.attachment else None,
+            'attachment_name': msg.attachment_name,
+            'is_image': msg.is_image,
+        }
+        async_to_sync(channel_layer.group_send)(
+            f'chat_{conv_id}',
+            {
+                'type': 'chat_message',
+                'message': msg_data
+            }
+        )
+        
+        return JsonResponse({'success': True, 'message': msg_data})
+    return JsonResponse({'success': False}, status=405)
+
+@login_required
+def messenger_read(request, conv_id):
+    if request.method == 'POST':
+        from .models import Conversation, Message
+        conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+        conv.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False}, status=405)
+
+@login_required
+def messenger_delete_conversation(request, conv_id):
+    if request.method == 'POST':
+        from .models import Conversation
+        conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+        conv.delete()
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False}, status=405)
+
+@login_required
+def messenger_start(request):
+    if request.method == 'POST':
+        import json as _json
+        from .models import Conversation
+        data    = _json.loads(request.body)
+        other   = get_object_or_404(User, pk=data['user_id'])
+        # Find existing or create new
+        existing = Conversation.objects.filter(
+            participants=request.user
+        ).filter(participants=other).first()
+        if existing:
+            return JsonResponse({'conversation_id': existing.pk})
+        conv = Conversation.objects.create()
+        conv.participants.add(request.user, other)
+        return JsonResponse({'conversation_id': conv.pk})
+    return JsonResponse({'success': False}, status=405)

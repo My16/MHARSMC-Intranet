@@ -93,3 +93,99 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             }
             for n in qs
         ]
+    
+
+
+
+class ChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        user = self.scope['user']
+        if not user.is_authenticated:
+            await self.close(); return
+        self.conv_id   = self.scope['url_route']['kwargs']['conv_id']
+        self.group_name = f'chat_{self.conv_id}'
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        user = self.scope['user']
+
+        if data['type'] == 'message':
+            msg_data = await self.save_message(user, data['body'])
+            await self.channel_layer.group_send(self.group_name, {
+                'type': 'chat_message',
+                'message': msg_data
+            })
+        elif data['type'] in ('typing', 'stop_typing'):
+            await self.channel_layer.group_send(self.group_name, {
+                'type': data['type'], 'user_id': user.pk
+            })
+
+    async def chat_message(self, event):
+        await self.send(text_data=json.dumps({'type': 'chat_message', 'message': event['message']}))
+
+    async def typing(self, event):
+        await self.send(text_data=json.dumps({'type': 'typing', 'user_id': event['user_id']}))
+
+    async def stop_typing(self, event):
+        await self.send(text_data=json.dumps({'type': 'stop_typing'}))
+
+    @database_sync_to_async
+    def save_message(self, user, body):
+        from .models import Conversation, Message
+        conv = Conversation.objects.get(pk=self.conv_id)
+        msg  = Message.objects.create(conversation=conv, sender=user, body=body)
+        conv.updated_at = msg.created_at
+        conv.save()
+        return {
+            'id': msg.pk, 'body': msg.body,
+            'sender_id': user.pk,
+            'created_at': msg.created_at.isoformat(),
+            'attachment_url': None,
+            'attachment_name': '',
+            'is_image': False,
+        }
+    
+class PresenceConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user = self.scope['user']
+        if not self.user.is_authenticated:
+            await self.close()
+            return
+
+        self.room = 'presence'
+        await self.channel_layer.group_add(self.room, self.channel_name)
+        await self.accept()
+
+        # Mark user online and broadcast
+        await self.set_online(True)
+        await self.channel_layer.group_send(self.room, {
+            'type': 'presence_update',
+            'user_id': self.user.pk,
+            'is_online': True,
+        })
+
+    async def disconnect(self, code):
+        await self.set_online(False)
+        await self.channel_layer.group_send(self.room, {
+            'type': 'presence_update',
+            'user_id': self.user.pk,
+            'is_online': False,
+        })
+        await self.channel_layer.group_discard(self.room, self.channel_name)
+
+    async def presence_update(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'presence',
+            'user_id': event['user_id'],
+            'is_online': event['is_online'],
+        }))
+
+    @database_sync_to_async
+    def set_online(self, status):
+        from .models import UserProfile
+        UserProfile.objects.filter(user=self.user).update(is_online=status)

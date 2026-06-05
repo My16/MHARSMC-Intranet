@@ -605,6 +605,14 @@
     <div class="nav__section-label">Staff</div>
     {% endif %}
 
+    <div class="nav__item">
+      <a href="{% url 'messenger' %}" class="nav__link">
+        <span class="nav__icon"><i class="fa-solid fa-envelope"></i></span>
+        <span class="nav__label">Messenger</span>
+      </a>
+      <span class="nav__tooltip">Messenger</span>
+    </div>
+
     {% if request.user.is_superuser or request.user|has_module_access:'employees_corner' %}
     <div class="nav__item">
       <a href="{% url 'employees_corner' %}" class="nav__link">

@@ -1,0 +1,1974 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Messenger — MHARSMC Intranet{% endblock %}
+{% block page_title %}Messenger{% endblock %}
+{% block breadcrumb %}Messenger{% endblock %}
+
+{% block extra_css %}
+<style>
+  .content { padding: 0 !important; }
+
+  .msng {
+    display: flex;
+    height: calc(100vh - var(--header-height));
+    background: var(--white);
+    overflow: hidden;
+  }
+
+  /* ─── LEFT PANEL ─── */
+  .msng__sidebar {
+    width: 340px; min-width: 340px;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    background: var(--white);
+  }
+  .msng__sidebar-head {
+    padding: 18px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .msng__sidebar-title {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.3rem; font-weight: 600;
+    color: var(--text-primary); margin-bottom: 10px;
+  }
+  .msng__search { position: relative; }
+  .msng__search input {
+    width: 100%; padding: 8px 12px 8px 36px;
+    border: 1px solid var(--border); border-radius: 20px;
+    background: var(--green-pale); font-size: .83rem;
+    color: var(--text-primary); outline: none;
+    transition: border-color .18s, background .18s;
+  }
+  .msng__search input:focus { border-color: var(--green-accent); background: var(--white); }
+  .msng__search i {
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted); font-size: .85rem; pointer-events: none;
+  }
+  .msng__convs { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .msng__convs::-webkit-scrollbar { width: 3px; }
+  .msng__convs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* conversation item */
+  .msng__conv {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; cursor: pointer;
+    transition: background .15s; position: relative;
+  }
+  .msng__conv:hover { background: var(--green-pale); }
+  .msng__conv.active { background: var(--green-pale); }
+  .msng__conv.active::before {
+    content: ''; position: absolute;
+    left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--green-accent); border-radius: 0 3px 3px 0;
+  }
+  .msng__conv-avatar {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 600; color: var(--white);
+    flex-shrink: 0; position: relative;
+  }
+  .msng__conv-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .msng__online-dot {
+    position: absolute; bottom: 2px; right: 2px;
+    width: 11px; height: 11px; background: #22c55e;
+    border: 2px solid var(--white); border-radius: 50%;
+  }
+  .msng__conv-info { flex: 1; min-width: 0; }
+  .msng__conv-name {
+    font-size: .875rem; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .msng__conv-preview {
+    font-size: .775rem; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
+  }
+  .msng__conv-preview.unread { color: var(--text-primary); font-weight: 600; }
+  .msng__conv-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .msng__conv-time { font-size: .7rem; color: var(--text-muted); }
+  .msng__unread-badge {
+    width: 18px; height: 18px; background: var(--green-accent);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: .65rem; font-weight: 700; color: var(--white);
+  }
+
+  /* ─── 3-DOTS MENU on hover ─── */
+  .msng__conv-dots {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--white); border: 1px solid var(--border);
+    display: none; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 10; color: var(--text-muted);
+    font-size: .75rem; transition: background .15s, color .15s;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  .msng__conv:hover .msng__conv-dots { display: flex; }
+  .msng__conv:hover .msng__conv-meta { opacity: 0; pointer-events: none; }
+  .msng__conv-dots:hover { background: var(--green-pale); color: var(--green-dark); }
+
+  .msng__conv-menu {
+    position: absolute; right: 8px; top: calc(50% + 14px);
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,.13);
+    z-index: 200; min-width: 190px; padding: 4px 0;
+    display: none; animation: menuIn .15s ease;
+  }
+  .msng__conv-menu.open { display: block; }
+  @keyframes menuIn {
+    from { opacity: 0; transform: scale(.95) translateY(-4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .msng__conv-menu-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 16px; font-size: .83rem; color: var(--text-primary);
+    cursor: pointer; transition: background .12s; white-space: nowrap;
+  }
+  .msng__conv-menu-item:hover { background: var(--green-pale); }
+  .msng__conv-menu-item i { width: 16px; text-align: center; color: var(--text-muted); font-size: .85rem; }
+  .msng__conv-menu-item.danger { color: #dc2626; }
+  .msng__conv-menu-item.danger i { color: #dc2626; }
+  .msng__conv-menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* ─── RIGHT PANEL ─── */
+  .msng__chat { flex: 1; display: flex; flex-direction: row; min-width: 0; }
+  .msng__chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .msng__chat-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: var(--white);
+  }
+  .msng__chat-head-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 600; color: var(--white);
+    flex-shrink: 0; overflow: hidden; position: relative;
+  }
+  .msng__chat-head-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .msng__chat-head-info { flex: 1; }
+  .msng__chat-head-name {
+    font-size: .95rem; font-weight: 600; color: var(--text-primary);
+    font-family: 'EB Garamond', serif;
+  }
+  .msng__chat-head-status { font-size: .73rem; color: var(--text-muted); }
+  .msng__chat-head-status.online { color: #22c55e; }
+  .msng__chat-actions { display: flex; gap: 4px; }
+  .msng__action-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: none; background: transparent; color: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: .95rem;
+    transition: background .15s, color .15s;
+  }
+  .msng__action-btn:hover { background: var(--green-pale); color: var(--green-dark); }
+  .msng__action-btn.active { background: var(--green-pale); color: var(--green-dark); }
+
+  .msng__messages {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 4px;
+    background: var(--green-pale);
+  }
+  .msng__messages::-webkit-scrollbar { width: 4px; }
+  .msng__messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .msng__date-divider {
+    display: flex; align-items: center; gap: 10px; margin: 12px 0 6px;
+  }
+  .msng__date-divider::before, .msng__date-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .msng__date-divider span { font-size: .7rem; color: var(--text-muted); white-space: nowrap; }
+
+  .msng__msg-row { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 2px; }
+  .msng__msg-row.mine { flex-direction: row-reverse; }
+  .msng__msg-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .65rem; font-weight: 600; color: var(--white);
+    flex-shrink: 0; overflow: hidden;
+  }
+  .msng__msg-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .msng__bubble {
+    max-width: 65%; padding: 9px 14px; border-radius: 18px;
+    font-size: .875rem; line-height: 1.45; word-break: break-word; position: relative;
+  }
+  .msng__msg-row:not(.mine) .msng__bubble {
+    background: var(--white); color: var(--text-primary);
+    border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(26,71,49,.06);
+  }
+  .msng__msg-row.mine .msng__bubble {
+    background: var(--green-mid); color: var(--white); border-bottom-right-radius: 4px;
+  }
+  .msng__bubble-time { font-size: .65rem; margin-top: 3px; display: block; opacity: .65; }
+  .msng__msg-row.mine .msng__bubble-time { text-align: right; }
+
+  /* ─── ATTACHMENT IN BUBBLE ─── */
+  .msng__bubble-img {
+    width: 220px; height: 160px; object-fit: cover;
+    border-radius: 12px; display: block; cursor: pointer;
+    transition: opacity .15s;
+    margin-bottom: 4px;
+  }
+  .msng__bubble-img:hover { opacity: .88; }
+  .msng__bubble.img-only { padding: 6px; background: transparent !important; box-shadow: none !important; }
+  .msng__bubble.img-only .msng__bubble-time { color: var(--text-muted); opacity: 1; }
+  .msng__msg-row.mine .msng__bubble.img-only .msng__bubble-time { color: var(--text-muted); }
+
+  .msng__bubble-file {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0; cursor: pointer; text-decoration: none;
+  }
+  .msng__bubble-file-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: rgba(255,255,255,.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0;
+  }
+  .msng__msg-row:not(.mine) .msng__bubble-file-icon { background: var(--green-pale); color: var(--green-mid); }
+  .msng__bubble-file-name {
+    font-size: .82rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+  }
+  .msng__bubble-file-size { font-size: .7rem; opacity: .7; }
+
+  /* ─── ATTACHMENT PREVIEW BAR ─── */
+  .msng__attach-preview {
+    display: none; align-items: center; gap: 10px;
+    padding: 10px 16px; border-top: 1px solid var(--border);
+    background: var(--green-pale); flex-shrink: 0;
+  }
+  .msng__attach-preview.visible { display: flex; }
+  .msng__attach-thumb {
+    width: 48px; height: 48px; border-radius: 8px;
+    object-fit: cover; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .msng__attach-file-icon {
+    width: 48px; height: 48px; border-radius: 8px;
+    background: var(--white); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; color: var(--green-mid); flex-shrink: 0;
+  }
+  .msng__attach-info { flex: 1; min-width: 0; }
+  .msng__attach-name {
+    font-size: .83rem; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .msng__attach-size { font-size: .72rem; color: var(--text-muted); }
+  .msng__attach-remove {
+    width: 28px; height: 28px; border-radius: 50%; border: none;
+    background: var(--border); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: .78rem; flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .msng__attach-remove:hover { background: #fca5a5; color: #dc2626; }
+
+  .msng__typing { display: flex; align-items: flex-end; gap: 8px; padding: 4px 0; }
+  .msng__typing-bubble {
+    background: var(--white); border-radius: 18px; border-bottom-left-radius: 4px;
+    padding: 10px 14px; display: flex; gap: 4px; align-items: center;
+    box-shadow: 0 1px 2px rgba(26,71,49,.06);
+  }
+  .msng__typing-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted);
+    animation: typingBounce 1.2s infinite;
+  }
+  .msng__typing-dot:nth-child(2) { animation-delay: .2s; }
+  .msng__typing-dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes typingBounce {
+    0%,60%,100% { transform: translateY(0); opacity: .4; }
+    30% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  .msng__input-area {
+    display: flex; align-items: flex-end; gap: 8px;
+    padding: 12px 16px; border-top: 1px solid var(--border);
+    background: var(--white); flex-shrink: 0;
+  }
+  .msng__input-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: none;
+    background: transparent; color: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1rem; flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .msng__input-btn:hover { background: var(--green-pale); color: var(--green-dark); }
+  .msng__input-wrap {
+    flex: 1; background: var(--green-pale);
+    border: 1px solid var(--border); border-radius: 20px;
+    display: flex; align-items: flex-end; padding: 6px 14px; gap: 8px;
+    transition: border-color .18s;
+  }
+  .msng__input-wrap:focus-within { border-color: var(--green-accent); background: var(--white); }
+  .msng__input-wrap textarea {
+    flex: 1; border: none; background: transparent; resize: none;
+    outline: none; font-family: 'Source Sans 3', sans-serif;
+    font-size: .875rem; color: var(--text-primary);
+    line-height: 1.4; max-height: 120px; min-height: 22px;
+    overflow-y: auto; padding: 0;
+  }
+  .msng__input-wrap textarea::placeholder { color: var(--text-muted); }
+  .msng__send-btn {
+    width: 34px; height: 34px; border-radius: 50%; border: none;
+    background: var(--green-mid); color: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: .9rem; flex-shrink: 0;
+    transition: background .15s, transform .1s;
+  }
+  .msng__send-btn:hover { background: var(--green-dark); }
+  .msng__send-btn:active { transform: scale(.92); }
+
+  .msng__empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    color: var(--text-muted); background: var(--green-pale);
+  }
+  .msng__empty i { font-size: 3rem; color: var(--green-light); }
+  .msng__empty p { font-size: .9rem; }
+
+  /* ─── INFO PANEL (right side — two-level) ─── */
+  .msng__info-panel {
+    position: relative;
+    width: 0; min-width: 0; overflow: hidden;
+    border-left: 1px solid transparent;
+    display: flex; flex-direction: column;
+    background: var(--white);
+    transition: width .24s cubic-bezier(.4,0,.2,1),
+                min-width .24s cubic-bezier(.4,0,.2,1),
+                border-color .24s ease;
+    flex-shrink: 0;
+  }
+  .msng__info-panel.open {
+    width: 320px; min-width: 320px;
+    border-left-color: var(--border);
+  }
+  .msng__info-slider {
+    width: 320px; height: 100%;
+    display: flex; overflow: hidden;
+    position: relative;
+  }
+  .msng__info-layer {
+    width: 320px; min-width: 320px; height: 100%;
+    display: flex; flex-direction: column;
+    transition: transform .26s cubic-bezier(.4,0,.2,1);
+    overflow: hidden;
+  }
+  .msng__info-slider.media-open .msng__info-layer {
+    transform: translateX(-320px);
+  }
+  .msng__info-scroll { flex: 1; overflow-y: auto; }
+  .msng__info-scroll::-webkit-scrollbar { width: 3px; }
+  .msng__info-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .msng__info-profile {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 28px 20px 20px; border-bottom: 1px solid var(--border);
+    text-align: center; flex-shrink: 0;
+  }
+  .msng__info-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: 600; color: var(--white);
+    overflow: hidden; margin-bottom: 12px;
+    border: 3px solid var(--green-pale);
+  }
+  .msng__info-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .msng__info-name { font-family: 'EB Garamond', serif; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+  .msng__info-sub { font-size: .75rem; color: var(--text-muted); }
+  .msng__info-online { display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+  .msng__info-online-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+  .msng__info-online span { font-size: .75rem; color: #22c55e; }
+  .msng__info-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background .12s; user-select: none;
+  }
+  .msng__info-row:hover { background: var(--green-pale); }
+  .msng__info-row-left { display: flex; align-items: center; gap: 10px; }
+  .msng__info-row-icon {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--green-pale);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; color: var(--green-mid); flex-shrink: 0;
+  }
+  .msng__info-row-label { font-size: .875rem; font-weight: 600; color: var(--text-primary); }
+  .msng__info-row-sub { font-size: .72rem; color: var(--text-muted); margin-top: 1px; }
+  .msng__info-row-chevron { font-size: .75rem; color: var(--text-muted); }
+  .msng__info-members { border-bottom: 1px solid var(--border); }
+  .msng__info-members-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 18px; cursor: pointer; user-select: none;
+    transition: background .12s;
+  }
+  .msng__info-members-head:hover { background: var(--green-pale); }
+  .msng__info-members-head strong { font-size: .85rem; color: var(--text-primary); }
+  .msng__info-members-head i { font-size: .75rem; color: var(--text-muted); transition: transform .2s; }
+  .msng__info-members.collapsed .msng__info-members-head i { transform: rotate(-90deg); }
+  .msng__info-members-body { padding: 0 14px 10px; }
+  .msng__info-members.collapsed .msng__info-members-body { display: none; }
+
+  /* ── Layer 2: Media / Files / Links ── */
+  .msng__media-panel {
+    width: 320px; min-width: 320px; height: 100%;
+    display: flex; flex-direction: column;
+    background: var(--white);
+  }
+  .msng__media-panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: var(--white);
+  }
+  .msng__media-back {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: var(--green-pale); color: var(--text-primary);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: .85rem; flex-shrink: 0;
+    transition: background .15s;
+  }
+  .msng__media-back:hover { background: var(--border); }
+  .msng__media-panel-title { font-family: 'EB Garamond', serif; font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+  .msng__media-tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; padding: 0 4px;
+  }
+  .msng__media-tab {
+    flex: 1; padding: 11px 4px; text-align: center;
+    font-size: .83rem; font-weight: 600; color: var(--text-muted);
+    cursor: pointer; border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s; user-select: none;
+  }
+  .msng__media-tab:hover { color: var(--text-primary); }
+  .msng__media-tab.active { color: var(--green-mid); border-bottom-color: var(--green-mid); }
+  .msng__media-body { flex: 1; overflow-y: auto; padding: 0; }
+  .msng__media-body::-webkit-scrollbar { width: 3px; }
+  .msng__media-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .msng__tab-pane { display: none; }
+  .msng__tab-pane.active { display: block; }
+  .msng__media-month { font-size: .75rem; font-weight: 700; color: var(--text-primary); padding: 14px 16px 8px; letter-spacing: .02em; }
+  .msng__media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 0 0 2px; }
+  .msng__media-thumb {
+    aspect-ratio: 1; overflow: hidden; cursor: pointer;
+    background: var(--green-pale); transition: opacity .15s;
+  }
+  .msng__media-thumb:hover { opacity: .82; }
+  .msng__media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .msng__file-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .12s; text-decoration: none; color: inherit;
+  }
+  .msng__file-item:hover { background: var(--green-pale); }
+  .msng__file-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--green-pale); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .95rem; color: var(--green-mid); flex-shrink: 0;
+  }
+  .msng__file-name { font-size: .82rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+  .msng__file-size { font-size: .7rem; color: var(--text-muted); }
+  .msng__tab-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 48px 20px; color: var(--text-muted); text-align: center;
+  }
+  .msng__tab-empty i { font-size: 2.2rem; color: var(--green-light); }
+  .msng__tab-empty p { font-size: .82rem; }
+
+  /* ─── NEW MESSAGE MODAL ─── */
+  .msng__new-modal {
+    display: none; position: fixed; inset: 0; z-index: 9000;
+    background: rgba(0,0,0,.45); align-items: center; justify-content: center;
+  }
+  .msng__new-modal.open { display: flex; }
+  .msng__new-modal-box {
+    background: var(--white); border-radius: 14px;
+    width: 420px; max-height: 80vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: var(--shadow-lg); animation: modalIn .2s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .msng__new-modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .msng__new-modal-head strong { font-family: 'EB Garamond', serif; font-size: 1.1rem; }
+  .msng__new-modal-close {
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: var(--green-pale); color: var(--text-muted);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; transition: background .15s;
+  }
+  .msng__new-modal-close:hover { background: var(--border); }
+  .msng__new-search { padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .msng__new-search input {
+    width: 100%; padding: 8px 14px;
+    border: 1px solid var(--border); border-radius: 20px;
+    background: var(--green-pale); font-size: .85rem;
+    color: var(--text-primary); outline: none;
+  }
+  .msng__new-search input:focus { border-color: var(--green-accent); background: var(--white); }
+  .msng__new-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .msng__new-user {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; cursor: pointer; transition: background .15s;
+  }
+  .msng__new-user:hover { background: var(--green-pale); }
+  .msng__new-user-av {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 600; color: var(--white);
+    flex-shrink: 0; overflow: hidden;
+  }
+  .msng__new-user-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .msng__new-user-name { font-size: .875rem; font-weight: 600; color: var(--text-primary); }
+  .msng__new-user-pos { font-size: .75rem; color: var(--text-muted); }
+
+  /* ─── PROFILE MODAL ─── */
+  .msng__profile-modal {
+    display: none; position: fixed; inset: 0; z-index: 9500;
+    background: rgba(0,0,0,.5); align-items: center; justify-content: center;
+  }
+  .msng__profile-modal.open { display: flex; }
+  .msng__profile-box {
+    background: var(--white); border-radius: 16px;
+    width: 380px; max-height: 85vh; overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .2s ease;
+  }
+  .msng__profile-banner {
+    height: 100px; background: linear-gradient(135deg, var(--green-mid), var(--green-dark));
+    position: relative; flex-shrink: 0;
+  }
+  .msng__profile-close-btn {
+    position: absolute; top: 10px; right: 10px;
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.25); color: var(--white);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; transition: background .15s;
+  }
+  .msng__profile-close-btn:hover { background: rgba(255,255,255,.4); }
+  .msng__profile-av-wrap {
+    position: absolute; bottom: -36px; left: 24px;
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 4px solid var(--white); overflow: hidden;
+    background: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: 700; color: var(--white);
+    box-shadow: 0 2px 10px rgba(0,0,0,.15);
+  }
+  .msng__profile-av-wrap img { width: 100%; height: 100%; object-fit: cover; }
+  .msng__profile-body { padding: 44px 24px 24px; overflow-y: auto; }
+  .msng__profile-body::-webkit-scrollbar { width: 3px; }
+  .msng__profile-body::-webkit-scrollbar-thumb { background: var(--border); }
+  .msng__profile-fullname { font-family: 'EB Garamond', serif; font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+  .msng__profile-username { font-size: .78rem; color: var(--text-muted); margin-bottom: 12px; }
+  .msng__profile-status-row { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
+  .msng__profile-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #22c55e; }
+  .msng__profile-status-dot.offline { background: var(--text-muted); }
+  .msng__profile-status-row span { font-size: .78rem; color: var(--text-muted); }
+  .msng__profile-divider { height: 1px; background: var(--border); margin: 14px 0; }
+  .msng__profile-field { margin-bottom: 12px; }
+  .msng__profile-field-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 2px; }
+  .msng__profile-field-value { font-size: .875rem; color: var(--text-primary); }
+  .msng__profile-msg-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; margin-top: 18px; padding: 10px;
+    background: var(--green-mid); color: var(--white); border: none;
+    border-radius: 10px; font-size: .88rem; font-weight: 600; cursor: pointer;
+    transition: background .15s;
+  }
+  .msng__profile-msg-btn:hover { background: var(--green-dark); }
+
+  /* ─── CONFIRM MODAL ─── */
+  .msng__confirm-modal {
+    display: none; position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,.5); align-items: center; justify-content: center;
+  }
+  .msng__confirm-modal.open { display: flex; }
+  .msng__confirm-box {
+    background: var(--white); border-radius: 16px;
+    width: 380px; padding: 28px 28px 22px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.22);
+    animation: modalIn .18s ease;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .msng__confirm-icon {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; margin-bottom: 16px;
+  }
+  .msng__confirm-icon.danger { background: #fee2e2; color: #dc2626; }
+  .msng__confirm-icon.warn   { background: #fef3c7; color: #d97706; }
+  .msng__confirm-title { font-family: 'EB Garamond', serif; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+  .msng__confirm-msg { font-size: .85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 22px; }
+  .msng__confirm-actions { display: flex; gap: 10px; width: 100%; }
+  .msng__confirm-cancel {
+    flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--white);
+    border-radius: 10px; font-size: .88rem; font-weight: 600; color: var(--text-primary);
+    cursor: pointer; transition: background .15s;
+  }
+  .msng__confirm-cancel:hover { background: var(--green-pale); }
+  .msng__confirm-ok {
+    flex: 1; padding: 10px; border: none; border-radius: 10px;
+    font-size: .88rem; font-weight: 600; cursor: pointer; transition: background .15s;
+  }
+  .msng__confirm-ok.danger { background: #dc2626; color: #fff; }
+  .msng__confirm-ok.danger:hover { background: #b91c1c; }
+  .msng__confirm-ok.warn   { background: #d97706; color: #fff; }
+  .msng__confirm-ok.warn:hover   { background: #b45309; }
+  .msng__confirm-ok.primary { background: var(--green-mid); color: #fff; }
+  .msng__confirm-ok.primary:hover { background: var(--green-dark); }
+
+  /* ─── LIGHTBOX ─── */
+  .msng__lightbox {
+    display: none; position: fixed; inset: 0; z-index: 11000;
+    background: rgba(0,0,0,.92); align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  .msng__lightbox.open { display: flex; }
+  .msng__lightbox-close {
+    position: absolute; top: 16px; right: 20px;
+    width: 38px; height: 38px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.15); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1.1rem; transition: background .15s;
+    z-index: 2;
+  }
+  .msng__lightbox-close:hover { background: rgba(255,255,255,.28); }
+  .msng__lightbox-download {
+    position: absolute; top: 16px; right: 66px;
+    width: 38px; height: 38px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.15); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1rem; transition: background .15s; text-decoration: none;
+    z-index: 2;
+  }
+  .msng__lightbox-download:hover { background: rgba(255,255,255,.28); }
+  .msng__lightbox-img {
+    max-width: 90vw; max-height: 82vh; object-fit: contain;
+    border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,.5);
+  }
+  .msng__lightbox-caption {
+    color: rgba(255,255,255,.6); font-size: .8rem; margin-top: 12px;
+  }
+  .msng__lightbox-file {
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    padding: 48px; background: rgba(255,255,255,.06); border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.12);
+  }
+  .msng__lightbox-file i { font-size: 3.5rem; color: rgba(255,255,255,.7); }
+  .msng__lightbox-file-name { color: #fff; font-size: 1rem; font-weight: 600; }
+  .msng__lightbox-file-dl {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 22px; background: var(--green-mid); color: #fff;
+    border-radius: 10px; text-decoration: none; font-size: .88rem; font-weight: 600;
+    transition: background .15s;
+  }
+  .msng__lightbox-file-dl:hover { background: var(--green-dark); }
+
+  /* ─── FAB ─── */
+  .msng__fab {
+    position: fixed; bottom: 28px; right: 28px;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--green-mid); color: var(--white);
+    border: none; display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(26,71,49,.28); z-index: 800;
+    transition: background .18s, transform .15s, box-shadow .18s;
+  }
+  .msng__fab:hover { background: var(--green-dark); transform: scale(1.08); box-shadow: 0 6px 22px rgba(26,71,49,.36); }
+  .msng__fab:active { transform: scale(.96); }
+
+  /* ─── ENVELOPE DROPDOWN ─── */
+  .msng__env-panel {
+    display: none; position: absolute; top: 44px; right: -8px;
+    width: 320px; background: var(--white);
+    border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow-lg); z-index: 500;
+    overflow: hidden; font-size: .85rem;
+  }
+  .msng__env-panel.open { display: block; }
+  .msng__env-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 16px 10px; border-bottom: 1px solid var(--border);
+  }
+  .msng__env-head strong { font-size: .92rem; }
+  .msng__env-head a { font-size: .75rem; color: var(--green-mid); font-weight: 600; }
+  .msng__env-item {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 16px; cursor: pointer; transition: background .15s;
+    border-bottom: 1px solid var(--border); text-decoration: none; color: inherit;
+  }
+  .msng__env-item:last-child { border-bottom: none; }
+  .msng__env-item:hover { background: var(--green-pale); }
+  .msng__env-av {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .75rem; font-weight: 600; color: var(--white);
+    flex-shrink: 0; overflow: hidden;
+  }
+  .msng__env-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .msng__env-name { font-size: .82rem; font-weight: 600; color: var(--text-primary); }
+  .msng__env-preview { font-size: .76rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .msng__env-time { font-size: .68rem; color: var(--text-muted); white-space: nowrap; }
+  .msng__env-unread { width: 8px; height: 8px; border-radius: 50%; background: var(--green-accent); flex-shrink: 0; margin-top: 6px; }
+  .msng__env-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: .82rem; }
+
+  @media (max-width: 768px) {
+    .msng__sidebar { width: 100%; min-width: unset; }
+    .msng__chat { display: none; }
+    .msng__chat.mobile-open { display: flex; }
+    .msng__sidebar.mobile-hidden { display: none; }
+    .msng__fab { bottom: 80px; }
+    .msng__info-panel.open { width: 100% !important; min-width: unset !important; position: absolute; top: 0; right: 0; bottom: 0; z-index: 50; }
+    .msng__info-slider, .msng__info-layer, .msng__media-panel { width: 100%; min-width: unset; }
+    .msng__info-slider.media-open .msng__info-layer { transform: translateX(-100%); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="msng" id="msng">
+
+  <!-- LEFT: Conversation List -->
+  <div class="msng__sidebar" id="msngSidebar">
+    <div class="msng__sidebar-head">
+      <div class="msng__sidebar-title">Messages</div>
+      <div class="msng__search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Search conversations..." id="convSearch" autocomplete="off">
+      </div>
+    </div>
+    <div class="msng__convs" id="convList">
+      <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.83rem;">Loading…</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Chat Window -->
+  <div class="msng__chat" id="msngChat">
+    <div class="msng__chat-main">
+      <div class="msng__empty" id="msngEmpty">
+        <i class="fa-regular fa-comments"></i>
+        <p>Select a conversation to start messaging</p>
+      </div>
+
+      <div id="msngActiveChat" style="display:none;flex:1;flex-direction:column;min-height:0;">
+        <div class="msng__chat-head">
+          <button class="msng__action-btn" id="backBtn" style="display:none;" onclick="closeMobileChat()">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div class="msng__chat-head-avatar" id="chatHeadAvatar"></div>
+          <div class="msng__chat-head-info">
+            <div class="msng__chat-head-name" id="chatHeadName">—</div>
+            <div class="msng__chat-head-status" id="chatHeadStatus">—</div>
+          </div>
+          <div class="msng__chat-actions">
+            <button class="msng__action-btn" id="infoToggleBtn" title="Conversation info">
+              <i class="fa-solid fa-circle-info"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="msng__messages" id="msngMessages"></div>
+
+        <!-- Attachment preview bar -->
+        <div class="msng__attach-preview" id="attachPreview">
+          <div id="attachPreviewThumb"></div>
+          <div class="msng__attach-info">
+            <div class="msng__attach-name" id="attachPreviewName"></div>
+            <div class="msng__attach-size" id="attachPreviewSize"></div>
+          </div>
+          <button class="msng__attach-remove" id="attachRemoveBtn" title="Remove attachment">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="msng__input-area">
+          <button class="msng__input-btn" id="attachBtn" title="Attach file">
+            <i class="fa-solid fa-paperclip"></i>
+          </button>
+          <input type="file" id="fileInput" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
+          <div class="msng__input-wrap">
+            <textarea id="msgInput" placeholder="Aa" rows="1" autocomplete="off"></textarea>
+          </div>
+          <button class="msng__send-btn" id="sendBtn" title="Send">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Panel -->
+    <div class="msng__info-panel" id="msngInfoPanel">
+      <div class="msng__info-slider" id="msngInfoSlider">
+
+        <!-- Layer 1: Chat info -->
+        <div class="msng__info-layer">
+          <div class="msng__info-scroll">
+            <div class="msng__info-profile">
+              <div class="msng__info-avatar" id="infoAvatar"></div>
+              <div class="msng__info-name" id="infoName">—</div>
+              <div class="msng__info-sub" id="infoSub"></div>
+              <div class="msng__info-online" id="infoOnline" style="display:none;">
+                <div class="msng__info-online-dot"></div>
+                <span>Active now</span>
+              </div>
+            </div>
+            <div class="msng__info-members" id="infoMembersSection" style="display:none;">
+              <div class="msng__info-members-head" onclick="this.closest('.msng__info-members').classList.toggle('collapsed')">
+                <strong>Chat Members</strong>
+                <i class="fa-solid fa-chevron-down"></i>
+              </div>
+              <div class="msng__info-members-body" id="infoMembersList"></div>
+            </div>
+            <div class="msng__info-row" id="openMediaPanelBtn">
+              <div class="msng__info-row-left">
+                <div class="msng__info-row-icon"><i class="fa-solid fa-photo-film"></i></div>
+                <div>
+                  <div class="msng__info-row-label">Media, files and links</div>
+                  <div class="msng__info-row-sub" id="infoMediaCount">Nothing shared yet</div>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right msng__info-row-chevron"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Layer 2: Media / Files / Links -->
+        <div class="msng__info-layer msng__media-panel">
+          <div class="msng__media-panel-head">
+            <button class="msng__media-back" id="closeMediaPanelBtn">
+              <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <span class="msng__media-panel-title">Media, files and links</span>
+          </div>
+          <div class="msng__media-tabs">
+            <div class="msng__media-tab active" data-tab="media">Media</div>
+            <div class="msng__media-tab" data-tab="files">Files</div>
+            <div class="msng__media-tab" data-tab="links">Links</div>
+          </div>
+          <div class="msng__media-body">
+            <div class="msng__tab-pane active" id="tabMedia">
+              <div id="mediaGridWrap">
+                <div class="msng__tab-empty">
+                  <i class="fa-regular fa-image"></i>
+                  <p>No photos or videos shared yet</p>
+                </div>
+              </div>
+            </div>
+            <div class="msng__tab-pane" id="tabFiles">
+              <div id="filesListWrap">
+                <div class="msng__tab-empty">
+                  <i class="fa-regular fa-file"></i>
+                  <p>No files shared yet</p>
+                </div>
+              </div>
+            </div>
+            <div class="msng__tab-pane" id="tabLinks">
+              <div class="msng__tab-empty">
+                <i class="fa-solid fa-link"></i>
+                <p>No links shared yet</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- New Message Modal -->
+<div class="msng__new-modal" id="newMsgModal">
+  <div class="msng__new-modal-box">
+    <div class="msng__new-modal-head">
+      <strong>New Message</strong>
+      <button class="msng__new-modal-close" id="closeNewModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="msng__new-search">
+      <input type="text" placeholder="Search people…" id="newMsgSearch" autocomplete="off">
+    </div>
+    <div class="msng__new-list" id="newMsgList">
+      <div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.83rem;">Loading users…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Profile Modal -->
+<div class="msng__profile-modal" id="profileModal">
+  <div class="msng__profile-box">
+    <div class="msng__profile-banner">
+      <button class="msng__profile-close-btn" id="closeProfileModal"><i class="fa-solid fa-xmark"></i></button>
+      <div class="msng__profile-av-wrap" id="profileAv"></div>
+    </div>
+    <div class="msng__profile-body">
+      <div class="msng__profile-fullname" id="profileName">—</div>
+      <div class="msng__profile-username" id="profileUsername">—</div>
+      <div class="msng__profile-status-row">
+        <div class="msng__profile-status-dot" id="profileStatusDot"></div>
+        <span id="profileStatusTxt">Offline</span>
+      </div>
+      <div class="msng__profile-divider"></div>
+      <div class="msng__profile-field">
+        <div class="msng__profile-field-label">Position</div>
+        <div class="msng__profile-field-value" id="profilePosition">—</div>
+      </div>
+      <div class="msng__profile-field">
+        <div class="msng__profile-field-label">Department</div>
+        <div class="msng__profile-field-value" id="profileDepartment">—</div>
+      </div>
+      <button class="msng__profile-msg-btn" id="profileMsgBtn">
+        <i class="fa-solid fa-paper-plane"></i> Send Message
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="msng__confirm-modal" id="confirmModal">
+  <div class="msng__confirm-box">
+    <div class="msng__confirm-icon danger" id="confirmIcon">
+      <i class="fa-solid fa-triangle-exclamation" id="confirmIconI"></i>
+    </div>
+    <div class="msng__confirm-title" id="confirmTitle">Are you sure?</div>
+    <div class="msng__confirm-msg" id="confirmMsg">This action cannot be undone.</div>
+    <div class="msng__confirm-actions">
+      <button class="msng__confirm-cancel" id="confirmCancel">Cancel</button>
+      <button class="msng__confirm-ok danger" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox Modal -->
+<div class="msng__lightbox" id="lightbox">
+  <button class="msng__lightbox-close" id="lightboxClose"><i class="fa-solid fa-xmark"></i></button>
+  <a class="msng__lightbox-download" id="lightboxDownload" download title="Download">
+    <i class="fa-solid fa-download"></i>
+  </a>
+  <div id="lightboxContent"></div>
+  <div class="msng__lightbox-caption" id="lightboxCaption"></div>
+</div>
+
+<!-- FAB -->
+<button class="msng__fab" id="fabNewMsg" title="New message">
+  <i class="fa-solid fa-pen-to-square"></i>
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const ME = {
+    id:       {{ request.user.pk }},
+    name:     "{{ request.user.get_full_name|default:request.user.username }}",
+    avatar:   "{% if request.user.profile.avatar %}{{ request.user.profile.avatar.url }}{% endif %}",
+    initials: "{{ request.user.first_name|slice:':1'|upper }}{{ request.user.last_name|slice:':1'|upper }}",
+  };
+
+  let activeConvId    = null;
+  let activeRecipient = null;
+  let ws              = null;
+  let convCache       = {};
+  let allUsers        = [];
+  let allConvs        = [];
+  let infoPanelOpen   = false;
+  let profileTarget   = null;
+  let pendingFile     = null; // { file, isImage, url }
+
+  const convList        = document.getElementById('convList');
+  const msngEmpty       = document.getElementById('msngEmpty');
+  const msngActiveChat  = document.getElementById('msngActiveChat');
+  const chatHeadAvatar  = document.getElementById('chatHeadAvatar');
+  const chatHeadName    = document.getElementById('chatHeadName');
+  const chatHeadStatus  = document.getElementById('chatHeadStatus');
+  const msngMessages    = document.getElementById('msngMessages');
+  const msgInput        = document.getElementById('msgInput');
+  const sendBtn         = document.getElementById('sendBtn');
+  const convSearch      = document.getElementById('convSearch');
+  const newMsgModal     = document.getElementById('newMsgModal');
+  const fabNewMsg       = document.getElementById('fabNewMsg');
+  const closeNewModal   = document.getElementById('closeNewModal');
+  const newMsgSearch    = document.getElementById('newMsgSearch');
+  const newMsgList      = document.getElementById('newMsgList');
+  const backBtn         = document.getElementById('backBtn');
+  const infoToggleBtn   = document.getElementById('infoToggleBtn');
+  const msngInfoPanel   = document.getElementById('msngInfoPanel');
+  const profileModal    = document.getElementById('profileModal');
+  const closeProfileModal = document.getElementById('closeProfileModal');
+  const fileInput       = document.getElementById('fileInput');
+  const attachBtn       = document.getElementById('attachBtn');
+  const attachPreview   = document.getElementById('attachPreview');
+  const attachRemoveBtn = document.getElementById('attachRemoveBtn');
+  const lightbox        = document.getElementById('lightbox');
+
+  /* ─── HELPERS ─── */
+  function timeAgo(isoStr) {
+    const d = new Date(isoStr), now = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    if (diff < 60)    return 'Just now';
+    if (diff < 3600)  return Math.floor(diff/60) + 'm';
+    if (diff < 86400) return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    return d.toLocaleDateString([], {month:'short',day:'numeric'});
+  }
+  function formatTime(isoStr) {
+    return new Date(isoStr).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  }
+  function formatDateLabel(isoStr) {
+    const d = new Date(isoStr), now = new Date();
+    const diff = Math.floor((now - d) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return d.toLocaleDateString([], {month:'long',day:'numeric',year:'numeric'});
+  }
+  function getCookie(name) {
+    const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
+  }
+  function escapeHTML(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  }
+  function formatFileSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1048576).toFixed(1) + ' MB';
+  }
+  function fileIcon(name) {
+    if (!name) return 'fa-file';
+    const ext = name.split('.').pop().toLowerCase();
+    const map = {
+      pdf:'fa-file-pdf', doc:'fa-file-word', docx:'fa-file-word',
+      xls:'fa-file-excel', xlsx:'fa-file-excel', ppt:'fa-file-powerpoint',
+      pptx:'fa-file-powerpoint', zip:'fa-file-zipper', rar:'fa-file-zipper',
+      txt:'fa-file-lines', mp4:'fa-file-video', mov:'fa-file-video',
+      avi:'fa-file-video', mp3:'fa-file-audio', wav:'fa-file-audio',
+    };
+    return map[ext] || 'fa-file';
+  }
+  function isImageUrl(url) {
+    if (!url) return false;
+    return /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url);
+  }
+  function isVideoUrl(url) {
+    if (!url) return false;
+    return /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(url);
+  }
+
+  /* ─── CONFIRM MODAL ─── */
+  function showConfirm({ title, message, type = 'danger', okText = 'Confirm', onOk }) {
+    const modal = document.getElementById('confirmModal');
+    const icon  = document.getElementById('confirmIcon');
+    const iconI = document.getElementById('confirmIconI');
+    const titleEl = document.getElementById('confirmTitle');
+    const msgEl   = document.getElementById('confirmMsg');
+    const okBtn   = document.getElementById('confirmOk');
+    const cancelBtn = document.getElementById('confirmCancel');
+
+    const iconMap = {
+      danger: { cls: 'danger', ico: 'fa-triangle-exclamation' },
+      warn:   { cls: 'warn',   ico: 'fa-circle-exclamation' },
+      primary:{ cls: 'primary',ico: 'fa-circle-question' },
+    };
+    const cfg = iconMap[type] || iconMap.danger;
+
+    icon.className = 'msng__confirm-icon ' + cfg.cls;
+    iconI.className = 'fa-solid ' + cfg.ico;
+    titleEl.textContent = title;
+    msgEl.textContent   = message;
+    okBtn.className = 'msng__confirm-ok ' + cfg.cls;
+    okBtn.textContent   = okText;
+
+    modal.classList.add('open');
+
+    const doOk = () => { modal.classList.remove('open'); cleanup(); onOk && onOk(); };
+    const doCancel = () => { modal.classList.remove('open'); cleanup(); };
+
+    function cleanup() {
+      okBtn.removeEventListener('click', doOk);
+      cancelBtn.removeEventListener('click', doCancel);
+    }
+
+    okBtn.addEventListener('click', doOk);
+    cancelBtn.addEventListener('click', doCancel);
+  }
+
+  /* ─── LIGHTBOX ─── */
+  function openLightbox(url, name) {
+    const content = document.getElementById('lightboxContent');
+    const caption = document.getElementById('lightboxCaption');
+    const dlBtn   = document.getElementById('lightboxDownload');
+
+    dlBtn.href = url;
+    dlBtn.download = name || 'file';
+    caption.textContent = name || '';
+
+    content.innerHTML = '';
+    if (isImageUrl(url)) {
+      const img = document.createElement('img');
+      img.src = url; img.className = 'msng__lightbox-img';
+      img.alt = name || '';
+      content.appendChild(img);
+    } else if (isVideoUrl(url)) {
+      const vid = document.createElement('video');
+      vid.src = url; vid.controls = true;
+      vid.style.cssText = 'max-width:90vw;max-height:82vh;border-radius:8px;';
+      content.appendChild(vid);
+    } else {
+      const wrap = document.createElement('div');
+      wrap.className = 'msng__lightbox-file';
+      wrap.innerHTML = `
+        <i class="fa-solid ${fileIcon(name)}"></i>
+        <div class="msng__lightbox-file-name">${escapeHTML(name || 'File')}</div>
+        <a href="${url}" download="${name||'file'}" class="msng__lightbox-file-dl">
+          <i class="fa-solid fa-download"></i> Download File
+        </a>`;
+      content.appendChild(wrap);
+    }
+    lightbox.classList.add('open');
+  }
+
+  document.getElementById('lightboxClose').addEventListener('click', () => lightbox.classList.remove('open'));
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('open'); });
+
+  /* ─── INFO PANEL ─── */
+  const msngInfoSlider     = document.getElementById('msngInfoSlider');
+  const openMediaPanelBtn  = document.getElementById('openMediaPanelBtn');
+  const closeMediaPanelBtn = document.getElementById('closeMediaPanelBtn');
+
+  infoToggleBtn.addEventListener('click', () => {
+    infoPanelOpen = !infoPanelOpen;
+    msngInfoPanel.classList.toggle('open', infoPanelOpen);
+    infoToggleBtn.classList.toggle('active', infoPanelOpen);
+    if (!infoPanelOpen) msngInfoSlider.classList.remove('media-open');
+  });
+
+  openMediaPanelBtn.addEventListener('click', () => msngInfoSlider.classList.add('media-open'));
+  closeMediaPanelBtn.addEventListener('click', () => msngInfoSlider.classList.remove('media-open'));
+
+  document.querySelectorAll('.msng__media-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.msng__media-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.msng__tab-pane').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
+    });
+  });
+
+  function populateInfoPanel(recipient, isGroup) {
+    const infoAv = document.getElementById('infoAvatar');
+    infoAv.innerHTML = recipient.avatar
+      ? `<img src="${recipient.avatar}" alt="">`
+      : `<span style="font-size:1.3rem;">${recipient.initials||'?'}</span>`;
+    document.getElementById('infoName').textContent = recipient.name;
+    document.getElementById('infoSub').textContent  = recipient.position || recipient.department || '';
+    document.getElementById('infoOnline').style.display = recipient.is_online ? 'flex' : 'none';
+    document.getElementById('infoMembersSection').style.display = isGroup ? '' : 'none';
+    document.getElementById('infoMediaCount').textContent = 'Nothing shared yet';
+    resetMediaPanel();
+    msngInfoSlider.classList.remove('media-open');
+  }
+
+  function resetMediaPanel() {
+    document.getElementById('mediaGridWrap').innerHTML = '<div class="msng__tab-empty"><i class="fa-regular fa-image"></i><p>No photos or videos shared yet</p></div>';
+    document.getElementById('filesListWrap').innerHTML = '<div class="msng__tab-empty"><i class="fa-regular fa-file"></i><p>No files shared yet</p></div>';
+  }
+
+  function populateMediaPanel(messages) {
+    const images = messages.filter(m => m.attachment_url && m.is_image);
+    const files  = messages.filter(m => m.attachment_url && !m.is_image);
+    let totalCount = images.length + files.length;
+
+    // Update count label
+    document.getElementById('infoMediaCount').textContent =
+      totalCount ? `${totalCount} item${totalCount !== 1 ? 's' : ''} shared` : 'Nothing shared yet';
+
+    // Media grid
+    const gridWrap = document.getElementById('mediaGridWrap');
+    if (images.length) {
+      gridWrap.innerHTML = `<div class="msng__media-grid" id="mediaGrid"></div>`;
+      const grid = document.getElementById('mediaGrid');
+      images.forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'msng__media-thumb';
+        div.innerHTML = `<img src="${m.attachment_url}" alt="${m.attachment_name||''}">`;
+        div.addEventListener('click', () => openLightbox(m.attachment_url, m.attachment_name));
+        grid.appendChild(div);
+      });
+    } else {
+      gridWrap.innerHTML = '<div class="msng__tab-empty"><i class="fa-regular fa-image"></i><p>No photos or videos shared yet</p></div>';
+    }
+
+    // Files list
+    const filesWrap = document.getElementById('filesListWrap');
+    if (files.length) {
+      filesWrap.innerHTML = '';
+      files.forEach(m => {
+        const a = document.createElement('a');
+        a.className = 'msng__file-item';
+        a.href = m.attachment_url;
+        a.target = '_blank';
+        a.addEventListener('click', (e) => { e.preventDefault(); openLightbox(m.attachment_url, m.attachment_name); });
+        a.innerHTML = `
+          <div class="msng__file-icon"><i class="fa-solid ${fileIcon(m.attachment_name)}"></i></div>
+          <div>
+            <div class="msng__file-name">${escapeHTML(m.attachment_name || 'File')}</div>
+            <div class="msng__file-size">${m.attachment_name ? m.attachment_name.split('.').pop().toUpperCase() : 'FILE'}</div>
+          </div>`;
+        filesWrap.appendChild(a);
+      });
+    } else {
+      filesWrap.innerHTML = '<div class="msng__tab-empty"><i class="fa-regular fa-file"></i><p>No files shared yet</p></div>';
+    }
+  }
+
+  /* ─── ATTACHMENT HANDLING ─── */
+  attachBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    pendingFile = { file };
+
+    const thumbEl = document.getElementById('attachPreviewThumb');
+    document.getElementById('attachPreviewName').textContent = file.name;
+    document.getElementById('attachPreviewSize').textContent = formatFileSize(file.size);
+
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      pendingFile.isImage = true;
+      pendingFile.localUrl = url;
+      thumbEl.innerHTML = `<img class="msng__attach-thumb" src="${url}" alt="">`;
+    } else {
+      pendingFile.isImage = false;
+      thumbEl.innerHTML = `<div class="msng__attach-file-icon"><i class="fa-solid ${fileIcon(file.name)}"></i></div>`;
+    }
+
+    attachPreview.classList.add('visible');
+    fileInput.value = '';
+  });
+
+  attachRemoveBtn.addEventListener('click', () => {
+    pendingFile = null;
+    attachPreview.classList.remove('visible');
+    document.getElementById('attachPreviewThumb').innerHTML = '';
+  });
+
+  /* ─── LOAD CONVERSATIONS ─── */
+  function loadConversations(cb) {
+    fetch('/messenger/conversations/')
+      .then(r => r.json())
+      .then(data => {
+        allConvs = data.conversations || [];
+        renderConvList(allConvs);
+        if (cb) cb();
+      })
+      .catch(() => {
+        convList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">Failed to load</div>';
+      });
+  }
+
+  function renderConvList(convs, filterText='') {
+    const lower    = filterText.toLowerCase();
+    const filtered = convs.filter(c => !lower || c.recipient.name.toLowerCase().includes(lower));
+
+    if (!filtered.length) {
+      convList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.82rem;">No conversations yet</div>';
+      return;
+    }
+
+    convList.innerHTML = '';
+    filtered.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'msng__conv' + (c.id === activeConvId ? ' active' : '');
+      div.dataset.id = c.id;
+      const isUnread = c.unread_count > 0;
+
+      div.innerHTML = `
+        <div class="msng__conv-avatar">
+          ${c.recipient.avatar ? `<img src="${c.recipient.avatar}" alt="${c.recipient.name}">` : `<span style="font-size:.78rem;">${c.recipient.initials||'?'}</span>`}
+          ${c.recipient.is_online ? '<span class="msng__online-dot"></span>' : ''}
+        </div>
+        <div class="msng__conv-info">
+          <div class="msng__conv-name">${c.recipient.name}</div>
+          <div class="msng__conv-preview${isUnread?' unread':''}">${c.last_message||'Start a conversation'}</div>
+        </div>
+        <div class="msng__conv-meta">
+          <div class="msng__conv-time">${c.last_message_time ? timeAgo(c.last_message_time) : ''}</div>
+          ${isUnread ? `<div class="msng__unread-badge">${c.unread_count}</div>` : ''}
+        </div>
+        <button class="msng__conv-dots" title="More options" data-conv-id="${c.id}">
+          <i class="fa-solid fa-ellipsis"></i>
+        </button>
+        <div class="msng__conv-menu" id="convMenu_${c.id}">
+          <div class="msng__conv-menu-item" data-action="mark-read">
+            <i class="fa-solid fa-envelope-open"></i> Mark as Read
+          </div>
+          <div class="msng__conv-menu-item" data-action="mute">
+            <i class="fa-solid fa-bell-slash"></i> Mute Notifications
+          </div>
+          <div class="msng__conv-menu-item" data-action="view-profile" data-user='${JSON.stringify(c.recipient)}'>
+            <i class="fa-solid fa-user"></i> View Profile
+          </div>
+          <div class="msng__conv-menu-sep"></div>
+          <div class="msng__conv-menu-item" data-action="archive">
+            <i class="fa-solid fa-box-archive"></i> Archive Chat
+          </div>
+          <div class="msng__conv-menu-item" data-action="block">
+            <i class="fa-solid fa-ban"></i> Block
+          </div>
+          <div class="msng__conv-menu-sep"></div>
+          <div class="msng__conv-menu-item danger" data-action="delete">
+            <i class="fa-solid fa-trash"></i> Delete Chat
+          </div>
+        </div>`;
+
+      div.addEventListener('click', (e) => {
+        if (e.target.closest('.msng__conv-dots') || e.target.closest('.msng__conv-menu')) return;
+        openConversation(c.id, c.recipient);
+      });
+
+      convList.appendChild(div);
+    });
+
+    attachConvMenuHandlers();
+  }
+
+  /* ─── CONV CONTEXT MENU ─── */
+  let openMenuId = null;
+
+  function attachConvMenuHandlers() {
+    document.querySelectorAll('.msng__conv-dots').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const convId = btn.dataset.convId;
+        const menu   = document.getElementById('convMenu_' + convId);
+        const isOpen = menu.classList.contains('open');
+        closeAllConvMenus();
+        if (!isOpen) { menu.classList.add('open'); openMenuId = convId; }
+      });
+    });
+
+    document.querySelectorAll('.msng__conv-menu-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = item.dataset.action;
+        const convEl = item.closest('.msng__conv');
+        const convId = convEl ? convEl.dataset.id : null;
+
+        if (action === 'mark-read') {
+          if (convId) {
+            fetch(`/messenger/conversations/${convId}/read/`, {
+              method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            }).then(() => loadConversations());
+          }
+        } else if (action === 'mute') {
+          showConfirm({
+            title: 'Mute Notifications',
+            message: 'Muting notifications is not yet available in this version.',
+            type: 'warn', okText: 'Got it',
+            onOk: () => {}
+          });
+        } else if (action === 'view-profile') {
+          const userData = JSON.parse(item.dataset.user);
+          openProfileModal(userData);
+        } else if (action === 'archive') {
+          showConfirm({
+            title: 'Archive Chat',
+            message: 'Archiving chats is not yet available in this version.',
+            type: 'warn', okText: 'Got it',
+            onOk: () => {}
+          });
+        } else if (action === 'block') {
+          showConfirm({
+            title: 'Block User',
+            message: 'Are you sure you want to block this user? They won\'t be able to message you.',
+            type: 'danger', okText: 'Block',
+            onOk: () => {
+              showConfirm({ title: 'Coming Soon', message: 'Block functionality is not yet available.', type: 'warn', okText: 'OK' });
+            }
+          });
+        } else if (action === 'delete') {
+          showConfirm({
+            title: 'Delete Conversation',
+            message: 'Are you sure you want to delete this entire conversation? This cannot be undone.',
+            type: 'danger', okText: 'Delete',
+            onOk: () => {
+              fetch(`/messenger/conversations/${convId}/delete/`, {
+                method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+              }).then(() => {
+                if (activeConvId == convId) {
+                  activeConvId = null; activeRecipient = null;
+                  msngEmpty.style.display      = 'flex';
+                  msngActiveChat.style.display = 'none';
+                  if (ws) { ws.close(); ws = null; }
+                }
+                loadConversations();
+              });
+            }
+          });
+        }
+
+        closeAllConvMenus();
+      });
+    });
+  }
+
+  function closeAllConvMenus() {
+    document.querySelectorAll('.msng__conv-menu.open').forEach(m => m.classList.remove('open'));
+    openMenuId = null;
+  }
+  document.addEventListener('click', closeAllConvMenus);
+
+  /* ─── PROFILE MODAL ─── */
+  function openProfileModal(user) {
+    profileTarget = user;
+    const avWrap = document.getElementById('profileAv');
+    avWrap.innerHTML = user.avatar
+      ? `<img src="${user.avatar}" alt="${user.name}">`
+      : `<span style="font-size:1.5rem;font-weight:700;color:var(--white);">${user.initials||'?'}</span>`;
+    document.getElementById('profileName').textContent       = user.name;
+    document.getElementById('profileUsername').textContent   = '@' + (user.username || user.name.toLowerCase().replace(/\s/g,''));
+    document.getElementById('profilePosition').textContent   = user.position || '—';
+    document.getElementById('profileDepartment').textContent = user.department || '—';
+    const dot = document.getElementById('profileStatusDot');
+    const txt = document.getElementById('profileStatusTxt');
+    if (user.is_online) { dot.classList.remove('offline'); txt.textContent = 'Active now'; }
+    else { dot.classList.add('offline'); txt.textContent = 'Offline'; }
+    profileModal.classList.add('open');
+  }
+
+  closeProfileModal.addEventListener('click', () => profileModal.classList.remove('open'));
+  profileModal.addEventListener('click', (e) => { if (e.target === profileModal) profileModal.classList.remove('open'); });
+
+  document.getElementById('profileMsgBtn').addEventListener('click', () => {
+    if (!profileTarget) return;
+    profileModal.classList.remove('open');
+    fetch('/messenger/conversations/start/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ user_id: profileTarget.id }),
+    }).then(r => r.json()).then(data => {
+      loadConversations(() => openConversation(data.conversation_id, profileTarget));
+    });
+  });
+
+  /* ─── OPEN CONVERSATION ─── */
+  function openConversation(convId, recipient) {
+    activeConvId    = convId;
+    activeRecipient = recipient;
+
+    document.querySelectorAll('.msng__conv').forEach(el =>
+      el.classList.toggle('active', el.dataset.id == convId));
+
+    chatHeadAvatar.innerHTML = recipient.avatar
+      ? `<img src="${recipient.avatar}" alt="${recipient.name}">${recipient.is_online ? '<span class="msng__online-dot"></span>' : ''}`
+      : `<span style="font-size:.78rem;">${recipient.initials||'?'}</span>`;
+    chatHeadName.textContent   = recipient.name;
+    chatHeadStatus.textContent = recipient.is_online ? 'Active now' : 'Offline';
+    chatHeadStatus.className   = 'msng__chat-head-status' + (recipient.is_online ? ' online' : '');
+
+    msngEmpty.style.display      = 'none';
+    msngActiveChat.style.display = 'flex';
+    populateInfoPanel(recipient, false);
+
+    if (window.innerWidth <= 768) {
+      document.getElementById('msngSidebar').classList.add('mobile-hidden');
+      document.getElementById('msngChat').classList.add('mobile-open');
+      backBtn.style.display = 'flex';
+    }
+
+    connectChatWS(convId);
+    loadMessages(convId);
+  }
+
+  window.closeMobileChat = function() {
+    document.getElementById('msngSidebar').classList.remove('mobile-hidden');
+    document.getElementById('msngChat').classList.remove('mobile-open');
+    backBtn.style.display = 'none';
+    msngEmpty.style.display      = 'flex';
+    msngActiveChat.style.display = 'none';
+    activeConvId = null;
+    if (ws) { ws.close(); ws = null; }
+  };
+
+  /* ─── LOAD MESSAGES ─── */
+  function loadMessages(convId) {
+    msngMessages.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:.82rem;">Loading…</div>';
+    fetch(`/messenger/conversations/${convId}/messages/`)
+      .then(r => r.json())
+      .then(data => {
+        convCache[convId] = { messages: data.messages };
+        renderMessages(data.messages);
+        populateMediaPanel(data.messages);
+        fetch(`/messenger/conversations/${convId}/read/`, {
+          method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        });
+      });
+  }
+
+  function renderMessages(messages) {
+    msngMessages.innerHTML = '';
+    if (!messages.length) {
+      msngMessages.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:.85rem;">No messages yet. Say hello! 👋</div>';
+      return;
+    }
+    let lastDate = null;
+    messages.forEach(msg => {
+      const msgDate = new Date(msg.created_at).toDateString();
+      if (msgDate !== lastDate) {
+        const div = document.createElement('div');
+        div.className = 'msng__date-divider';
+        div.innerHTML = `<span>${formatDateLabel(msg.created_at)}</span>`;
+        msngMessages.appendChild(div);
+        lastDate = msgDate;
+      }
+      msngMessages.appendChild(buildMessageEl(msg));
+    });
+    scrollToBottom();
+  }
+
+  function buildMessageEl(msg) {
+    const isMine = msg.sender_id === ME.id;
+    const row = document.createElement('div');
+    row.className = 'msng__msg-row' + (isMine ? ' mine' : '');
+    row.dataset.id = msg.id;
+
+    const av = document.createElement('div');
+    av.className = 'msng__msg-avatar';
+    const src = isMine ? ME.avatar : (activeRecipient ? activeRecipient.avatar : '');
+    const ini = isMine ? ME.initials : (activeRecipient ? activeRecipient.initials : '?');
+    av.innerHTML = src ? `<img src="${src}" alt="">` : `<span style="font-size:.6rem;">${ini}</span>`;
+
+    const bubble = document.createElement('div');
+
+    // Build bubble content
+    let content = '';
+    const hasAttachment = msg.attachment_url;
+    const hasBody = msg.body && msg.body.trim();
+
+    if (hasAttachment) {
+      if (msg.is_image) {
+        // Image — standardized size, clickable for lightbox
+        content += `<img class="msng__bubble-img" src="${msg.attachment_url}" alt="${msg.attachment_name||'Image'}" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Image'}">`;
+        if (!hasBody) {
+          bubble.className = 'msng__bubble img-only';
+        } else {
+          bubble.className = 'msng__bubble';
+        }
+      } else if (isVideoUrl(msg.attachment_url)) {
+        // Video thumbnail placeholder — click to open lightbox
+        content += `
+          <div style="position:relative;width:220px;height:140px;border-radius:12px;overflow:hidden;cursor:pointer;margin-bottom:4px;"
+               data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Video'}">
+            <video src="${msg.attachment_url}" style="width:100%;height:100%;object-fit:cover;" muted preload="metadata"></video>
+            <div style="position:absolute;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;">
+              <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;">
+                <i class="fa-solid fa-play" style="color:#1a4731;font-size:.9rem;margin-left:3px;"></i>
+              </div>
+            </div>
+          </div>`;
+        if (!hasBody) bubble.className = 'msng__bubble img-only';
+        else bubble.className = 'msng__bubble';
+      } else {
+        // Non-image file
+        bubble.className = 'msng__bubble';
+        content += `
+          <div class="msng__bubble-file" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'File'}">
+            <div class="msng__bubble-file-icon"><i class="fa-solid ${fileIcon(msg.attachment_name)}"></i></div>
+            <div>
+              <div class="msng__bubble-file-name">${escapeHTML(msg.attachment_name||'File')}</div>
+              <div class="msng__bubble-file-size">${msg.attachment_name ? msg.attachment_name.split('.').pop().toUpperCase() : 'FILE'}</div>
+            </div>
+          </div>`;
+      }
+    } else {
+      bubble.className = 'msng__bubble';
+    }
+
+    if (hasBody) {
+      content += `<span>${escapeHTML(msg.body)}</span>`;
+    }
+
+    content += `<span class="msng__bubble-time">${formatTime(msg.created_at)}</span>`;
+    bubble.innerHTML = content;
+
+    // Bind click events for lightbox
+    const imgEl  = bubble.querySelector('.msng__bubble-img');
+    if (imgEl) {
+      imgEl.addEventListener('click', () => openLightbox(imgEl.dataset.url, imgEl.dataset.name));
+    }
+    const vidDiv = bubble.querySelector('[data-url]');
+    if (vidDiv && !imgEl) {
+      vidDiv.addEventListener('click', () => openLightbox(vidDiv.dataset.url, vidDiv.dataset.name));
+    }
+    const fileDiv = bubble.querySelector('.msng__bubble-file');
+    if (fileDiv) {
+      fileDiv.addEventListener('click', () => openLightbox(fileDiv.dataset.url, fileDiv.dataset.name));
+    }
+
+    row.appendChild(av);
+    row.appendChild(bubble);
+    return row;
+  }
+
+  function appendMessage(msg) {
+    const cached   = convCache[activeConvId];
+    const messages = cached ? cached.messages : [];
+    const lastMsg  = messages[messages.length - 1];
+    const lastDate = lastMsg ? new Date(lastMsg.created_at).toDateString() : null;
+    const thisDate = new Date(msg.created_at).toDateString();
+
+    if (thisDate !== lastDate) {
+      const div = document.createElement('div');
+      div.className = 'msng__date-divider';
+      div.innerHTML = `<span>${formatDateLabel(msg.created_at)}</span>`;
+      msngMessages.appendChild(div);
+    }
+
+    const typing = document.getElementById('typingIndicator');
+    if (typing) typing.remove();
+
+    msngMessages.appendChild(buildMessageEl(msg));
+    messages.push(msg);
+    scrollToBottom();
+
+    // Refresh media panel
+    populateMediaPanel(messages);
+  }
+
+  function scrollToBottom() { msngMessages.scrollTop = msngMessages.scrollHeight; }
+
+  /* ─── WEBSOCKET ─── */
+  function connectChatWS(convId) {
+    if (ws) ws.close();
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws/chat/${convId}/`);
+    ws.onopen    = () => console.log('[Chat WS] connected');
+    ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'chat_message') {
+        // Always update the preview (covers both my messages and theirs)
+        updateConvPreview(convId, data.message);
+        // Only append to chat if this is the active conversation
+        if (activeConvId == convId) {
+            // Don't double-append my own messages (already appended optimistically via sendMessage)
+            if (data.message.sender_id !== ME.id) {
+            appendMessage(data.message);
+            }
+        }
+        } else if (data.type === 'typing' && data.user_id !== ME.id) {
+        showTyping();
+        } else if (data.type === 'stop_typing') {
+        hideTyping();
+        }
+    };
+    ws.onclose = () => console.log('[Chat WS] disconnected');
+    }
+
+  let typingTimer = null;
+  function showTyping() {
+    if (document.getElementById('typingIndicator')) return;
+    const el = document.createElement('div');
+    el.id = 'typingIndicator';
+    el.className = 'msng__typing';
+    const av = activeRecipient;
+    el.innerHTML = `
+      <div class="msng__msg-avatar">${av && av.avatar ? `<img src="${av.avatar}" alt="">` : `<span style="font-size:.6rem;">${av ? av.initials : '?'}</span>`}</div>
+      <div class="msng__typing-bubble">
+        <div class="msng__typing-dot"></div>
+        <div class="msng__typing-dot"></div>
+        <div class="msng__typing-dot"></div>
+      </div>`;
+    msngMessages.appendChild(el);
+    scrollToBottom();
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(hideTyping, 4000);
+  }
+  function hideTyping() { const el = document.getElementById('typingIndicator'); if (el) el.remove(); }
+
+  let myTypingTimer = null, isTyping = false;
+  msgInput.addEventListener('input', () => {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!isTyping) { isTyping = true; ws.send(JSON.stringify({ type: 'typing' })); }
+    clearTimeout(myTypingTimer);
+    myTypingTimer = setTimeout(() => { isTyping = false; ws.send(JSON.stringify({ type: 'stop_typing' })); }, 1500);
+  });
+
+  /* ─── SEND MESSAGE (supports text + attachment via HTTP POST) ─── */
+  function sendMessage() {
+      const body = msgInput.value.trim();
+      if (!body && !pendingFile) return;
+      if (!activeConvId) return;
+
+      const fd = new FormData();
+      if (body) fd.append('body', body);
+      if (pendingFile) fd.append('attachment', pendingFile.file);
+
+      // Clear input immediately
+      msgInput.value = '';
+      msgInput.style.height = 'auto';
+      isTyping = false;
+
+      const fileCopy = pendingFile;
+      pendingFile = null;
+      attachPreview.classList.remove('visible');
+      document.getElementById('attachPreviewThumb').innerHTML = '';
+
+      // Build an optimistic message and show it instantly
+      const optimistic = {
+          id: 'tmp_' + Date.now(),
+          sender_id: ME.id,
+          body: body,
+          created_at: new Date().toISOString(),
+          attachment_url: fileCopy ? fileCopy.localUrl || null : null,
+          attachment_name: fileCopy ? fileCopy.file.name : null,
+          is_image: fileCopy ? fileCopy.isImage : false,
+      };
+      appendMessage(optimistic);
+      updateConvPreview(activeConvId, optimistic);
+
+      fetch(`/messenger/conversations/${activeConvId}/send/`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+          body: fd,
+      })
+      .then(r => r.json())
+      .then(data => {
+          if (data.success) {
+              // Replace the optimistic message with the real one from server
+              const tmpEl = msngMessages.querySelector(`[data-id="tmp_${optimistic.id.split('_')[1]}"]`);
+              if (tmpEl) {
+                  const realEl = buildMessageEl(data.message);
+                  tmpEl.replaceWith(realEl);
+              }
+              // Update cache
+              const cached = convCache[activeConvId];
+              if (cached) {
+                  const idx = cached.messages.findIndex(m => m.id === optimistic.id);
+                  if (idx !== -1) cached.messages[idx] = data.message;
+              }
+              updateConvPreview(activeConvId, data.message);
+          }
+    });
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  msgInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  function updateConvPreview(convId, msg) {
+    const conv = allConvs.find(c => c.id == convId);
+    if (conv) {
+        conv.last_message = msg.body ? msg.body.slice(0, 60) : 'Sent an attachment';
+        conv.last_message_time = msg.created_at;
+        if (convId != activeConvId && msg.sender_id !== ME.id) {
+            conv.unread_count = (conv.unread_count || 0) + 1;
+        } else {
+            conv.unread_count = 0;
+        }
+        allConvs = [conv, ...allConvs.filter(c => c.id != convId)];
+    }
+    renderConvList(allConvs, convSearch.value);
+}
+
+  /* ─── NEW MESSAGE MODAL ─── */
+  fabNewMsg.addEventListener('click', () => { newMsgModal.classList.add('open'); newMsgSearch.value = ''; renderNewMsgUsers(''); newMsgSearch.focus(); });
+  closeNewModal.addEventListener('click', () => newMsgModal.classList.remove('open'));
+  newMsgModal.addEventListener('click', (e) => { if (e.target === newMsgModal) newMsgModal.classList.remove('open'); });
+
+  function loadUsers() {
+    fetch('/messenger/users/')
+      .then(r => r.json())
+      .then(data => { allUsers = data.users; });
+  }
+
+  /* ─── POLL CONVERSATION LIST every 15s ─── */
+    // Keeps previews fresh for conversations you're NOT currently chatting in
+    setInterval(() => {
+        loadConversations();
+    }, 15000);
+
+  /* ─── PRESENCE WEBSOCKET ─── */
+    function connectPresenceWS() {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const presWS = new WebSocket(`${proto}://${location.host}/ws/presence/`);
+
+        presWS.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            if (data.type !== 'presence') return;
+
+            const uid     = data.user_id;
+            const online  = data.is_online;
+
+            // Update allConvs cache
+            allConvs.forEach(c => {
+            if (c.recipient.id === uid) c.recipient.is_online = online;
+            });
+
+            // Update conversation list dot
+            document.querySelectorAll('.msng__conv').forEach(el => {
+            const conv = allConvs.find(c => c.id == el.dataset.id);
+            if (!conv || conv.recipient.id !== uid) return;
+            const av = el.querySelector('.msng__conv-avatar');
+            let dot = av.querySelector('.msng__online-dot');
+            if (online && !dot) {
+                dot = document.createElement('span');
+                dot.className = 'msng__online-dot';
+                av.appendChild(dot);
+            } else if (!online && dot) {
+                dot.remove();
+            }
+            });
+
+            // Update active chat header
+            if (activeRecipient && activeRecipient.id === uid) {
+            activeRecipient.is_online = online;
+            chatHeadStatus.textContent = online ? 'Active now' : 'Offline';
+            chatHeadStatus.className = 'msng__chat-head-status' + (online ? ' online' : '');
+            }
+
+            // Update info panel if open
+            const onlineRow = document.getElementById('infoOnline');
+            if (activeRecipient && activeRecipient.id === uid && onlineRow) {
+            onlineRow.style.display = online ? 'flex' : 'none';
+            }
+        };
+
+        presWS.onclose = () => {
+            // Reconnect after 3s if disconnected
+            setTimeout(connectPresenceWS, 3000);
+        };
+        }
+
+        connectPresenceWS();
+
+  function renderNewMsgUsers(filter) {
+    const lower    = filter.toLowerCase();
+    const filtered = allUsers.filter(u => !lower || u.name.toLowerCase().includes(lower));
+    if (!filtered.length) {
+      newMsgList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">No users found</div>';
+      return;
+    }
+    newMsgList.innerHTML = '';
+    filtered.forEach(u => {
+      const div = document.createElement('div');
+      div.className = 'msng__new-user';
+      div.innerHTML = `
+        <div class="msng__new-user-av">${u.avatar ? `<img src="${u.avatar}" alt="${u.name}">` : `<span>${u.initials||'?'}</span>`}</div>
+        <div>
+          <div class="msng__new-user-name">${u.name}</div>
+          <div class="msng__new-user-pos">${u.position||u.department||''}</div>
+        </div>`;
+      div.addEventListener('click', () => {
+        newMsgModal.classList.remove('open');
+        fetch('/messenger/conversations/start/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+          body: JSON.stringify({ user_id: u.id }),
+        }).then(r => r.json()).then(data => {
+          loadConversations(() => openConversation(data.conversation_id, u));
+        });
+      });
+      newMsgList.appendChild(div);
+    });
+  }
+
+  newMsgSearch.addEventListener('input', () => renderNewMsgUsers(newMsgSearch.value));
+  convSearch.addEventListener('input', () => renderConvList(allConvs, convSearch.value));
+
+  /* ─── OPEN FROM URL PARAM ─── */
+  const urlParams = new URLSearchParams(location.search);
+  const convParam = urlParams.get('conv');
+
+  /* ─── INIT ─── */
+  loadConversations(() => {
+    if (convParam) {
+      const conv = allConvs.find(c => c.id == convParam);
+      if (conv) openConversation(conv.id, conv.recipient);
+    }
+  });
+  loadUsers();
+})();
+</script>
+
+<!-- Envelope button dropdown -->
+<script>
+(function () {
+  const envBtn = document.querySelector('[aria-label="Messages"]');
+  if (!envBtn) return;
+  envBtn.style.position = 'relative';
+
+  const panel = document.createElement('div');
+  panel.className = 'msng__env-panel';
+  panel.id = 'envPanel';
+  panel.innerHTML = `
+    <div class="msng__env-head">
+      <strong>Messages</strong>
+      <a href="{% url 'messenger' %}">See all</a>
+    </div>
+    <div id="envPanelList"><div class="msng__env-empty">Loading…</div></div>`;
+  envBtn.appendChild(panel);
+
+  envBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = panel.classList.contains('open');
+    panel.classList.toggle('open', !isOpen);
+    if (!isOpen) loadEnv();
+  });
+  document.addEventListener('click', (e) => {
+    if (!panel.contains(e.target) && e.target !== envBtn) panel.classList.remove('open');
+  });
+
+  function loadEnv() {
+    fetch('/messenger/conversations/')
+      .then(r => r.json())
+      .then(data => {
+        const list  = document.getElementById('envPanelList');
+        const convs = (data.conversations || []).slice(0, 5);
+        if (!convs.length) { list.innerHTML = '<div class="msng__env-empty">No messages yet</div>'; return; }
+        list.innerHTML = '';
+        convs.forEach(c => {
+          const a = document.createElement('a');
+          a.className = 'msng__env-item';
+          a.href = `{% url 'messenger' %}?conv=${c.id}`;
+          a.innerHTML = `
+            <div class="msng__env-av">${c.recipient.avatar ? `<img src="${c.recipient.avatar}" alt="">` : `<span>${c.recipient.initials||'?'}</span>`}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="msng__env-name">${c.recipient.name}</div>
+              <div class="msng__env-preview">${c.last_message||'No messages yet'}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+              <div class="msng__env-time">${c.last_message_time ? tAgo(c.last_message_time) : ''}</div>
+              ${c.unread_count > 0 ? '<div class="msng__env-unread"></div>' : ''}
+            </div>`;
+          list.appendChild(a);
+        });
+      });
+  }
+
+  function tAgo(isoStr) {
+    const d = new Date(isoStr), now = new Date(), diff = Math.floor((now-d)/1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return Math.floor(diff/60)+'m';
+    if (diff < 86400) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    return d.toLocaleDateString([],{month:'short',day:'numeric'});
+  }
+})();
+</script>
+{% endblock %}

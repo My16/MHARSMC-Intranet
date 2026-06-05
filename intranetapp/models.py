@@ -188,6 +188,8 @@ class UserProfile(models.Model):
         verbose_name='Bio',
     )
 
+    is_online = models.BooleanField(default=False)
+
     def __str__(self):
         role_name = self.role.name if self.role else 'No Role'
         return f"{self.user.username} — {role_name}"
@@ -1136,3 +1138,39 @@ class Notification(models.Model):
 
     def __str__(self):
         return f'[{self.notif_type}] → {self.recipient.username}: {self.title}'
+    
+
+
+
+class Conversation(models.Model):
+    participants = models.ManyToManyField(User, related_name='conversations')
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+class Message(models.Model):
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
+    sender       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    body         = models.TextField(blank=True, null=True)
+    attachment   = models.FileField(upload_to='chat_attachments/', blank=True, null=True)
+    attachment_name = models.CharField(max_length=255, blank=True, default='')
+    is_read      = models.BooleanField(default=False)
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    @property
+    def is_image(self):
+        if not self.attachment:
+            return False
+        ext = self.attachment.name.split('.')[-1].lower()
+        return ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']
+
+    @property
+    def file_extension(self):
+        if self.attachment:
+            return self.attachment.name.split('.')[-1].lower()
+        return ''
