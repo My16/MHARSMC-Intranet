@@ -675,19 +675,6 @@
   }
   .msng__lightbox-file-dl:hover { background: var(--green-dark); }
 
-  /* ─── FAB ─── */
-  .msng__fab {
-    position: fixed; bottom: 28px; right: 28px;
-    width: 52px; height: 52px; border-radius: 50%;
-    background: var(--green-mid); color: var(--white);
-    border: none; display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem; cursor: pointer;
-    box-shadow: 0 4px 16px rgba(26,71,49,.28); z-index: 800;
-    transition: background .18s, transform .15s, box-shadow .18s;
-  }
-  .msng__fab:hover { background: var(--green-dark); transform: scale(1.08); box-shadow: 0 6px 22px rgba(26,71,49,.36); }
-  .msng__fab:active { transform: scale(.96); }
-
   /* ─── ENVELOPE DROPDOWN ─── */
   .msng__env-panel {
     display: none; position: absolute; top: 44px; right: -8px;
@@ -960,10 +947,6 @@
   <div class="msng__lightbox-caption" id="lightboxCaption"></div>
 </div>
 
-<!-- FAB -->
-<button class="msng__fab" id="fabNewMsg" title="New message">
-  <i class="fa-solid fa-pen-to-square"></i>
-</button>
 {% endblock %}
 
 {% block extra_js %}
@@ -997,7 +980,6 @@
   const sendBtn         = document.getElementById('sendBtn');
   const convSearch      = document.getElementById('convSearch');
   const newMsgModal     = document.getElementById('newMsgModal');
-  const fabNewMsg       = document.getElementById('fabNewMsg');
   const closeNewModal   = document.getElementById('closeNewModal');
   const newMsgSearch    = document.getElementById('newMsgSearch');
   const newMsgList      = document.getElementById('newMsgList');
@@ -1788,7 +1770,6 @@
 }
 
   /* ─── NEW MESSAGE MODAL ─── */
-  fabNewMsg.addEventListener('click', () => { newMsgModal.classList.add('open'); newMsgSearch.value = ''; renderNewMsgUsers(''); newMsgSearch.focus(); });
   closeNewModal.addEventListener('click', () => newMsgModal.classList.remove('open'));
   newMsgModal.addEventListener('click', (e) => { if (e.target === newMsgModal) newMsgModal.classList.remove('open'); });
 
@@ -1907,68 +1888,5 @@
 })();
 </script>
 
-<!-- Envelope button dropdown -->
-<script>
-(function () {
-  const envBtn = document.querySelector('[aria-label="Messages"]');
-  if (!envBtn) return;
-  envBtn.style.position = 'relative';
 
-  const panel = document.createElement('div');
-  panel.className = 'msng__env-panel';
-  panel.id = 'envPanel';
-  panel.innerHTML = `
-    <div class="msng__env-head">
-      <strong>Messages</strong>
-      <a href="{% url 'messenger' %}">See all</a>
-    </div>
-    <div id="envPanelList"><div class="msng__env-empty">Loading…</div></div>`;
-  envBtn.appendChild(panel);
-
-  envBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isOpen = panel.classList.contains('open');
-    panel.classList.toggle('open', !isOpen);
-    if (!isOpen) loadEnv();
-  });
-  document.addEventListener('click', (e) => {
-    if (!panel.contains(e.target) && e.target !== envBtn) panel.classList.remove('open');
-  });
-
-  function loadEnv() {
-    fetch('/messenger/conversations/')
-      .then(r => r.json())
-      .then(data => {
-        const list  = document.getElementById('envPanelList');
-        const convs = (data.conversations || []).slice(0, 5);
-        if (!convs.length) { list.innerHTML = '<div class="msng__env-empty">No messages yet</div>'; return; }
-        list.innerHTML = '';
-        convs.forEach(c => {
-          const a = document.createElement('a');
-          a.className = 'msng__env-item';
-          a.href = `{% url 'messenger' %}?conv=${c.id}`;
-          a.innerHTML = `
-            <div class="msng__env-av">${c.recipient.avatar ? `<img src="${c.recipient.avatar}" alt="">` : `<span>${c.recipient.initials||'?'}</span>`}</div>
-            <div style="flex:1;min-width:0;">
-              <div class="msng__env-name">${c.recipient.name}</div>
-              <div class="msng__env-preview">${c.last_message||'No messages yet'}</div>
-            </div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-              <div class="msng__env-time">${c.last_message_time ? tAgo(c.last_message_time) : ''}</div>
-              ${c.unread_count > 0 ? '<div class="msng__env-unread"></div>' : ''}
-            </div>`;
-          list.appendChild(a);
-        });
-      });
-  }
-
-  function tAgo(isoStr) {
-    const d = new Date(isoStr), now = new Date(), diff = Math.floor((now-d)/1000);
-    if (diff < 60) return 'Just now';
-    if (diff < 3600) return Math.floor(diff/60)+'m';
-    if (diff < 86400) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    return d.toLocaleDateString([],{month:'short',day:'numeric'});
-  }
-})();
-</script>
 {% endblock %}

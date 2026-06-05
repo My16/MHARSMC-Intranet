@@ -34,7 +34,7 @@
       --sidebar-collapsed: 64px;
       --sidebar-expanded:  240px;
       --header-height:     62px;
-      --brand-height:      64px;           /* logo+title block inside sidebar */
+      --brand-height:      64px;
       --transition:        0.26s cubic-bezier(.4,0,.2,1);
     }
 
@@ -50,7 +50,7 @@
     a { text-decoration: none; color: inherit; }
 
     /* ═══════════════════════════════════════════════════════════
-       SIDEBAR  (logo + title + nav — all together)
+       SIDEBAR
     ══════════════════════════════════════════════════════════════ */
     .sidebar {
       position: fixed;
@@ -69,7 +69,6 @@
       width: var(--sidebar-expanded);
     }
 
-    /* subtle right-edge accent */
     .sidebar::after {
       content: '';
       position: absolute;
@@ -80,7 +79,6 @@
       pointer-events: none;
     }
 
-    /* ── Brand block (logo + app name) ── */
     .sidebar__brand {
       height: var(--brand-height);
       min-height: var(--brand-height);
@@ -144,7 +142,6 @@
       margin-top: 1px;
     }
 
-    /* ── Nav ── */
     .nav {
       flex: 1;
       padding: 10px 0;
@@ -219,7 +216,6 @@
       transform: translateX(0);
     }
 
-    /* Tooltip (collapsed only) */
     .nav__tooltip {
       position: absolute;
       left: calc(var(--sidebar-collapsed) + 10px);
@@ -247,7 +243,6 @@
     }
     .sidebar:not(:hover):not(.is-open) .nav__item:hover .nav__tooltip { opacity: 1; }
 
-    /* ── Sidebar footer (logout) ── */
     .sidebar__footer {
       border-top: 1px solid rgba(255,255,255,.07);
       padding: 6px 0;
@@ -261,12 +256,12 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       TOP HEADER BAR  (right-side only — clean minimal)
+       TOP HEADER BAR
     ══════════════════════════════════════════════════════════════ */
     .header {
       position: fixed;
       top: 0;
-      left: var(--sidebar-collapsed);   /* starts after collapsed sidebar */
+      left: var(--sidebar-collapsed);
       right: 0;
       height: var(--header-height);
       background: var(--white);
@@ -280,7 +275,6 @@
       transition: left var(--transition);
     }
 
-    /* Page title + breadcrumb inside header (left side) */
     .header__page-info {
       flex: 1;
       min-width: 0;
@@ -308,7 +302,6 @@
     .header__breadcrumb a:hover { text-decoration: underline; }
     .header__breadcrumb .sep { color: var(--border); }
 
-    /* Icon buttons */
     .header__controls {
       display: flex;
       align-items: center;
@@ -338,7 +331,6 @@
       border: 1.5px solid var(--white);
     }
 
-    /* Divider */
     .header__divider {
       width: 1px;
       height: 28px;
@@ -346,7 +338,6 @@
       margin: 0 6px;
     }
 
-    /* User chip */
     .header__user {
       display: flex;
       align-items: center;
@@ -400,7 +391,6 @@
       margin-left: 2px;
     }
 
-    /* Hamburger (mobile only) */
     .header__hamburger {
       display: none;
       background: transparent;
@@ -431,15 +421,11 @@
       flex-direction: column;
     }
 
-    /* ── Content starts right below header ── */
-
-    /* ── Content ── */
     .content {
       padding: 24px 28px;
       flex: 1;
     }
 
-    /* Placeholder */
     .content-placeholder {
       display: flex;
       flex-direction: column;
@@ -454,7 +440,6 @@
     }
     .content-placeholder i { font-size: 2.2rem; color: var(--green-light); }
 
-    /* ── Footer ── */
     .footer {
       background: var(--white);
       border-top: 1px solid var(--border);
@@ -509,6 +494,428 @@
       padding: 0; margin: -1px; overflow: hidden;
       clip: rect(0,0,0,0); white-space: nowrap; border: 0;
     }
+
+    /* ── Envelope dropdown (global) ── */
+    .msng__env-panel {
+      display: none; position: absolute; top: 44px; right: -8px;
+      width: 320px; background: var(--white);
+      border: 1px solid var(--border); border-radius: 12px;
+      box-shadow: var(--shadow-lg); z-index: 500;
+      overflow: hidden; font-size: .85rem;
+    }
+    .msng__env-panel.open { display: block; }
+    .msng__env-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 16px 10px; border-bottom: 1px solid var(--border);
+    }
+    .msng__env-head strong { font-size: .92rem; }
+    .msng__env-head a { font-size: .75rem; color: var(--green-mid); font-weight: 600; }
+    .msng__env-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 16px; cursor: pointer; transition: background .15s;
+      border-bottom: 1px solid var(--border); text-decoration: none; color: inherit;
+    }
+    .msng__env-item:last-child { border-bottom: none; }
+    .msng__env-item:hover { background: var(--green-pale); }
+    .msng__env-av {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--green-mid);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 600; color: var(--white);
+      flex-shrink: 0; overflow: hidden;
+    }
+    .msng__env-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .msng__env-name { font-size: .82rem; font-weight: 600; color: var(--text-primary); }
+    .msng__env-preview { font-size: .76rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .msng__env-time { font-size: .68rem; color: var(--text-muted); white-space: nowrap; }
+    .msng__env-unread { width: 8px; height: 8px; border-radius: 50%; background: var(--green-accent); flex-shrink: 0; margin-top: 6px; }
+    .msng__env-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: .82rem; }
+
+    /* ─────────────────────────────────────────
+      GLOBAL MESSENGER — FAB + PICKER
+    ───────────────────────────────────────── */
+    .gm-fab {
+      position: fixed; bottom: 24px; right: 24px;
+      width: 50px; height: 50px; border-radius: 50%;
+      background: var(--green-mid); color: var(--white);
+      border: none; display: flex; align-items: center; justify-content: center;
+      font-size: 1.15rem; cursor: pointer;
+      box-shadow: 0 4px 18px rgba(26,71,49,.38); z-index: 8100;
+      transition: background .18s, transform .15s, box-shadow .18s;
+      flex-shrink: 0;
+    }
+    .gm-fab:hover { background: var(--green-dark); transform: scale(1.08); }
+    .gm-fab:active { transform: scale(.94); }
+    .gm-fab__badge {
+      position: absolute; top: 1px; right: 1px;
+      min-width: 17px; height: 17px; border-radius: 9px;
+      background: #e63946; border: 2px solid var(--white);
+      display: none; align-items: center; justify-content: center;
+      font-size: .58rem; font-weight: 700; color: #fff; padding: 0 3px; line-height: 1;
+    }
+    .gm-fab__badge.show { display: flex; }
+
+    /* Picker panel */
+    .gm-picker {
+      position: fixed; bottom: 82px; right: 24px;
+      width: 296px; background: var(--white);
+      border: 1px solid var(--border); border-radius: 14px;
+      box-shadow: 0 8px 36px rgba(26,71,49,.22);
+      z-index: 8100; overflow: hidden;
+      display: none; flex-direction: column; max-height: 430px;
+    }
+    .gm-picker.open {
+      display: flex;
+      animation: gmUp .18s ease;
+    }
+    @keyframes gmUp {
+      from { opacity:0; transform: translateY(10px) scale(.97); }
+      to   { opacity:1; transform: translateY(0) scale(1); }
+    }
+    .gm-picker__head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px 9px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .gm-picker__title { font-family:'EB Garamond',serif; font-size:.93rem; font-weight:700; color:var(--text-primary); }
+    .gm-picker__close {
+      width:26px; height:26px; border-radius:50%; border:none;
+      background:var(--green-pale); color:var(--text-muted);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:.72rem; transition:background .14s;
+    }
+    .gm-picker__close:hover { background:var(--border); }
+    .gm-picker__srch {
+      position:relative; padding:8px 12px;
+      border-bottom:1px solid var(--border); flex-shrink:0;
+    }
+    .gm-picker__srch i { position:absolute; left:22px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:.76rem; pointer-events:none; }
+    .gm-picker__srch input {
+      width:100%; padding:6px 10px 6px 28px;
+      border:1px solid var(--border); border-radius:14px;
+      background:var(--green-pale); font-size:.81rem; color:var(--text-primary); outline:none;
+      transition:border-color .15s, background .15s;
+    }
+    .gm-picker__srch input:focus { border-color:var(--green-accent); background:var(--white); }
+    .gm-picker__list { flex:1; overflow-y:auto; }
+    .gm-picker__list::-webkit-scrollbar { width:3px; }
+    .gm-picker__list::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+    .gm-picker__sec { padding:8px 12px 3px; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); }
+    .gm-picker__item {
+      display:flex; align-items:center; gap:9px;
+      padding:7px 12px; cursor:pointer; transition:background .12s;
+    }
+    .gm-picker__item:hover { background:var(--green-pale); }
+    .gm-picker__av {
+      width:36px; height:36px; border-radius:50%;
+      background:var(--green-mid); flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:.72rem; font-weight:600; color:var(--white);
+      overflow:hidden; position:relative;
+    }
+    .gm-picker__av img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .gm-picker__av-dot {
+      position:absolute; bottom:1px; right:1px;
+      width:9px; height:9px; background:#22c55e;
+      border:2px solid var(--white); border-radius:50%;
+    }
+    .gm-picker__name { font-size:.82rem; font-weight:600; color:var(--text-primary); }
+    .gm-picker__preview { font-size:.71rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
+    .gm-picker__unread {
+      margin-left:auto; min-width:17px; height:17px; border-radius:9px;
+      background:var(--green-accent); color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      font-size:.6rem; font-weight:700; padding:0 3px; flex-shrink:0;
+    }
+
+    /* ─────────────────────────────────────────
+      FLOATING CHAT WINDOWS
+    ───────────────────────────────────────── */
+    .gm-wins-row {
+      position: fixed; bottom: 0; right: 82px;
+      display: flex; align-items: flex-end; gap: 10px;
+      z-index: 8000; pointer-events: none;
+    }
+
+    .gm-win {
+      width: 296px;
+      background: var(--white); border-radius: 12px 12px 0 0;
+      border: 1px solid var(--border); border-bottom: none;
+      box-shadow: 0 -2px 28px rgba(26,71,49,.18);
+      display: flex; flex-direction: column;
+      pointer-events: all; overflow: hidden;
+      animation: gmWinIn .2s ease;
+      height: 420px;
+      transition: height .22s cubic-bezier(.4,0,.2,1);
+    }
+    .gm-win.minimized {
+      display: none !important;
+    }
+    @keyframes gmWinIn {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .gm-win__head {
+      display:flex; align-items:center; gap:7px;
+      padding:7px 8px; background:var(--green-dark);
+      flex-shrink:0; cursor:pointer; user-select:none;
+      border-radius:12px 12px 0 0;
+    }
+    .gm-win__hav {
+      width:28px; height:28px; border-radius:50%;
+      background:var(--green-mid); flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:.64rem; font-weight:600; color:var(--white);
+      overflow:hidden; position:relative;
+    }
+    .gm-win__hav img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .gm-win__hav-dot {
+      position:absolute; bottom:0; right:0;
+      width:7px; height:7px; background:#22c55e;
+      border:1.5px solid var(--green-dark); border-radius:50%;
+    }
+    .gm-win__hname { flex:1; font-size:.8rem; font-weight:600; color:var(--white); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .gm-win__hstatus { font-size:.62rem; color:var(--green-light); white-space:nowrap; }
+    .gm-win__hbtns { display:flex; gap:2px; }
+    .gm-win__hbtn {
+      width:20px; height:20px; border-radius:50%; border:none;
+      background:rgba(255,255,255,.15); color:var(--white);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:.6rem; transition:background .12s; flex-shrink:0;
+    }
+    .gm-win__hbtn:hover { background:rgba(255,255,255,.32); }
+
+    .gm-win__msgs {
+      flex:1; overflow-y:auto; padding:8px 8px 4px;
+      display:flex; flex-direction:column; gap:2px;
+      background:var(--green-pale);
+    }
+    .gm-win__msgs::-webkit-scrollbar { width:3px; }
+    .gm-win__msgs::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+    .gm-win__date {
+      display:flex; align-items:center; gap:6px; margin:5px 0 2px;
+      font-size:.62rem; color:var(--text-muted);
+    }
+    .gm-win__date::before, .gm-win__date::after {
+      content:''; flex:1; height:1px; background:var(--border);
+    }
+    .gm-win__row { display:flex; align-items:flex-end; gap:4px; }
+    .gm-win__row.mine { flex-direction:row-reverse; }
+    .gm-win__bubble {
+      max-width:78%; padding:6px 10px; border-radius:15px;
+      font-size:.79rem; line-height:1.4; word-break:break-word;
+    }
+    .gm-win__row:not(.mine) .gm-win__bubble {
+      background:var(--white); color:var(--text-primary);
+      border-bottom-left-radius:3px; box-shadow:0 1px 2px rgba(26,71,49,.07);
+    }
+    .gm-win__row.mine .gm-win__bubble {
+      background:var(--green-mid); color:var(--white); border-bottom-right-radius:3px;
+    }
+    /* Image-only bubble in floating window */
+    .gm-win__row:not(.mine) .gm-win__bubble.img-only,
+    .gm-win__row.mine .gm-win__bubble.img-only {
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 4px;
+    }
+    .gm-win__btime { font-size:.58rem; opacity:.6; display:block; margin-top:2px; }
+    .gm-win__row.mine .gm-win__btime { text-align:right; }
+
+    /* Attachment in mini window */
+    .gm-win__bubble-img {
+      width: 200px; height: 140px; object-fit: cover;
+      border-radius: 10px; display: block; cursor: pointer;
+      transition: opacity .15s; margin-bottom: 3px;
+    }
+    .gm-win__bubble-img:hover { opacity: .88; }
+    .gm-win__bubble-file {
+      display: flex; align-items: center; gap: 8px;
+      padding: 3px 0; cursor: pointer;
+    }
+    .gm-win__bubble-file-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: rgba(255,255,255,.18);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem; flex-shrink: 0;
+    }
+    .gm-win__row:not(.mine) .gm-win__bubble-file-icon { background: var(--green-pale); color: var(--green-mid); }
+    .gm-win__bubble-file-name {
+      font-size: .75rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;
+    }
+    .gm-win__bubble-file-size { font-size: .65rem; opacity: .7; }
+
+    .gm-win__typing {
+      display:flex; align-items:center; gap:3px; padding:5px 8px;
+      background:var(--white); border-radius:12px; border-bottom-left-radius:3px;
+      width:fit-content; margin:2px 0; box-shadow:0 1px 2px rgba(26,71,49,.07);
+    }
+    .gm-win__tdot {
+      width:5px; height:5px; border-radius:50%;
+      background:var(--text-muted); animation:gmBounce 1.2s infinite;
+    }
+    .gm-win__tdot:nth-child(2){animation-delay:.2s;}
+    .gm-win__tdot:nth-child(3){animation-delay:.4s;}
+    @keyframes gmBounce {
+      0%,60%,100%{transform:translateY(0);opacity:.4;}
+      30%{transform:translateY(-4px);opacity:1;}
+    }
+
+    .gm-win__foot {
+      display:flex; align-items:center; gap:5px;
+      padding:6px 7px; border-top:1px solid var(--border);
+      background:var(--white); flex-shrink:0;
+    }
+    /* Attach button in mini window */
+    .gm-win__attach-btn {
+      width:28px; height:28px; border-radius:50%; border:none;
+      background:transparent; color:var(--green-mid);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:.8rem; flex-shrink:0;
+      transition:background .14s;
+    }
+    .gm-win__attach-btn:hover { background:var(--green-pale); }
+    /* Attachment preview inside mini window */
+    .gm-win__attach-preview {
+      display:none; align-items:center; gap:6px;
+      padding:5px 7px; border-top:1px solid var(--border);
+      background:var(--green-pale); flex-shrink:0;
+    }
+    .gm-win__attach-preview.visible { display:flex; }
+    .gm-win__attach-thumb {
+      width:36px; height:36px; border-radius:6px;
+      object-fit:cover; border:1px solid var(--border); flex-shrink:0;
+    }
+    .gm-win__attach-file-icon {
+      width:36px; height:36px; border-radius:6px;
+      background:var(--white); border:1px solid var(--border);
+      display:flex; align-items:center; justify-content:center;
+      font-size:1rem; color:var(--green-mid); flex-shrink:0;
+    }
+    .gm-win__attach-name {
+      flex:1; font-size:.72rem; font-weight:600;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      color:var(--text-primary);
+    }
+    .gm-win__attach-rm {
+      width:22px; height:22px; border-radius:50%; border:none;
+      background:var(--border); color:var(--text-muted);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:.65rem; flex-shrink:0;
+      transition:background .12s;
+    }
+    .gm-win__attach-rm:hover { background:#fca5a5; color:#dc2626; }
+
+    .gm-win__input {
+      flex:1; border:1px solid var(--border); border-radius:14px;
+      padding:5px 11px; font-size:.8rem; background:var(--green-pale);
+      color:var(--text-primary); outline:none; resize:none;
+      font-family:'Source Sans 3',sans-serif;
+      line-height:1.35; max-height:72px; min-height:28px; overflow-y:auto;
+      transition:border-color .15s, background .15s;
+    }
+    .gm-win__input:focus { border-color:var(--green-accent); background:var(--white); }
+    .gm-win__input::placeholder { color:var(--text-muted); }
+    .gm-win__send {
+      width:28px; height:28px; border-radius:50%; border:none;
+      background:var(--green-mid); color:var(--white);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:.76rem; flex-shrink:0;
+      transition:background .14s, transform .1s;
+    }
+    .gm-win__send:hover { background:var(--green-dark); }
+    .gm-win__send:active { transform:scale(.88); }
+
+    /* ─────────────────────────────────────────
+      MINIMIZED BUBBLE AVATARS
+    ───────────────────────────────────────── */
+    .gm-bubbles-col {
+      position: fixed; bottom: 82px; right: 24px;
+      display: flex; flex-direction: column-reverse; align-items: center; gap: 8px;
+      z-index: 8050; pointer-events: none;
+    }
+    .gm-bubble {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--green-mid);
+      border: 3px solid var(--white);
+      box-shadow: 0 2px 12px rgba(26,71,49,.28);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 600; color: var(--white);
+      overflow: hidden; cursor: pointer; pointer-events: all;
+      position: relative;
+      transition: transform .15s, box-shadow .15s;
+      animation: gmBubbleIn .2s ease;
+    }
+    .gm-bubble:hover { transform: scale(1.12); box-shadow: 0 4px 18px rgba(26,71,49,.38); }
+    @keyframes gmBubbleIn {
+      from { opacity:0; transform:scale(.6); }
+      to   { opacity:1; transform:scale(1); }
+    }
+    .gm-bubble img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .gm-bubble__online {
+      position:absolute; bottom:1px; right:1px;
+      width:10px; height:10px; background:#22c55e;
+      border:2px solid var(--white); border-radius:50%;
+    }
+    .gm-bubble__badge {
+      position:absolute; top:-2px; right:-2px;
+      min-width:16px; height:16px; border-radius:8px;
+      background:#e63946; border:2px solid var(--white);
+      display:none; align-items:center; justify-content:center;
+      font-size:.55rem; font-weight:700; color:#fff; padding:0 2px;
+    }
+    .gm-bubble__badge.show { display:flex; }
+
+    /* ── Global lightbox (for mini chat image clicks) ── */
+    .gm-lightbox {
+      display:none; position:fixed; inset:0; z-index:99000;
+      background:rgba(0,0,0,.92); align-items:center; justify-content:center;
+      flex-direction:column;
+    }
+    .gm-lightbox.open { display:flex; }
+    .gm-lightbox__close {
+      position:absolute; top:16px; right:20px;
+      width:38px; height:38px; border-radius:50%; border:none;
+      background:rgba(255,255,255,.15); color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:1.1rem; transition:background .15s; z-index:2;
+    }
+    .gm-lightbox__close:hover { background:rgba(255,255,255,.28); }
+    .gm-lightbox__dl {
+      position:absolute; top:16px; right:66px;
+      width:38px; height:38px; border-radius:50%; border:none;
+      background:rgba(255,255,255,.15); color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:1rem; transition:background .15s; text-decoration:none; z-index:2;
+    }
+    .gm-lightbox__dl:hover { background:rgba(255,255,255,.28); }
+    .gm-lightbox__img {
+      max-width:90vw; max-height:82vh; object-fit:contain;
+      border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,.5);
+    }
+    .gm-lightbox__caption { color:rgba(255,255,255,.6); font-size:.8rem; margin-top:12px; }
+    .gm-lightbox__file {
+      display:flex; flex-direction:column; align-items:center; gap:16px;
+      padding:48px; background:rgba(255,255,255,.06); border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .gm-lightbox__file i { font-size:3.5rem; color:rgba(255,255,255,.7); }
+    .gm-lightbox__file-name { color:#fff; font-size:1rem; font-weight:600; }
+    .gm-lightbox__file-dl {
+      display:flex; align-items:center; gap:8px;
+      padding:10px 22px; background:var(--green-mid); color:#fff;
+      border-radius:10px; text-decoration:none; font-size:.88rem; font-weight:600;
+      transition:background .15s;
+    }
+    .gm-lightbox__file-dl:hover { background:var(--green-dark); }
+
+    @media (max-width:768px) {
+      .gm-wins-row { display:none; }
+      .gm-bubbles-col { display:none; }
+      .gm-fab { bottom:18px; right:18px; }
+      .gm-picker { right:10px; bottom:76px; width:calc(100vw - 20px); max-width:340px; }
+    }
   </style>
 
   {% block extra_css %}{% endblock %}
@@ -518,10 +925,9 @@
   <!-- ═══ MOBILE OVERLAY ═══════════════════════════════════════ -->
   <div class="overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
-  <!-- ═══ SIDEBAR (logo + title + nav) ════════════════════════ -->
+  <!-- ═══ SIDEBAR ════════════════════════════════════════════ -->
   <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
 
-    <!-- Brand block -->
     <div class="sidebar__brand">
       <div class="sidebar__logo-ring">
         <img
@@ -537,7 +943,6 @@
       </div>
     </div>
 
-    <!-- Nav links -->
     <nav class="nav">
 
     <div class="nav__section-label">Main</div>
@@ -691,7 +1096,6 @@
 
   </nav>
 
-    <!-- Logout -->
     <div class="sidebar__footer">
       <div class="nav__item">
         <a href="{% url 'logout' %}" class="nav__link">
@@ -711,7 +1115,6 @@
       <i class="fa-solid fa-bars"></i>
     </button>
 
-    <!-- Page title + breadcrumb (left side of header) -->
     <div class="header__page-info">
       <div class="header__page-title">{% block page_title %}Dashboard{% endblock %}</div>
       <div class="header__breadcrumb">
@@ -722,14 +1125,13 @@
     </div>
 
     <div class="header__controls">
-      <!-- bell button -->
+      <!-- Bell -->
       <div style="position:relative;">
         <button class="header__icon-btn" id="bellBtn" aria-label="Notifications">
           <i class="fa-solid fa-bell"></i>
           <span class="badge" id="notifBadge" aria-hidden="true" style="display:none;"></span>
         </button>
 
-        <!-- Dropdown panel -->
         <div id="notifPanel" style="
           display:none; position:absolute; top:44px; right:-8px;
           width:360px; background:var(--white); border:1px solid var(--border);
@@ -753,18 +1155,27 @@
         </div>
       </div>
 
-      <!-- Notification toast container -->
       <div id="notifToasts" style="
         position:fixed; bottom:24px; right:24px; z-index:9999;
         display:flex; flex-direction:column; gap:10px; pointer-events:none;
       "></div>
 
-      <button class="header__icon-btn" aria-label="Messages">
-        <i class="fa-solid fa-envelope"></i>
-      </button>
-      <!-- <button class="header__icon-btn" aria-label="Settings">
-        <i class="fa-solid fa-gear"></i>
-      </button> -->
+      <!-- Envelope -->
+      <div style="position:relative;" id="envBtnWrap">
+        <button class="header__icon-btn" id="envBtn" aria-label="Messages">
+          <i class="fa-solid fa-envelope"></i>
+          <span class="badge" id="msgBadge" aria-hidden="true" style="display:none;"></span>
+        </button>
+
+        <div class="msng__env-panel" id="envPanel">
+          <div class="msng__env-head">
+            <strong>Messages</strong>
+            <a href="{% url 'messenger' %}">See all</a>
+          </div>
+          <div id="envPanelList"><div class="msng__env-empty">Loading…</div></div>
+        </div>
+      </div>
+
       <a href="{% url 'settings_profile' %}" class="header__icon-btn" aria-label="Settings">
         <i class="fa-solid fa-gear"></i>
       </a>
@@ -772,7 +1183,6 @@
 
     <div class="header__divider" aria-hidden="true"></div>
 
-    <!-- User: real data from UserProfile -->
     <div class="header__user" role="button" tabindex="0" aria-label="User menu">
       <div class="header__avatar" aria-hidden="true">
         {% if request.user.profile.avatar %}
@@ -805,7 +1215,6 @@
   <div class="layout">
     <main class="main" id="mainContent">
 
-      <!-- Page content -->
       <div class="content">
         {% block content %}
         {% endblock %}
@@ -822,6 +1231,46 @@
 
     </main>
   </div>
+
+  <!-- ═══ GLOBAL LIGHTBOX (used by mini chat windows) ══════════ -->
+  <div class="gm-lightbox" id="gmLightbox">
+    <button class="gm-lightbox__close" id="gmLightboxClose"><i class="fa-solid fa-xmark"></i></button>
+    <a class="gm-lightbox__dl" id="gmLightboxDl" download title="Download"><i class="fa-solid fa-download"></i></a>
+    <div id="gmLightboxContent"></div>
+    <div class="gm-lightbox__caption" id="gmLightboxCaption"></div>
+  </div>
+
+  <!-- ═══ FAB — always shown on ALL pages (including messenger) ═══ -->
+  <!--
+    On the messenger page this becomes a "New Message" FAB.
+    On all other pages it opens the floating picker/chat windows.
+    The JS below handles both cases via IS_MESSENGER flag.
+  -->
+  <button class="gm-fab" id="gmFab" title="New Message">
+    <i class="fa-solid fa-pen-to-square"></i>
+    <span class="gm-fab__badge" id="gmFabBadge"></span>
+  </button>
+
+  <!-- Picker (hidden on messenger page, shown on others) -->
+  <div class="gm-picker" id="gmPicker">
+    <div class="gm-picker__head">
+      <span class="gm-picker__title">Messages</span>
+      <button class="gm-picker__close" id="gmPickerClose"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="gm-picker__srch">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="gmPickerSearch" placeholder="Search people…" autocomplete="off">
+    </div>
+    <div class="gm-picker__list" id="gmPickerList">
+      <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.8rem;">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Open chat windows row -->
+  <div class="gm-wins-row" id="gmWinsRow"></div>
+
+  <!-- Minimized bubble avatars column -->
+  <div class="gm-bubbles-col" id="gmBubblesCol"></div>
 
   <!-- ═══ SCRIPTS ══════════════════════════════════════════════ -->
   <script>
@@ -869,9 +1318,9 @@
     })();
   </script>
 
+  <!-- Notifications WS -->
   <script>
     (function () {
-      /* ── Icons per type ── */
       const TYPE_ICONS = {
         press_release: 'fa-newspaper',
         event:         'fa-calendar-days',
@@ -893,7 +1342,6 @@
       let unreadCount = 0;
       let ws;
 
-      /* ── Badge ── */
       function setCount(n) {
         unreadCount = n;
         if (n > 0) {
@@ -904,7 +1352,6 @@
         }
       }
 
-      /* ── Toast ── */
       function showToast(notif) {
         const icon  = TYPE_ICONS[notif.notif_type] || 'fa-bell';
         const toast = document.createElement('div');
@@ -930,7 +1377,6 @@
         }, 5000);
       }
 
-      /* ── Render notification item ── */
       function renderItem(n) {
         const icon = TYPE_ICONS[n.notif_type] || 'fa-bell';
         const div  = document.createElement('div');
@@ -967,7 +1413,6 @@
         return div;
       }
 
-      /* ── Load notifications into panel ── */
       function loadNotifications() {
         fetch('/notifications/')
           .then(r => r.json())
@@ -981,7 +1426,6 @@
           });
       }
 
-      /* ── Bell toggle ── */
       bellBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const isOpen = panel.style.display === 'block';
@@ -995,58 +1439,722 @@
         }
       });
 
-      /* ── Mark all read ── */
       markAllBtn.addEventListener('click', () => {
         fetch('/notifications/mark-read/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } })
-          .then(() => {
-            setCount(0);
-            loadNotifications();
-          });
+          .then(() => { setCount(0); loadNotifications(); });
       });
 
-      /* ── CSRF helper ── */
       function getCookie(name) {
         const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
         return v ? v.pop() : '';
       }
 
-      /* ── WebSocket ── */
       function connectWS() {
         const proto = location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(`${proto}://${location.host}/ws/notifications/`);
-
         ws.onopen    = () => console.log('[WS] Notifications connected');
-        ws.onclose   = () => setTimeout(connectWS, 3000); // auto-reconnect
+        ws.onclose   = () => setTimeout(connectWS, 3000);
         ws.onerror   = (e) => console.warn('[WS] Error', e);
-
         ws.onmessage = (e) => {
           const data = JSON.parse(e.data);
-
           if (data.type === 'unread_count') {
             setCount(data.unread_count);
-          }
-          else if (data.type === 'new_notification') {
+          } else if (data.type === 'new_notification') {
             setCount(data.unread_count);
             showToast(data);
-            // If panel is open, prepend the new item
             if (panel.style.display === 'block') {
               const item = renderItem({ ...data, is_read: false });
               notifList.prepend(item);
             }
-          }
-          else if (data.type === 'notification_list') {
+          } else if (data.type === 'notification_list') {
             notifList.innerHTML = '';
             data.notifications.forEach(n => notifList.appendChild(renderItem(n)));
           }
         };
       }
 
-      /* Toast animation */
       const style = document.createElement('style');
       style.textContent = `@keyframes slideIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }`;
       document.head.appendChild(style);
 
       connectWS();
+    })();
+  </script>
+
+  <!-- Envelope Dropdown -->
+  <script>
+    (function () {
+      const envBtn    = document.getElementById('envBtn');
+      const panel     = document.getElementById('envPanel');
+      const listEl    = document.getElementById('envPanelList');
+      const msgBadge  = document.getElementById('msgBadge');
+
+      if (!envBtn) return;
+
+      function tAgo(isoStr) {
+        const d = new Date(isoStr), now = new Date(), diff = Math.floor((now - d) / 1000);
+        if (diff < 60)    return 'Just now';
+        if (diff < 3600)  return Math.floor(diff / 60) + 'm';
+        if (diff < 86400) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      }
+
+      function setMsgCount(n) {
+        msgBadge.style.display = n > 0 ? 'block' : 'none';
+      }
+
+      function loadEnv() {
+        fetch('/messenger/conversations/')
+          .then(r => r.json())
+          .then(data => {
+            const convs       = (data.conversations || []).slice(0, 6);
+            const totalUnread = convs.reduce((s, c) => s + (c.unread_count || 0), 0);
+            setMsgCount(totalUnread);
+
+            if (!convs.length) {
+              listEl.innerHTML = '<div class="msng__env-empty">No messages yet</div>';
+              return;
+            }
+
+            listEl.innerHTML = '';
+            convs.forEach(c => {
+              const a = document.createElement('div');
+              a.className = 'msng__env-item';
+              a.style.cursor = 'pointer';
+              a.innerHTML = `
+                <div class="msng__env-av">
+                  ${c.recipient.avatar
+                    ? `<img src="${c.recipient.avatar}" alt="">`
+                    : `<span>${c.recipient.initials || '?'}</span>`}
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div class="msng__env-name">${c.recipient.name}</div>
+                  <div class="msng__env-preview" style="${c.unread_count > 0 ? 'font-weight:600;color:var(--text-primary);' : ''}">
+                    ${c.last_message || 'No messages yet'}
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                  <div class="msng__env-time">${c.last_message_time ? tAgo(c.last_message_time) : ''}</div>
+                  ${c.unread_count > 0 ? '<div class="msng__env-unread"></div>' : ''}
+                </div>`;
+
+              a.addEventListener('click', () => {
+                panel.classList.remove('open');
+                if (window.gmOpenChat) {
+                  window.gmOpenChat(c.id, c.recipient);
+                } else {
+                  window.location.href = `/messenger/?conv=${c.id}`;
+                }
+              });
+
+              listEl.appendChild(a);
+            });
+          })
+          .catch(() => {
+            listEl.innerHTML = '<div class="msng__env-empty">Failed to load</div>';
+          });
+      }
+
+      envBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = panel.classList.contains('open');
+        panel.classList.toggle('open', !isOpen);
+        if (!isOpen) loadEnv();
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!panel.contains(e.target) && e.target !== envBtn) {
+          panel.classList.remove('open');
+        }
+      });
+
+      function pollUnread() {
+        fetch('/messenger/conversations/')
+          .then(r => r.json())
+          .then(data => {
+            const total = (data.conversations || []).reduce((s, c) => s + (c.unread_count || 0), 0);
+            setMsgCount(total);
+          })
+          .catch(() => {});
+      }
+
+      pollUnread();
+      setInterval(pollUnread, 30000);
+    })();
+  </script>
+
+  <!-- ═══ GLOBAL MESSENGER FAB + FLOATING CHAT WINDOWS ═══════════
+       Works on ALL pages. On the messenger page itself, the FAB
+       opens the New Message modal instead of a floating picker.
+  ══════════════════════════════════════════════════════════════ -->
+  <script>
+    (function () {
+      /* ── Detect if we are on the messenger page ── */
+      const IS_MESSENGER = document.getElementById('msng') !== null;
+
+      const fab          = document.getElementById('gmFab');
+      const picker       = document.getElementById('gmPicker');
+      const pickerClose  = document.getElementById('gmPickerClose');
+      const pickerSearch = document.getElementById('gmPickerSearch');
+      const pickerList   = document.getElementById('gmPickerList');
+      const winsRow      = document.getElementById('gmWinsRow');
+      const bubblesCol   = document.getElementById('gmBubblesCol');
+      const fabBadge     = document.getElementById('gmFabBadge');
+
+      /* On the messenger page hide picker & windows (they don't apply) */
+      if (IS_MESSENGER) {
+        picker.style.display    = 'none';
+        winsRow.style.display   = 'none';
+        bubblesCol.style.display= 'none';
+        /* FAB on messenger page → open New Message modal */
+        fab.addEventListener('click', () => {
+          const modal = document.getElementById('newMsgModal');
+          if (modal) {
+            modal.classList.add('open');
+            const si = document.getElementById('newMsgSearch');
+            if (si) { si.value = ''; si.focus(); }
+            /* trigger user list render if function exists */
+            if (window.msngRenderNewUsers) window.msngRenderNewUsers('');
+          }
+        });
+        return; /* stop — rest of this IIFE is for non-messenger pages */
+      }
+
+      /* ── Constants ── */
+      const MAX_OPEN    = 3;
+      const ME_ID       = {{ request.user.pk }};
+      const ME_INITIALS = "{{ request.user.first_name|slice:':1'|upper }}{{ request.user.last_name|slice:':1'|upper }}";
+      const ME_AVATAR   = "{% if request.user.profile.avatar %}{{ request.user.profile.avatar.url }}{% endif %}";
+
+      /* ── State ── */
+      let allConvs   = [];
+      let allUsers   = [];
+      let openWins   = {};   // convId → { el, ws, msgsEl, recipient }
+      let miniWins   = {};   // convId → { bubbleEl, recipient, ws, unread, pendingMsgs[] }
+      let pickerOpen = false;
+
+      /* ── Helpers ── */
+      const getCsrf  = () => { const v = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; };
+      const esc      = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      const fmtT     = iso => new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const tAgo     = iso => {
+        const d=new Date(iso),now=new Date(),diff=Math.floor((now-d)/1000);
+        if(diff<60) return 'now';
+        if(diff<3600) return Math.floor(diff/60)+'m';
+        if(diff<86400) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        return d.toLocaleDateString([],{month:'short',day:'numeric'});
+      };
+      const avHTML = (av, ini, size) => av
+        ? `<img src="${av}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+        : `<span style="font-size:${Math.round(size*.32)}px;">${ini||'?'}</span>`;
+
+      function isImage(url) {
+        if (!url) return false;
+        return /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url);
+      }
+      function isVideo(url) {
+        if (!url) return false;
+        return /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(url);
+      }
+      function fileIcon(name) {
+        if (!name) return 'fa-file';
+        const ext = name.split('.').pop().toLowerCase();
+        const map = {
+          pdf:'fa-file-pdf',doc:'fa-file-word',docx:'fa-file-word',
+          xls:'fa-file-excel',xlsx:'fa-file-excel',ppt:'fa-file-powerpoint',
+          pptx:'fa-file-powerpoint',zip:'fa-file-zipper',rar:'fa-file-zipper',
+          txt:'fa-file-lines',mp4:'fa-file-video',mov:'fa-file-video',
+          avi:'fa-file-video',mp3:'fa-file-audio',wav:'fa-file-audio',
+        };
+        return map[ext] || 'fa-file';
+      }
+      function fmtSize(bytes) {
+        if (!bytes) return '';
+        if (bytes < 1024) return bytes+' B';
+        if (bytes < 1048576) return (bytes/1024).toFixed(1)+' KB';
+        return (bytes/1048576).toFixed(1)+' MB';
+      }
+
+      /* ── Global lightbox ── */
+      function gmLightbox(url, name) {
+        const lb      = document.getElementById('gmLightbox');
+        const content = document.getElementById('gmLightboxContent');
+        const caption = document.getElementById('gmLightboxCaption');
+        const dl      = document.getElementById('gmLightboxDl');
+        dl.href = url; dl.download = name || 'file';
+        caption.textContent = name || '';
+        content.innerHTML = '';
+
+        if (isImage(url)) {
+          const img = document.createElement('img');
+          img.src = url; img.className = 'gm-lightbox__img'; img.alt = name || '';
+          content.appendChild(img);
+        } else if (isVideo(url)) {
+          const vid = document.createElement('video');
+          vid.src = url; vid.controls = true;
+          vid.style.cssText = 'max-width:90vw;max-height:82vh;border-radius:8px;';
+          content.appendChild(vid);
+        } else {
+          const wrap = document.createElement('div');
+          wrap.className = 'gm-lightbox__file';
+          wrap.innerHTML = `
+            <i class="fa-solid ${fileIcon(name)}"></i>
+            <div class="gm-lightbox__file-name">${esc(name||'File')}</div>
+            <a href="${url}" download="${name||'file'}" class="gm-lightbox__file-dl">
+              <i class="fa-solid fa-download"></i> Download File
+            </a>`;
+          content.appendChild(wrap);
+        }
+        lb.classList.add('open');
+      }
+
+      document.getElementById('gmLightboxClose').addEventListener('click', () => {
+        document.getElementById('gmLightbox').classList.remove('open');
+      });
+      document.getElementById('gmLightbox').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('gmLightbox'))
+          document.getElementById('gmLightbox').classList.remove('open');
+      });
+
+      /* ── FAB badge ── */
+      function setFabBadge(n) {
+        fabBadge.textContent = n > 99 ? '99+' : n;
+        fabBadge.classList.toggle('show', n > 0);
+      }
+
+      /* ── Data loading ── */
+      function loadConvs(cb) {
+        fetch('/messenger/conversations/').then(r=>r.json()).then(data => {
+          allConvs = data.conversations || [];
+          const total = allConvs.reduce((s,c)=>s+(c.unread_count||0),0);
+          setFabBadge(total);
+          renderPicker(pickerSearch.value);
+          if (cb) cb();
+        }).catch(()=>{});
+      }
+      function loadUsers() {
+        fetch('/messenger/users/').then(r=>r.json()).then(data=>{ allUsers=data.users||[]; renderPicker(pickerSearch.value); }).catch(()=>{});
+      }
+
+      /* ── Picker render ── */
+      function renderPicker(filter) {
+        const lo = (filter||'').toLowerCase();
+        pickerList.innerHTML = '';
+
+        const convs = allConvs.filter(c => !lo || c.recipient.name.toLowerCase().includes(lo));
+        if (convs.length) {
+          if (!lo) { const s=document.createElement('div'); s.className='gm-picker__sec'; s.textContent='Recent'; pickerList.appendChild(s); }
+          convs.forEach(c => pickerList.appendChild(makePickerItem(c.recipient, c.id, c.unread_count, c.last_message)));
+        }
+
+        if (lo) {
+          const ids = new Set(allConvs.map(c=>c.recipient.id));
+          const others = allUsers.filter(u => u.name.toLowerCase().includes(lo) && !ids.has(u.id));
+          if (others.length) {
+            const s=document.createElement('div'); s.className='gm-picker__sec'; s.textContent='People'; pickerList.appendChild(s);
+            others.forEach(u => pickerList.appendChild(makePickerItem(u, null, 0, u.position||'')));
+          }
+        }
+
+        if (!pickerList.children.length) {
+          pickerList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.8rem;">No conversations yet</div>';
+        }
+      }
+
+      function makePickerItem(recipient, convId, unread, preview) {
+        const div = document.createElement('div');
+        div.className = 'gm-picker__item';
+        div.innerHTML = `
+          <div class="gm-picker__av">
+            ${avHTML(recipient.avatar, recipient.initials, 36)}
+            ${recipient.is_online ? '<span class="gm-picker__av-dot"></span>' : ''}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="gm-picker__name">${esc(recipient.name)}</div>
+            <div class="gm-picker__preview">${esc(preview||'')}</div>
+          </div>
+          ${unread > 0 ? `<div class="gm-picker__unread">${unread}</div>` : ''}`;
+        div.addEventListener('click', () => {
+          closePicker();
+          if (convId) {
+            openChat(convId, recipient);
+          } else {
+            fetch('/messenger/conversations/start/', {
+              method:'POST',
+              headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+              body:JSON.stringify({user_id:recipient.id}),
+            }).then(r=>r.json()).then(data => loadConvs(()=>openChat(data.conversation_id, recipient)));
+          }
+        });
+        return div;
+      }
+
+      /* ── Build a rich message element for the mini window ── */
+      function buildWinMsg(msg) {
+        const mine = msg.sender_id === ME_ID;
+        const row  = document.createElement('div');
+        row.className = 'gm-win__row' + (mine ? ' mine' : '');
+        row.dataset.id = msg.id;
+
+        const hasAttachment = msg.attachment_url;
+        const hasBody       = msg.body && msg.body.trim();
+
+        const bubble = document.createElement('div');
+
+        let content = '';
+
+        if (hasAttachment) {
+          if (msg.is_image || isImage(msg.attachment_url)) {
+            bubble.className = hasBody ? 'gm-win__bubble' : 'gm-win__bubble img-only';
+            const imgUrl = msg.attachment_url;
+            const imgName= msg.attachment_name || 'Image';
+            content += `<img class="gm-win__bubble-img" src="${imgUrl}" alt="${imgName}" data-url="${imgUrl}" data-name="${imgName}">`;
+          } else if (isVideo(msg.attachment_url)) {
+            bubble.className = hasBody ? 'gm-win__bubble' : 'gm-win__bubble img-only';
+            content += `
+              <div style="position:relative;width:200px;height:130px;border-radius:10px;overflow:hidden;cursor:pointer;margin-bottom:3px;"
+                   data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Video'}" class="gm-win__vid-preview">
+                <video src="${msg.attachment_url}" style="width:100%;height:100%;object-fit:cover;" muted preload="metadata"></video>
+                <div style="position:absolute;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;">
+                  <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;">
+                    <i class="fa-solid fa-play" style="color:#1a4731;font-size:.8rem;margin-left:2px;"></i>
+                  </div>
+                </div>
+              </div>`;
+          } else {
+            bubble.className = 'gm-win__bubble';
+            content += `
+              <div class="gm-win__bubble-file" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'File'}">
+                <div class="gm-win__bubble-file-icon"><i class="fa-solid ${fileIcon(msg.attachment_name)}"></i></div>
+                <div>
+                  <div class="gm-win__bubble-file-name">${esc(msg.attachment_name||'File')}</div>
+                  <div class="gm-win__bubble-file-size">${msg.attachment_name ? msg.attachment_name.split('.').pop().toUpperCase() : 'FILE'}</div>
+                </div>
+              </div>`;
+          }
+        } else {
+          bubble.className = 'gm-win__bubble';
+        }
+
+        if (hasBody) content += `<span>${esc(msg.body)}</span>`;
+        content += `<span class="gm-win__btime">${fmtT(msg.created_at)}</span>`;
+        bubble.innerHTML = content;
+
+        /* Bind lightbox clicks */
+        const imgEl  = bubble.querySelector('.gm-win__bubble-img');
+        if (imgEl) imgEl.addEventListener('click', () => gmLightbox(imgEl.dataset.url, imgEl.dataset.name));
+        const vidDiv = bubble.querySelector('.gm-win__vid-preview');
+        if (vidDiv) vidDiv.addEventListener('click', () => gmLightbox(vidDiv.dataset.url, vidDiv.dataset.name));
+        const fileDiv = bubble.querySelector('.gm-win__bubble-file');
+        if (fileDiv) fileDiv.addEventListener('click', () => gmLightbox(fileDiv.dataset.url, fileDiv.dataset.name));
+
+        row.appendChild(bubble);
+        return row;
+      }
+
+      function appendWinMsg(msgsEl, msg) {
+        const typing = msgsEl.querySelector('.gm-win__typing');
+        if (typing) typing.remove();
+        msgsEl.appendChild(buildWinMsg(msg));
+        msgsEl.scrollTop = msgsEl.scrollHeight;
+      }
+
+      /* ── OPEN CHAT WINDOW ── */
+      function openChat(convId, recipient) {
+        if (miniWins[convId])  { restoreFromBubble(convId); return; }
+        if (openWins[convId])  { openWins[convId].el.querySelector('.gm-win__input').focus(); return; }
+        if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
+
+        const win = document.createElement('div');
+        win.className = 'gm-win';
+        win.dataset.convId = convId;
+        win.innerHTML = `
+          <div class="gm-win__head">
+            <div class="gm-win__hav">
+              ${avHTML(recipient.avatar, recipient.initials, 28)}
+              ${recipient.is_online ? '<span class="gm-win__hav-dot"></span>' : ''}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div class="gm-win__hname">${esc(recipient.name)}</div>
+              <div class="gm-win__hstatus">${recipient.is_online ? 'Active now' : 'Offline'}</div>
+            </div>
+            <div class="gm-win__hbtns">
+              <button class="gm-win__hbtn js-min" title="Minimize"><i class="fa-solid fa-minus"></i></button>
+              <button class="gm-win__hbtn js-close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+          <div class="gm-win__msgs js-msgs">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:.75rem;padding:20px;">Loading…</div>
+          </div>
+          <!-- attachment preview bar -->
+          <div class="gm-win__attach-preview js-attach-preview">
+            <div class="js-attach-thumb"></div>
+            <div class="gm-win__attach-name js-attach-name"></div>
+            <button class="gm-win__attach-rm js-attach-rm" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="gm-win__foot">
+            <button class="gm-win__attach-btn js-attach-btn" title="Attach file"><i class="fa-solid fa-paperclip"></i></button>
+            <input type="file" class="js-file-input" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
+            <textarea class="gm-win__input js-input" placeholder="Aa" rows="1"></textarea>
+            <button class="gm-win__send js-send"><i class="fa-solid fa-paper-plane"></i></button>
+          </div>`;
+
+        winsRow.appendChild(win);
+
+        const msgsEl      = win.querySelector('.js-msgs');
+        const inputEl     = win.querySelector('.js-input');
+        const sendEl      = win.querySelector('.js-send');
+        const attachBtn   = win.querySelector('.js-attach-btn');
+        const fileInput   = win.querySelector('.js-file-input');
+        const attachPrev  = win.querySelector('.js-attach-preview');
+        const thumbEl     = win.querySelector('.js-attach-thumb');
+        const attachName  = win.querySelector('.js-attach-name');
+        const attachRm    = win.querySelector('.js-attach-rm');
+
+        let pendingFile = null;
+
+        /* Header click → minimize */
+        win.querySelector('.gm-win__head').addEventListener('click', e => {
+          if (e.target.closest('.gm-win__hbtns')) return;
+          minimizeWindow(convId);
+        });
+        win.querySelector('.js-min').addEventListener('click', e => { e.stopPropagation(); minimizeWindow(convId); });
+        win.querySelector('.js-close').addEventListener('click', e => { e.stopPropagation(); closeWindow(convId); });
+
+        /* Attach file */
+        attachBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+          const file = fileInput.files[0];
+          if (!file) return;
+          const isImg = file.type.startsWith('image/');
+          pendingFile = { file, isImage: isImg };
+          attachName.textContent = file.name;
+          thumbEl.innerHTML = '';
+          if (isImg) {
+            const url = URL.createObjectURL(file);
+            pendingFile.localUrl = url;
+            const img = document.createElement('img');
+            img.className = 'gm-win__attach-thumb'; img.src = url;
+            thumbEl.appendChild(img);
+          } else {
+            thumbEl.innerHTML = `<div class="gm-win__attach-file-icon"><i class="fa-solid ${fileIcon(file.name)}"></i></div>`;
+          }
+          attachPrev.classList.add('visible');
+          fileInput.value = '';
+        });
+        attachRm.addEventListener('click', () => {
+          pendingFile = null;
+          attachPrev.classList.remove('visible');
+          thumbEl.innerHTML = '';
+        });
+
+        /* Auto-resize textarea */
+        inputEl.addEventListener('input', () => {
+          inputEl.style.height = 'auto';
+          inputEl.style.height = Math.min(inputEl.scrollHeight, 72) + 'px';
+          const state = openWins[convId];
+          if (state && state.ws && state.ws.readyState === WebSocket.OPEN) {
+            state.ws.send(JSON.stringify({type:'typing'}));
+            clearTimeout(state._typingTimer);
+            state._typingTimer = setTimeout(() => {
+              if (state.ws && state.ws.readyState === WebSocket.OPEN)
+                state.ws.send(JSON.stringify({type:'stop_typing'}));
+            }, 1500);
+          }
+        });
+
+        /* Send */
+        const doSend = () => {
+          const body = inputEl.value.trim();
+          if (!body && !pendingFile) return;
+
+          const fd = new FormData();
+          if (body) fd.append('body', body);
+          if (pendingFile) fd.append('attachment', pendingFile.file);
+
+          inputEl.value = ''; inputEl.style.height = 'auto';
+          const fileCopy = pendingFile;
+          pendingFile = null;
+          attachPrev.classList.remove('visible');
+          thumbEl.innerHTML = '';
+
+          /* Optimistic message */
+          const opt = {
+            id: 'tmp_' + Date.now(),
+            sender_id: ME_ID,
+            body,
+            created_at: new Date().toISOString(),
+            attachment_url:  fileCopy ? fileCopy.localUrl || null : null,
+            attachment_name: fileCopy ? fileCopy.file.name : null,
+            is_image:        fileCopy ? fileCopy.isImage : false,
+          };
+          appendWinMsg(msgsEl, opt);
+
+          fetch(`/messenger/conversations/${convId}/send/`, {
+            method:'POST', headers:{'X-CSRFToken':getCsrf()}, body: fd,
+          }).then(r=>r.json()).then(data => {
+            if (data.success) {
+              const tmpEl = msgsEl.querySelector(`[data-id="${opt.id}"]`);
+              if (tmpEl) tmpEl.replaceWith(buildWinMsg(data.message));
+              loadConvs();
+            }
+          });
+        };
+        sendEl.addEventListener('click', doSend);
+        inputEl.addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
+
+        openWins[convId] = { el:win, msgsEl, recipient, ws:null };
+
+        loadWinMsgs(convId, msgsEl);
+        connectWinWS(convId, msgsEl, recipient);
+
+        fetch(`/messenger/conversations/${convId}/read/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} })
+          .then(() => loadConvs());
+      }
+
+      /* ── MINIMIZE ── */
+      function minimizeWindow(convId) {
+        const state = openWins[convId];
+        if (!state) return;
+        state.el.remove();
+        const ws        = state.ws;
+        const recipient = state.recipient;
+        delete openWins[convId];
+
+        const bubble = document.createElement('div');
+        bubble.className = 'gm-bubble';
+        bubble.dataset.convId = convId;
+        bubble.title = recipient.name;
+        bubble.innerHTML = `
+          ${avHTML(recipient.avatar, recipient.initials, 48)}
+          ${recipient.is_online ? '<span class="gm-bubble__online"></span>' : ''}
+          <span class="gm-bubble__badge" id="gmBubBadge_${convId}"></span>`;
+        bubble.addEventListener('click', () => restoreFromBubble(convId));
+        bubblesCol.appendChild(bubble);
+
+        miniWins[convId] = { bubbleEl:bubble, recipient, ws, unread:0, pendingMsgs:[] };
+
+        if (ws) {
+          ws.onmessage = e => {
+            const data = JSON.parse(e.data);
+            if (data.type === 'chat_message' && data.message.sender_id !== ME_ID) {
+              const mini = miniWins[convId];
+              if (!mini) return;
+              mini.unread++;
+              mini.pendingMsgs.push(data.message);
+              const badge = document.getElementById(`gmBubBadge_${convId}`);
+              if (badge) { badge.textContent = mini.unread; badge.classList.add('show'); }
+              loadConvs();
+            }
+          };
+        }
+      }
+
+      /* ── RESTORE ── */
+      function restoreFromBubble(convId) {
+        const mini = miniWins[convId];
+        if (!mini) return;
+        mini.bubbleEl.remove();
+        delete miniWins[convId];
+        if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
+        openChat(convId, mini.recipient);
+      }
+
+      /* ── CLOSE ── */
+      function closeWindow(convId) {
+        const state = openWins[convId];
+        if (state) { if (state.ws) state.ws.close(); state.el.remove(); delete openWins[convId]; }
+        const mini  = miniWins[convId];
+        if (mini)  { if (mini.ws) mini.ws.close(); mini.bubbleEl.remove(); delete miniWins[convId]; }
+      }
+
+      /* ── LOAD messages into window ── */
+      function loadWinMsgs(convId, msgsEl) {
+        fetch(`/messenger/conversations/${convId}/messages/`).then(r=>r.json()).then(data => {
+          msgsEl.innerHTML = '';
+          const msgs = data.messages || [];
+          if (!msgs.length) {
+            msgsEl.innerHTML = '<div style="text-align:center;padding:18px;color:var(--text-muted);font-size:.74rem;">No messages yet. Say hello! 👋</div>';
+            return;
+          }
+          let lastDate = null;
+          msgs.forEach(msg => {
+            const d = new Date(msg.created_at).toDateString();
+            if (d !== lastDate) {
+              const div = document.createElement('div');
+              div.className = 'gm-win__date';
+              const now=new Date(), diff=Math.floor((now-new Date(msg.created_at))/86400000);
+              div.textContent = diff===0?'Today':diff===1?'Yesterday':new Date(msg.created_at).toLocaleDateString([],{month:'short',day:'numeric'});
+              msgsEl.appendChild(div);
+              lastDate = d;
+            }
+            msgsEl.appendChild(buildWinMsg(msg));
+          });
+          msgsEl.scrollTop = msgsEl.scrollHeight;
+        });
+      }
+
+      /* ── WebSocket per window ── */
+      function connectWinWS(convId, msgsEl, recipient) {
+        const proto = location.protocol==='https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${proto}://${location.host}/ws/chat/${convId}/`);
+
+        ws.onmessage = e => {
+          const data = JSON.parse(e.data);
+          if (data.type === 'chat_message') {
+            if (data.message.sender_id !== ME_ID) {
+              appendWinMsg(msgsEl, data.message);
+              fetch(`/messenger/conversations/${convId}/read/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} })
+                .then(() => loadConvs());
+            }
+          } else if (data.type === 'typing' && data.user_id !== ME_ID) {
+            showWinTyping(msgsEl);
+          } else if (data.type === 'stop_typing') {
+            hideWinTyping(msgsEl);
+          }
+        };
+        ws.onclose = () => { setTimeout(() => { if (openWins[convId]) connectWinWS(convId, msgsEl, recipient); }, 3000); };
+
+        if (openWins[convId]) openWins[convId].ws = ws;
+      }
+
+      let typingTimers = {};
+      function showWinTyping(msgsEl) {
+        if (msgsEl.querySelector('.gm-win__typing')) return;
+        const el = document.createElement('div');
+        el.className = 'gm-win__typing';
+        el.innerHTML = '<div class="gm-win__tdot"></div><div class="gm-win__tdot"></div><div class="gm-win__tdot"></div>';
+        msgsEl.appendChild(el); msgsEl.scrollTop = msgsEl.scrollHeight;
+        clearTimeout(typingTimers[msgsEl]);
+        typingTimers[msgsEl] = setTimeout(() => hideWinTyping(msgsEl), 4000);
+      }
+      function hideWinTyping(msgsEl) { const el = msgsEl.querySelector('.gm-win__typing'); if (el) el.remove(); }
+
+      /* ── Picker toggle ── */
+      function closePicker() { picker.classList.remove('open'); pickerOpen = false; }
+
+      fab.addEventListener('click', e => {
+        e.stopPropagation();
+        pickerOpen = !pickerOpen;
+        picker.classList.toggle('open', pickerOpen);
+        if (pickerOpen) { pickerSearch.value=''; renderPicker(''); pickerSearch.focus(); }
+      });
+      pickerClose.addEventListener('click', closePicker);
+      document.addEventListener('click', e => {
+        if (!picker.contains(e.target) && e.target !== fab) closePicker();
+      });
+      pickerSearch.addEventListener('input', () => renderPicker(pickerSearch.value));
+
+      /* ── Expose globally so envelope dropdown can open mini windows ── */
+      window.gmOpenChat = function(convId, recipient) {
+        openChat(convId, recipient);
+      };
+
+      /* ── Init ── */
+      loadConvs();
+      loadUsers();
+      setInterval(loadConvs, 30000);
+
     })();
   </script>
 
