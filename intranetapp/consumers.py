@@ -64,6 +64,24 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'unread_count':  event['unread_count'],
         }))
 
+
+    async def new_chat_message(self, event):
+        """
+        Fired when someone sends the logged-in user a chat message.
+        Pushes a real-time envelope notification to base.html.
+        """
+        await self.send(text_data=json.dumps({
+            'type':             'new_chat_message',
+            'conv_id':          event['conv_id'],
+            'sender_id':        event['sender_id'],
+            'sender_name':      event['sender_name'],
+            'sender_avatar':    event['sender_avatar'],
+            'sender_initials':  event['sender_initials'],
+            'body':             event['body'],
+            'created_at':       event['created_at'],
+            'unread_count':     event['unread_count'],
+        }))
+
     # ── DB helpers ──────────────────────────────────────────────────────────
     @database_sync_to_async
     def get_unread_count(self, user):
@@ -134,6 +152,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def stop_typing(self, event):
         await self.send(text_data=json.dumps({'type': 'stop_typing'}))
 
+    async def messages_seen(self, event):
+        await self.send(text_data=json.dumps({
+            'type':        'messages_seen',
+            'message_ids': event['message_ids'],
+            'seen_by':     event['seen_by'],
+        }))
+
     @database_sync_to_async
     def save_message(self, user, body):
         from .models import Conversation, Message
@@ -142,12 +167,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         conv.updated_at = msg.created_at
         conv.save()
         return {
-            'id': msg.pk, 'body': msg.body,
-            'sender_id': user.pk,
-            'created_at': msg.created_at.isoformat(),
-            'attachment_url': None,
+            'id':              msg.pk,
+            'body':            msg.body,
+            'sender_id':       user.pk,
+            'created_at':      msg.created_at.isoformat(),
+            'attachment_url':  None,
             'attachment_name': '',
-            'is_image': False,
+            'is_image':        False,
+            'status':          msg.status,
         }
     
 class PresenceConsumer(AsyncWebsocketConsumer):

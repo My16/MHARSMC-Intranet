@@ -1052,7 +1052,7 @@ def event_attachment_delete(request, pk):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
 
-    att = get_object_or_404(EventAttachment, pk=pk, event__pk=pk)
+    att = get_object_or_404(EventAttachment, pk=pk)
     att.file.delete(save=False)
     att.delete()
     return JsonResponse({'success': True})
@@ -3279,6 +3279,7 @@ def messenger_messages(request, conv_id):
         'attachment_url': m.attachment.url if m.attachment else None,
         'attachment_name': m.attachment_name,
         'is_image': m.is_image,
+        'status': m.status,
     } for m in msgs]})
 
 @login_required
@@ -3307,6 +3308,39 @@ def messenger_send(request, conv_id):
         conv.save()
         
         channel_layer = get_channel_layer()
+
+        recipient = conv.participants.exclude(pk=request.user.pk).first()
+
+
+        if recipient:
+            # Get unread count for recipient
+            unread_count = Message.objects.filter(
+                conversation__participants=recipient,
+                is_read=False
+            ).exclude(sender=recipient).count()
+
+            # Get sender profile for avatar/initials
+            sender_profile = request.user.profile
+            sender_avatar = sender_profile.avatar.url if sender_profile.avatar else ''
+            first = request.user.first_name[:1].upper()
+            last  = request.user.last_name[:1].upper()
+
+            async_to_sync(channel_layer.group_send)(
+                f'notif_user_{recipient.pk}',
+                {
+                    'type':            'new_chat_message',
+                    'conv_id':         conv.pk,
+                    'sender_id':       request.user.pk,
+                    'sender_name':     request.user.get_full_name() or request.user.username,
+                    'sender_avatar':   sender_avatar,
+                    'sender_initials': first + last,
+                    'body':       msg.body or 'Sent an attachment',
+                    'created_at': msg.created_at.isoformat(),
+                    'unread_count':    unread_count,
+                }
+            )
+
+
         msg_data = {
             'id': msg.pk,
             'body': msg.body,
@@ -3315,6 +3349,7 @@ def messenger_send(request, conv_id):
             'attachment_url': msg.attachment.url if msg.attachment else None,
             'attachment_name': msg.attachment_name,
             'is_image': msg.is_image,
+            'status': msg.status,
         }
         async_to_sync(channel_layer.group_send)(
             f'chat_{conv_id}',
@@ -3331,8 +3366,37 @@ def messenger_send(request, conv_id):
 def messenger_read(request, conv_id):
     if request.method == 'POST':
         from .models import Conversation, Message
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+
         conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
-        conv.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+
+        # Get IDs of messages being marked seen (sent by the OTHER person)
+        newly_seen = list(
+            conv.messages
+            .filter(is_read=False)
+            .exclude(sender=request.user)
+            .values_list('pk', flat=True)
+        )
+
+        conv.messages.filter(is_read=False).exclude(sender=request.user).update(
+            is_read=True, status=Message.STATUS_SEEN
+        )
+
+        # Notify the original sender that their messages were seen
+        if newly_seen:
+            other = conv.participants.exclude(pk=request.user.pk).first()
+            if other:
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    f'chat_{conv_id}',
+                    {
+                        'type':       'messages_seen',
+                        'message_ids': newly_seen,
+                        'seen_by':    request.user.pk,
+                    }
+                )
+
         return JsonResponse({'success': True})
     return JsonResponse({'success': False}, status=405)
 

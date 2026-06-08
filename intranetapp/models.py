@@ -1151,23 +1151,30 @@ class Conversation(models.Model):
         ordering = ['-updated_at']
 
 class Message(models.Model):
-    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
-    sender       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
-    body         = models.TextField(blank=True, null=True)
-    attachment   = models.FileField(upload_to='chat_attachments/', blank=True, null=True)
-    attachment_name = models.CharField(max_length=255, blank=True, default='')
-    is_read      = models.BooleanField(default=False)
-    created_at   = models.DateTimeField(auto_now_add=True)
+    STATUS_SENT      = 'sent'
+    STATUS_DELIVERED = 'delivered'
+    STATUS_SEEN      = 'seen'
+    STATUS_CHOICES   = [
+        (STATUS_SENT,      'Sent'),
+        (STATUS_DELIVERED, 'Delivered'),
+        (STATUS_SEEN,      'Seen'),
+    ]
 
-    class Meta:
-        ordering = ['created_at']
+    conversation    = models.ForeignKey('Conversation', on_delete=models.CASCADE, related_name='messages')
+    sender          = models.ForeignKey(User, on_delete=models.CASCADE)
+    body            = models.TextField(blank=True)
+    attachment      = models.FileField(upload_to='messenger/', blank=True, null=True)
+    attachment_name = models.CharField(max_length=255, blank=True)
+    is_read         = models.BooleanField(default=False)
+    status          = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_SENT)
+    created_at      = models.DateTimeField(auto_now_add=True)
 
     @property
     def is_image(self):
         if not self.attachment:
             return False
         ext = self.attachment.name.split('.')[-1].lower()
-        return ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']
+        return ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg')
 
     @property
     def file_extension(self):

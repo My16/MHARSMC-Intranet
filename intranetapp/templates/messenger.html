@@ -721,6 +721,22 @@
     .msng__info-slider, .msng__info-layer, .msng__media-panel { width: 100%; min-width: unset; }
     .msng__info-slider.media-open .msng__info-layer { transform: translateX(-100%); }
   }
+
+  /* ── Message status (Messenger-style) ── */
+  .msng__status-row {
+    display: flex; justify-content: flex-end; align-items: center;
+    gap: 4px; padding: 0 4px 4px; min-height: 16px;
+  }
+  .msng__status-label {
+    font-size: .62rem; color: var(--text-muted);
+  }
+  .msng__status-av {
+    width: 14px; height: 14px; border-radius: 50%;
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+    background: var(--green-mid); flex-shrink: 0;
+    font-size: .44rem; font-weight: 600; color: var(--white);
+  }
+  .msng__status-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 </style>
 {% endblock %}
 
@@ -1520,6 +1536,7 @@
       msngMessages.appendChild(buildMessageEl(msg));
     });
     scrollToBottom();
+    refreshMsngStatusRow();
   }
 
   function buildMessageEl(msg) {
@@ -1527,6 +1544,7 @@
     const row = document.createElement('div');
     row.className = 'msng__msg-row' + (isMine ? ' mine' : '');
     row.dataset.id = msg.id;
+    if (isMine) row.dataset.msgStatus = msg.status || 'sent';
 
     const av = document.createElement('div');
     av.className = 'msng__msg-avatar';
@@ -1629,9 +1647,38 @@
 
     // Refresh media panel
     populateMediaPanel(messages);
+    refreshMsngStatusRow();
   }
 
   function scrollToBottom() { msngMessages.scrollTop = msngMessages.scrollHeight; }
+
+  function refreshMsngStatusRow() {
+    // Remove existing status row
+    msngMessages.querySelector('.msng__status-row')?.remove();
+
+    // Find last message sent by me
+    const myRows = [...msngMessages.querySelectorAll('.msng__msg-row.mine')];
+    if (!myRows.length) return;
+    const lastRow = myRows[myRows.length - 1];
+    const status = lastRow.dataset.msgStatus || 'sent';
+
+    const statusRow = document.createElement('div');
+    statusRow.className = 'msng__status-row';
+
+    if (status === 'seen') {
+      const av = activeRecipient;
+      const avInner = av && av.avatar
+        ? `<img src="${av.avatar}" alt="">`
+        : `<span>${av ? av.initials : '?'}</span>`;
+      statusRow.innerHTML = `<div class="msng__status-av">${avInner}</div><span class="msng__status-label">Seen</span>`;
+    } else if (status === 'delivered') {
+      statusRow.innerHTML = `<span class="msng__status-label">Delivered</span>`;
+    } else {
+      statusRow.innerHTML = `<span class="msng__status-label">Sent</span>`;
+    }
+
+    lastRow.insertAdjacentElement('afterend', statusRow);
+  }
 
   /* ─── WEBSOCKET ─── */
   function connectChatWS(convId) {
@@ -1640,22 +1687,28 @@
     ws = new WebSocket(`${proto}://${location.host}/ws/chat/${convId}/`);
     ws.onopen    = () => console.log('[Chat WS] connected');
     ws.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        if (data.type === 'chat_message') {
-        // Always update the preview (covers both my messages and theirs)
+      const data = JSON.parse(e.data);
+      if (data.type === 'chat_message') {
         updateConvPreview(convId, data.message);
-        // Only append to chat if this is the active conversation
-        if (activeConvId == convId) {
-            // Don't double-append my own messages (already appended optimistically via sendMessage)
-            if (data.message.sender_id !== ME.id) {
-            appendMessage(data.message);
-            }
+        if (activeConvId == convId && data.message.sender_id !== ME.id) {
+          appendMessage(data.message);
+          // Mark as read immediately since we're looking at it
+          fetch(`/messenger/conversations/${convId}/read/`, {
+            method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+          }).catch(() => {});
         }
-        } else if (data.type === 'typing' && data.user_id !== ME.id) {
+      } else if (data.type === 'messages_seen') {
+        // Update status on affected messages
+        (data.message_ids || []).forEach(id => {
+          const row = msngMessages.querySelector(`[data-id="${id}"]`);
+          if (row) row.dataset.msgStatus = 'seen';
+        });
+        refreshMsngStatusRow();
+      } else if (data.type === 'typing' && data.user_id !== ME.id) {
         showTyping();
-        } else if (data.type === 'stop_typing') {
+      } else if (data.type === 'stop_typing') {
         hideTyping();
-        }
+      }
     };
     ws.onclose = () => console.log('[Chat WS] disconnected');
     }
@@ -1738,6 +1791,7 @@
                   const realEl = buildMessageEl(data.message);
                   tmpEl.replaceWith(realEl);
               }
+              refreshMsngStatusRow();
               // Update cache
               const cached = convCache[activeConvId];
               if (cached) {
@@ -1776,8 +1830,14 @@
   function loadUsers() {
     fetch('/messenger/users/')
       .then(r => r.json())
-      .then(data => { allUsers = data.users; });
+      .then(data => {
+        allUsers = data.users;
+        renderNewMsgUsers('');
+      });
   }
+
+  // Expose so base.html FAB can call it
+  window.msngRenderNewUsers = renderNewMsgUsers;
 
   /* ─── POLL CONVERSATION LIST every 15s ─── */
     // Keeps previews fresh for conversations you're NOT currently chatting in
