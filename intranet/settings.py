@@ -135,9 +135,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 # Redirect unauthenticated users to the project's login view (root path)
-LOGIN_URL = '/'
+LOGIN_URL = '/login/'
 # Where to redirect after successful login (named URL)
-LOGIN_REDIRECT_URL = 'home'
+LOGIN_REDIRECT_URL = '/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

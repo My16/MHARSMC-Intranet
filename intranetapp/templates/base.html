@@ -1802,17 +1802,33 @@
         try{sessionStorage.setItem('gmWinState',JSON.stringify(state));}catch(e){}
       }
       function restoreWinState() {
-        let state; try{state=JSON.parse(sessionStorage.getItem('gmWinState')||'null');}catch(e){}
-        if(!state) return;
-        (state.mini||[]).forEach(s=>{
-          if(miniWins[s.convId]||openWins[s.convId]) return;
-          openChat(s.convId,s.recipient); minimizeWindow(s.convId);
-          const mini=miniWins[s.convId];
-          if(mini&&s.unread>0){ mini.unread=s.unread; const badge=document.getElementById(`gmBubBadge_${s.convId}`); if(badge){badge.textContent=s.unread;badge.classList.add('show');} }
+        let state;
+        try { state = JSON.parse(sessionStorage.getItem('gmWinState') || 'null'); } catch(e) {}
+        if (!state) return;
+
+        // Restore minimized bubbles WITHOUT calling openChat (skip the fetch)
+        (state.mini || []).forEach(s => {
+          if (miniWins[s.convId] || openWins[s.convId]) return;
+
+          // Build the bubble directly — no window, no fetch
+          const bubble = document.createElement('div');
+          bubble.className = 'gm-bubble';
+          bubble.dataset.convId = s.convId;
+          bubble.title = s.recipient.name || '';
+          bubble.innerHTML = `
+            <div class="gm-bubble__inner">${avHTML(s.recipient.avatar, s.recipient.initials, 48)}</div>
+            ${s.recipient.is_online ? '<span class="gm-bubble__online"></span>' : ''}
+            <span class="gm-bubble__badge${s.unread > 0 ? ' show' : ''}" id="gmBubBadge_${s.convId}">${s.unread > 0 ? s.unread : ''}</span>`;
+          bubble.addEventListener('click', () => restoreFromBubble(s.convId));
+          bubblesCol.appendChild(bubble);
+
+          miniWins[s.convId] = { bubbleEl: bubble, recipient: s.recipient, ws: null, unread: s.unread || 0 };
         });
-        (state.open||[]).forEach(s=>{
-          if(openWins[s.convId]||miniWins[s.convId]) return;
-          openChat(s.convId,s.recipient);
+
+        // Restore open windows normally
+        (state.open || []).forEach(s => {
+          if (openWins[s.convId] || miniWins[s.convId]) return;
+          openChat(s.convId, s.recipient);
         });
       }
       window.addEventListener('beforeunload', saveWinState);

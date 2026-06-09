@@ -423,8 +423,80 @@ def logout_view(request):
     return redirect('login')
 
 
+# ── Home / Dashboard ──────────────────────────────────────────────────────────
+@login_required
 def home(request):
-    return render(request, 'home.html')
+    from .models import (
+        PressRelease, UserProfile,
+    )
+    from django.utils import timezone
+    import datetime
+ 
+    today = timezone.now().date()
+    user  = request.user
+ 
+    def can_access(module):
+        if user.is_superuser: return True
+        return hasattr(user, 'profile') and user.profile.has_module_access(module)
+ 
+    ctx = {}
+ 
+    # ── Press releases ──────────────────────────────────────────
+    if can_access('press_releases'):
+        ctx['recent_press_releases'] = (
+            PressRelease.objects
+            .filter(status='published')
+            .select_related('author')
+            .order_by('-created_at')[:5]
+        )
+        ctx['press_release_count'] = PressRelease.objects.filter(status='published').count()
+ 
+    # ── Events & trainings ──────────────────────────────────────
+    if can_access('events_trainings'):
+        from .models import Event, Training
+        ctx['upcoming_events'] = (
+            Event.objects
+            .filter(status='published', start_date__gte=today)
+            .order_by('start_date')[:4]
+        )
+        ctx['upcoming_trainings'] = (
+            Training.objects
+            .filter(status='published', start_date__gte=today)
+            .order_by('start_date')[:3]
+        )
+        ctx['event_count'] = Event.objects.filter(
+            status='published', start_date__gte=today
+        ).count()
+ 
+    # ── Issuances ───────────────────────────────────────────────
+    if can_access('issuances'):
+        from .models import Issuance
+        ctx['recent_issuances'] = (
+            Issuance.objects
+            .filter(status='published')
+            .select_related('category')
+            .order_by('-issuance_date')[:4]
+        )
+        ctx['issuance_count'] = Issuance.objects.filter(status='published').count()
+ 
+    # ── Wiki ────────────────────────────────────────────────────
+    if can_access('wiki'):
+        from .models import WikiArticle
+        ctx['wiki_count'] = WikiArticle.objects.filter(status='published').count()
+ 
+    # ── Staff count & online ────────────────────────────────────
+    if can_access('directory'):
+        ctx['staff_count'] = UserProfile.objects.filter(
+            user__is_superuser=False, user__is_active=True
+        ).count()
+ 
+    ctx['online_staff'] = UserProfile.objects.filter(
+        is_online=True,
+        user__is_superuser=False,
+        user__is_active=True,
+    ).exclude(user=user).select_related('user')[:6]
+ 
+    return render(request, 'home.html', ctx)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────

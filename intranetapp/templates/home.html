@@ -1,11 +1,620 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load role_filters %}
 
-{% block title %}MHARSMC Intranet{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
-{% block breadcrumb %}Dashboard{% endblock %}
+{% block title %}Home — MHARSMC Intranet{% endblock %}
+{% block page_title %}Welcome back, {{ request.user.first_name }}{% endblock %}
+{% block breadcrumb %}Home{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Dashboard Tokens ── */
+  :root {
+    --dash-green-dark:   #1a4731;
+    --dash-green-mid:    #2d6a4f;
+    --dash-green-accent: #52b788;
+    --dash-green-light:  #b7e4c7;
+    --dash-green-pale:   #f0f7f2;
+    --dash-white:        #ffffff;
+    --dash-text:         #1a2e22;
+    --dash-muted:        #8aab97;
+    --dash-border:       #d4e8da;
+    --dash-shadow-sm:    0 1px 4px rgba(26,71,49,.08);
+    --dash-shadow-md:    0 4px 16px rgba(26,71,49,.12);
+  }
+
+  /* ── Layout ── */
+  .dash { display: flex; flex-direction: column; gap: 28px; }
+
+  /* ── Hero greeting ── */
+  .dash-hero {
+    background: var(--dash-green-dark);
+    border-radius: 14px;
+    padding: 32px 36px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .dash-hero::before {
+    content: '';
+    position: absolute; top: -40px; right: -40px;
+    width: 260px; height: 260px;
+    background: rgba(82,183,136,.12);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .dash-hero::after {
+    content: '';
+    position: absolute; bottom: -60px; right: 80px;
+    width: 160px; height: 160px;
+    background: rgba(82,183,136,.07);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .dash-hero__avatar {
+    width: 72px; height: 72px; min-width: 72px;
+    border-radius: 50%;
+    border: 3px solid var(--dash-green-accent);
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--dash-green-mid);
+    font-size: 1.5rem; font-weight: 600;
+    color: var(--dash-white);
+    flex-shrink: 0; position: relative; z-index: 1;
+  }
+  .dash-hero__avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .dash-hero__text { flex: 1; position: relative; z-index: 1; }
+  .dash-hero__greeting {
+    font-size: .8rem; font-weight: 500;
+    color: var(--dash-green-accent);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .dash-hero__name {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.85rem; font-weight: 600;
+    color: var(--dash-white); line-height: 1.15; margin-bottom: 6px;
+  }
+  .dash-hero__sub { font-size: .88rem; color: var(--dash-green-light); font-weight: 400; }
+  .dash-hero__date {
+    text-align: right; position: relative; z-index: 1;
+    color: var(--dash-green-light); flex-shrink: 0;
+  }
+  .dash-hero__date-day { font-family: 'EB Garamond', serif; font-size: 3rem; font-weight: 600; line-height: 1; color: var(--dash-white); }
+  .dash-hero__date-month { font-size: .75rem; color: var(--dash-green-accent); text-transform: uppercase; letter-spacing: .8px; margin-top: 2px; }
+  .dash-hero__date-year  { font-size: .75rem; color: var(--dash-green-light); letter-spacing: .5px; }
+
+  /* ── Quick stats row ── */
+  .dash-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .dash-stat {
+    background: var(--dash-white);
+    border: 1px solid var(--dash-border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex; align-items: center; gap: 14px;
+    transition: box-shadow .18s, transform .18s;
+    text-decoration: none; color: inherit;
+  }
+  .dash-stat:hover { box-shadow: var(--dash-shadow-md); transform: translateY(-2px); }
+  .dash-stat__icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem; flex-shrink: 0;
+  }
+  .dash-stat__icon--green  { background: rgba(82,183,136,.12); color: var(--dash-green-mid); }
+  .dash-stat__icon--blue   { background: rgba(55,138,221,.12); color: #185fa5; }
+  .dash-stat__icon--amber  { background: rgba(186,117,23,.12); color: #854f0b; }
+  .dash-stat__icon--coral  { background: rgba(216,90,48,.12); color: #993c1d; }
+  .dash-stat__icon--purple { background: rgba(127,119,221,.12); color: #534ab7; }
+  .dash-stat__val { font-family: 'EB Garamond', serif; font-size: 1.6rem; font-weight: 600; color: var(--dash-text); line-height: 1; }
+  .dash-stat__label { font-size: .72rem; color: var(--dash-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .7px; }
+
+  /* ── Two-column main ── */
+  .dash-main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 22px;
+    align-items: start;
+  }
+
+  /* ── Section cards ── */
+  .dash-card {
+    background: var(--dash-white);
+    border: 1px solid var(--dash-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .dash-card__head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--dash-border);
+  }
+  .dash-card__title {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.05rem; font-weight: 600;
+    color: var(--dash-text);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .dash-card__title i { color: var(--dash-green-accent); font-size: 1rem; }
+  .dash-card__link {
+    font-size: .75rem; color: var(--dash-green-mid);
+    font-weight: 600; text-decoration: none;
+    transition: color .15s;
+  }
+  .dash-card__link:hover { color: var(--dash-green-accent); }
+  .dash-card__body { padding: 0; }
+
+  /* ── Press release list ── */
+  .pr-item {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--dash-border);
+    text-decoration: none; color: inherit;
+    transition: background .15s;
+  }
+  .pr-item:last-child { border-bottom: none; }
+  .pr-item:hover { background: var(--dash-green-pale); }
+  .pr-item__img {
+    width: 56px; height: 56px; border-radius: 8px;
+    object-fit: cover; flex-shrink: 0;
+    background: var(--dash-green-light);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--dash-green-mid); font-size: 1.3rem;
+    overflow: hidden;
+  }
+  .pr-item__img img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+  .pr-item__body { flex: 1; min-width: 0; }
+  .pr-item__title {
+    font-size: .88rem; font-weight: 600; color: var(--dash-text);
+    line-height: 1.35; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pr-item__meta { font-size: .72rem; color: var(--dash-muted); }
+  .pr-item__badge {
+    font-size: .62rem; padding: 2px 7px; border-radius: 20px;
+    font-weight: 600; flex-shrink: 0; margin-top: 2px;
+    background: rgba(82,183,136,.12); color: var(--dash-green-mid);
+    align-self: flex-start;
+  }
+  .pr-item__badge--new {
+    background: rgba(82,183,136,.2); color: var(--dash-green-dark);
+  }
+
+  /* ── Events list ── */
+  .ev-item {
+    display: flex; gap: 14px; align-items: center;
+    padding: 12px 20px; border-bottom: 1px solid var(--dash-border);
+    text-decoration: none; color: inherit; transition: background .15s;
+  }
+  .ev-item:last-child { border-bottom: none; }
+  .ev-item:hover { background: var(--dash-green-pale); }
+  .ev-item__cal {
+    width: 44px; height: 44px; border-radius: 8px;
+    background: var(--dash-green-dark); color: var(--dash-white);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .ev-item__cal-day   { font-family: 'EB Garamond', serif; font-size: 1.1rem; font-weight: 600; line-height: 1; }
+  .ev-item__cal-month { font-size: .5rem; text-transform: uppercase; letter-spacing: .7px; color: var(--dash-green-light); }
+  .ev-item__title { font-size: .85rem; font-weight: 600; color: var(--dash-text); line-height: 1.3; }
+  .ev-item__meta  { font-size: .72rem; color: var(--dash-muted); margin-top: 2px; }
+  .ev-item__type  {
+    font-size: .62rem; padding: 2px 7px; border-radius: 20px; font-weight: 600;
+    margin-left: auto; flex-shrink: 0; white-space: nowrap;
+    background: rgba(55,138,221,.1); color: #185fa5;
+  }
+  .ev-item__type--training {
+    background: rgba(186,117,23,.1); color: #854f0b;
+  }
+
+  /* ── Right sidebar ── */
+  .dash-side { display: flex; flex-direction: column; gap: 18px; }
+
+  /* ── Quick Links ── */
+  .qlinks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px; }
+  .qlink {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; padding: 14px 8px; border-radius: 10px;
+    background: var(--dash-green-pale); border: 1px solid var(--dash-border);
+    text-decoration: none; color: var(--dash-text); text-align: center;
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  .qlink:hover { background: rgba(82,183,136,.15); border-color: var(--dash-green-accent); transform: translateY(-1px); }
+  .qlink i { font-size: 1.3rem; color: var(--dash-green-mid); }
+  .qlink span { font-size: .7rem; font-weight: 600; color: var(--dash-muted); line-height: 1.2; }
+
+  /* ── Online now ── */
+  .online-list { padding: 6px 16px 14px; }
+  .online-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--dash-border);
+  }
+  .online-item:last-child { border-bottom: none; }
+  .online-av {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--dash-green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem; font-weight: 600; color: var(--dash-white);
+    flex-shrink: 0; overflow: hidden; position: relative;
+  }
+  .online-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .online-av::after {
+    content: ''; position: absolute; bottom: 1px; right: 1px;
+    width: 8px; height: 8px; background: #22c55e;
+    border: 2px solid var(--dash-white); border-radius: 50%;
+  }
+  .online-name { font-size: .82rem; font-weight: 600; color: var(--dash-text); }
+  .online-pos  { font-size: .7rem; color: var(--dash-muted); }
+
+  /* ── Notice board ── */
+  .notice-item {
+    padding: 12px 20px; border-bottom: 1px solid var(--dash-border);
+    border-left: 3px solid transparent; transition: border-color .15s, background .15s;
+  }
+  .notice-item:last-child { border-bottom: none; }
+  .notice-item:hover { background: var(--dash-green-pale); border-left-color: var(--dash-green-accent); }
+  .notice-item__title { font-size: .83rem; font-weight: 600; color: var(--dash-text); margin-bottom: 3px; }
+  .notice-item__meta  { font-size: .7rem; color: var(--dash-muted); }
+
+  /* ── Empty state ── */
+  .dash-empty {
+    padding: 36px 20px; text-align: center;
+    color: var(--dash-muted); font-size: .83rem;
+  }
+  .dash-empty i { font-size: 2rem; color: var(--dash-green-light); display: block; margin-bottom: 10px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 960px) {
+    .dash-main { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .dash-hero { flex-direction: column; align-items: flex-start; padding: 24px; }
+    .dash-hero__date { text-align: left; }
+    .dash-stats { grid-template-columns: 1fr 1fr; }
+    .dash-hero__name { font-size: 1.5rem; }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-    <h2>Welcome to Intranet Home page</h2>
+{% load role_filters %}
+{% with profile=request.user.profile %}
+
+<div class="dash">
+
+  <!-- ══ HERO ══════════════════════════════════════════════════ -->
+  <div class="dash-hero">
+    <div class="dash-hero__avatar">
+      {% if profile.avatar %}
+        <img src="{{ profile.avatar.url }}" alt="{{ profile.get_full_name_with_middle }}">
+      {% else %}
+        {{ request.user.first_name|slice:":1"|upper }}{{ request.user.last_name|slice:":1"|upper }}
+      {% endif %}
+    </div>
+    <div class="dash-hero__text">
+      <div class="dash-hero__greeting" id="heroGreeting">Good morning</div>
+      <div class="dash-hero__name">{{ profile.get_full_name_with_middle }}</div>
+      <div class="dash-hero__sub">
+        {% if profile.position %}{{ profile.position }}{% if profile.department %} &middot; {{ profile.department }}{% endif %}
+        {% else %}Welcome to the MHARSMC Intranet Portal{% endif %}
+      </div>
+    </div>
+    <div class="dash-hero__date">
+      <div class="dash-hero__date-day" id="heroDay">—</div>
+      <div class="dash-hero__date-month" id="heroMonth">—</div>
+      <div class="dash-hero__date-year"  id="heroYear">—</div>
+    </div>
+  </div>
+
+  <!-- ══ QUICK STATS ════════════════════════════════════════════ -->
+  <div class="dash-stats" id="dashStats">
+
+    {% if request.user.is_superuser or request.user|has_module_access:'press_releases' %}
+    <a href="{% url 'press_releases' %}" class="dash-stat">
+      <div class="dash-stat__icon dash-stat__icon--green">
+        <i class="fa-solid fa-newspaper"></i>
+      </div>
+      <div>
+        <div class="dash-stat__val">{{ press_release_count|default:"—" }}</div>
+        <div class="dash-stat__label">Press Releases</div>
+      </div>
+    </a>
+    {% endif %}
+
+    {% if request.user.is_superuser or request.user|has_module_access:'events_trainings' %}
+    <a href="{% url 'events_trainings' %}" class="dash-stat">
+      <div class="dash-stat__icon dash-stat__icon--blue">
+        <i class="fa-solid fa-calendar-days"></i>
+      </div>
+      <div>
+        <div class="dash-stat__val">{{ event_count|default:"—" }}</div>
+        <div class="dash-stat__label">Upcoming Events</div>
+      </div>
+    </a>
+    {% endif %}
+
+    {% if request.user.is_superuser or request.user|has_module_access:'issuances' %}
+    <a href="{% url 'issuances' %}" class="dash-stat">
+      <div class="dash-stat__icon dash-stat__icon--amber">
+        <i class="fa-solid fa-file-circle-check"></i>
+      </div>
+      <div>
+        <div class="dash-stat__val">{{ issuance_count|default:"—" }}</div>
+        <div class="dash-stat__label">Issuances</div>
+      </div>
+    </a>
+    {% endif %}
+
+    {% if request.user.is_superuser or request.user|has_module_access:'wiki' %}
+    <a href="{% url 'wiki' %}" class="dash-stat">
+      <div class="dash-stat__icon dash-stat__icon--coral">
+        <i class="fa-solid fa-book-open"></i>
+      </div>
+      <div>
+        <div class="dash-stat__val">{{ wiki_count|default:"—" }}</div>
+        <div class="dash-stat__label">Wiki Articles</div>
+      </div>
+    </a>
+    {% endif %}
+
+    {% if request.user.is_superuser or request.user|has_module_access:'directory' %}
+    <a href="{% url 'directory' %}" class="dash-stat">
+      <div class="dash-stat__icon dash-stat__icon--purple">
+        <i class="fa-solid fa-users"></i>
+      </div>
+      <div>
+        <div class="dash-stat__val">{{ staff_count|default:"—" }}</div>
+        <div class="dash-stat__label">Staff</div>
+      </div>
+    </a>
+    {% endif %}
+
+  </div>
+
+  <!-- ══ MAIN 2-COLUMN ═════════════════════════════════════════ -->
+  <div class="dash-main">
+
+    <!-- Left column -->
+    <div style="display:flex;flex-direction:column;gap:22px;">
+
+      <!-- Recent Press Releases -->
+      {% if request.user.is_superuser or request.user|has_module_access:'press_releases' %}
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <div class="dash-card__title">
+            <i class="fa-solid fa-newspaper"></i> Latest Press Releases
+          </div>
+          <a href="{% url 'press_releases' %}" class="dash-card__link">View all →</a>
+        </div>
+        <div class="dash-card__body">
+          {% if recent_press_releases %}
+            {% for pr in recent_press_releases %}
+            <a href="{% url 'press_release_detail' pr.pk %}" class="pr-item">
+              <div class="pr-item__img">
+                {% if pr.image %}
+                  <img src="{{ pr.image.url }}" alt="{{ pr.title }}">
+                {% else %}
+                  <i class="fa-solid fa-newspaper"></i>
+                {% endif %}
+              </div>
+              <div class="pr-item__body">
+                <div class="pr-item__title">{{ pr.title }}</div>
+                <div class="pr-item__meta">
+                  <i class="fa-regular fa-clock" style="margin-right:3px;"></i>
+                  {{ pr.created_at|timesince }} ago
+                  {% if pr.author %}&middot; {{ pr.author.get_full_name }}{% endif %}
+                </div>
+              </div>
+              {% if pr.created_at|timesince|slice:":1" == "0" or "minute" in pr.created_at|timesince or "hour" in pr.created_at|timesince %}
+              <span class="pr-item__badge pr-item__badge--new">New</span>
+              {% endif %}
+            </a>
+            {% endfor %}
+          {% else %}
+            <div class="dash-empty">
+              <i class="fa-regular fa-newspaper"></i>
+              No press releases published yet.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Upcoming Events & Trainings -->
+      {% if request.user.is_superuser or request.user|has_module_access:'events_trainings' %}
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <div class="dash-card__title">
+            <i class="fa-solid fa-calendar-days"></i> Upcoming Events &amp; Trainings
+          </div>
+          <a href="{% url 'events_trainings' %}" class="dash-card__link">View all →</a>
+        </div>
+        <div class="dash-card__body">
+          {% if upcoming_events or upcoming_trainings %}
+            {% for ev in upcoming_events %}
+            <a href="{% url 'events_trainings' %}" class="ev-item">
+              <div class="ev-item__cal">
+                <div class="ev-item__cal-day">{{ ev.start_date|date:"d" }}</div>
+                <div class="ev-item__cal-month">{{ ev.start_date|date:"M" }}</div>
+              </div>
+              <div>
+                <div class="ev-item__title">{{ ev.title }}</div>
+                <div class="ev-item__meta">
+                  <i class="fa-solid fa-location-dot" style="margin-right:3px;"></i>{{ ev.location }}
+                  {% if ev.start_time %}&middot; {{ ev.start_time }}{% endif %}
+                </div>
+              </div>
+              <span class="ev-item__type">Event</span>
+            </a>
+            {% endfor %}
+            {% for tr in upcoming_trainings %}
+            <a href="{% url 'events_trainings' %}?tab=tr" class="ev-item">
+              <div class="ev-item__cal" style="background:var(--dash-green-mid);">
+                <div class="ev-item__cal-day">{{ tr.start_date|date:"d" }}</div>
+                <div class="ev-item__cal-month">{{ tr.start_date|date:"M" }}</div>
+              </div>
+              <div>
+                <div class="ev-item__title">{{ tr.title }}</div>
+                <div class="ev-item__meta">
+                  <i class="fa-solid fa-chalkboard-teacher" style="margin-right:3px;"></i>{{ tr.organizer }}
+                  {% if tr.start_date %}&middot; {{ tr.start_date|date:"M d, Y" }}{% endif %}
+                </div>
+              </div>
+              <span class="ev-item__type ev-item__type--training">Training</span>
+            </a>
+            {% endfor %}
+          {% else %}
+            <div class="dash-empty">
+              <i class="fa-regular fa-calendar-xmark"></i>
+              No upcoming events scheduled.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Right sidebar -->
+    <div class="dash-side">
+
+      <!-- Quick Links -->
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <div class="dash-card__title">
+            <i class="fa-solid fa-bolt"></i> Quick Access
+          </div>
+        </div>
+        <div class="qlinks">
+          {% if request.user.is_superuser or request.user|has_module_access:'press_releases' %}
+          <a href="{% url 'press_releases' %}" class="qlink">
+            <i class="fa-solid fa-newspaper"></i>
+            <span>Press Releases</span>
+          </a>
+          {% endif %}
+          {% if request.user.is_superuser or request.user|has_module_access:'events_trainings' %}
+          <a href="{% url 'events_trainings' %}" class="qlink">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Events</span>
+          </a>
+          {% endif %}
+          {% if request.user.is_superuser or request.user|has_module_access:'issuances' %}
+          <a href="{% url 'issuances' %}" class="qlink">
+            <i class="fa-solid fa-file-circle-check"></i>
+            <span>Issuances</span>
+          </a>
+          {% endif %}
+          {% if request.user.is_superuser or request.user|has_module_access:'wiki' %}
+          <a href="{% url 'wiki' %}" class="qlink">
+            <i class="fa-solid fa-book-open"></i>
+            <span>Wiki</span>
+          </a>
+          {% endif %}
+          {% if request.user.is_superuser or request.user|has_module_access:'directory' %}
+          <a href="{% url 'directory' %}" class="qlink">
+            <i class="fa-solid fa-address-book"></i>
+            <span>Directory</span>
+          </a>
+          {% endif %}
+          {% if request.user.is_superuser or request.user|has_module_access:'downloads' %}
+          <a href="{% url 'downloads' %}" class="qlink">
+            <i class="fa-solid fa-download"></i>
+            <span>Downloads</span>
+          </a>
+          {% endif %}
+          <a href="{% url 'messenger' %}" class="qlink">
+            <i class="fa-solid fa-envelope"></i>
+            <span>Messenger</span>
+          </a>
+          <a href="{% url 'settings_profile' %}" class="qlink">
+            <i class="fa-solid fa-gear"></i>
+            <span>Settings</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Online Now -->
+      {% if online_staff %}
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <div class="dash-card__title">
+            <i class="fa-solid fa-circle" style="color:#22c55e;font-size:.5rem;vertical-align:2px;"></i>&nbsp; Online Now
+          </div>
+          <span style="font-size:.72rem;color:var(--dash-muted);">{{ online_staff|length }} active</span>
+        </div>
+        <div class="online-list">
+          {% for member in online_staff|slice:":6" %}
+          <div class="online-item">
+            <div class="online-av">
+              {% if member.avatar %}
+                <img src="{{ member.avatar.url }}" alt="{{ member.user.get_full_name }}">
+              {% else %}
+                {{ member.user.first_name|slice:":1"|upper }}{{ member.user.last_name|slice:":1"|upper }}
+              {% endif %}
+            </div>
+            <div>
+              <div class="online-name">{{ member.user.get_full_name }}</div>
+              <div class="online-pos">{{ member.position|default:"Staff" }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Recent Issuances -->
+      {% if request.user.is_superuser or request.user|has_module_access:'issuances' %}
+      {% if recent_issuances %}
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <div class="dash-card__title">
+            <i class="fa-solid fa-file-circle-check"></i> Recent Issuances
+          </div>
+          <a href="{% url 'issuances' %}" class="dash-card__link">View all →</a>
+        </div>
+        <div class="dash-card__body">
+          {% for iss in recent_issuances %}
+          <div class="notice-item">
+            <div class="notice-item__title">{{ iss.issuance_no }}{% if iss.category %} — {{ iss.category.name }}{% endif %}</div>
+            <div class="notice-item__meta">{{ iss.summary|truncatechars:60 }}<br><span style="color:var(--dash-muted);">{{ iss.issuance_date|date:"M d, Y" }}</span></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Greeting + date ── */
+  (function () {
+    const h = new Date().getHours();
+    const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    document.getElementById('heroGreeting').textContent = greeting;
+
+    const d = new Date();
+    document.getElementById('heroDay').textContent   = d.getDate();
+    document.getElementById('heroMonth').textContent = d.toLocaleString('default',{month:'long'}).toUpperCase();
+    document.getElementById('heroYear').textContent  = d.getFullYear();
+  })();
+
+  /* ── Active nav: mark Home ── */
+  document.querySelectorAll('.nav__link').forEach(l => {
+    l.classList.remove('active');
+    if (l.getAttribute('href') === '/') {
+      l.classList.add('active');
+      l.setAttribute('aria-current','page');
+    }
+  });
+</script>
+
+{% endwith %}
 {% endblock %}
