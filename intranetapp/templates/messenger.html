@@ -266,6 +266,7 @@
     display: none; align-items: center; gap: 10px;
     padding: 10px 16px; border-top: 1px solid var(--border);
     background: var(--green-pale); flex-shrink: 0;
+    overflow-x: auto;
   }
   .msng__attach-preview.visible { display: flex; }
   .msng__attach-thumb {
@@ -833,7 +834,7 @@
 
         <!-- Attachment preview bar -->
         <div class="msng__attach-preview" id="attachPreview">
-          <div id="attachPreviewThumb"></div>
+          <div id="attachPreviewThumb" style="display:flex;gap:8px;align-items:center;"></div>
           <div class="msng__attach-info">
             <div class="msng__attach-name" id="attachPreviewName"></div>
             <div class="msng__attach-size" id="attachPreviewSize"></div>
@@ -853,7 +854,7 @@
           <button class="msng__input-btn" id="attachBtn" title="Attach file">
             <i class="fa-solid fa-paperclip"></i>
           </button>
-          <input type="file" id="fileInput" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
+          <input type="file" id="fileInput" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" multiple>
           <div class="msng__input-wrap">
             <textarea id="msgInput" placeholder="Aa" rows="1" autocomplete="off"></textarea>
           </div>
@@ -1028,7 +1029,7 @@
   let allConvs        = [];
   let infoPanelOpen   = false;
   let profileTarget   = null;
-  let pendingFile     = null;
+  let pendingFiles     = [];
   let mutePendingConvId = null;
 
   // DOM refs
@@ -1277,20 +1278,13 @@
   /* ─── ATTACHMENT HANDLING ─── */
   attachBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0]; if (!file) return;
-    pendingFile = { file };
-    const thumbEl = document.getElementById('attachPreviewThumb');
-    document.getElementById('attachPreviewName').textContent = file.name;
-    document.getElementById('attachPreviewSize').textContent = formatFileSize(file.size);
-    if (file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
-      pendingFile.isImage = true; pendingFile.localUrl = url;
-      thumbEl.innerHTML = `<img class="msng__attach-thumb" src="${url}" alt="">`;
-    } else {
-      pendingFile.isImage = false;
-      thumbEl.innerHTML = `<div class="msng__attach-file-icon"><i class="fa-solid ${fileIcon(file.name)}"></i></div>`;
-    }
-    attachPreview.classList.add('visible');
+    const files = Array.from(fileInput.files);
+    if (!files.length) return;
+    files.forEach(file => {
+      const isImage = file.type.startsWith('image/');
+      const localUrl = isImage ? URL.createObjectURL(file) : null;
+      addAttachPreview({ file, isImage, localUrl });
+    });
     fileInput.value = '';
   });
   attachRemoveBtn.addEventListener('click', () => {
@@ -1298,6 +1292,28 @@
     attachPreview.classList.remove('visible');
     document.getElementById('attachPreviewThumb').innerHTML = '';
   });
+
+  function addAttachPreview({ file, isImage, localUrl }) {
+    pendingFiles.push({ file, isImage, localUrl });
+    const id = 'attach_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const item = document.createElement('div');
+    item.id = id;
+    item.style.cssText = 'display:flex;align-items:center;gap:8px;flex-shrink:0;position:relative;';
+    item.innerHTML = isImage
+      ? `<img src="${localUrl}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--border);">`
+      : `<div class="msng__attach-file-icon"><i class="fa-solid ${fileIcon(file.name)}"></i></div>`;
+    const removeBtn = document.createElement('button');
+    removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    removeBtn.style.cssText = 'position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;border:none;background:#dc2626;color:#fff;cursor:pointer;font-size:.55rem;display:flex;align-items:center;justify-content:center;';
+    removeBtn.addEventListener('click', () => {
+      pendingFiles = pendingFiles.filter(p => p.file !== file);
+      item.remove();
+      if (!pendingFiles.length) attachPreview.classList.remove('visible');
+    });
+    item.appendChild(removeBtn);
+    document.getElementById('attachPreviewThumb').appendChild(item);
+    attachPreview.classList.add('visible');
+  }
 
   /* ─── ARCHIVED TOGGLE ─── */
   archivedToggle.addEventListener('click', () => {
@@ -1846,54 +1862,51 @@
   /* ─── SEND MESSAGE ─── */
   function sendMessage() {
     const body = msgInput.value.trim();
-    if (!body && !pendingFile) return;
+    if (!body && !pendingFiles.length) return;
     if (!activeConvId) return;
-    // Check block state before sending
     const conv = allConvs.find(c => c.id == activeConvId);
     if (conv && (conv.blocked_by_me || conv.blocked_by_them)) return;
 
-    const fd = new FormData();
-    if (body) fd.append('body', body);
-    if (pendingFile) fd.append('attachment', pendingFile.file);
-
     msgInput.value = ''; msgInput.style.height = 'auto'; isTyping = false;
-    const fileCopy = pendingFile;
-    pendingFile = null;
+    const filesToSend = [...pendingFiles];
+    pendingFiles = [];
     attachPreview.classList.remove('visible');
     document.getElementById('attachPreviewThumb').innerHTML = '';
 
-    const optimistic = {
-      id: 'tmp_' + Date.now(),
-      sender_id: ME.id, body: body,
-      created_at: new Date().toISOString(),
-      attachment_url: fileCopy ? fileCopy.localUrl || null : null,
-      attachment_name: fileCopy ? fileCopy.file.name : null,
-      is_image: fileCopy ? fileCopy.isImage : false,
-    };
-    appendMessage(optimistic);
-    updateConvPreview(activeConvId, optimistic);
-
-    fetch(`/messenger/conversations/${activeConvId}/send/`, {
-      method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd,
-    })
-    .then(r => {
-      if (r.status === 403) {
-        // Blocked — reload to sync state
-        loadConversations();
-        return null;
-      }
-      return r.json();
-    })
-    .then(data => {
-      if (!data) return;
-      if (data.success) {
-        const tmpEl = msngMessages.querySelector(`[data-id="tmp_${optimistic.id.split('_')[1]}"]`);
-        if (tmpEl) { const realEl = buildMessageEl(data.message); tmpEl.replaceWith(realEl); }
+    // Send text message first if any
+    if (body) {
+      const fd = new FormData();
+      fd.append('body', body);
+      const optimistic = { id: 'tmp_' + Date.now(), sender_id: ME.id, body, created_at: new Date().toISOString(), attachment_url: null, attachment_name: null, is_image: false };
+      appendMessage(optimistic);
+      updateConvPreview(activeConvId, optimistic);
+      fetch(`/messenger/conversations/${activeConvId}/send/`, {
+        method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd,
+      }).then(r => r.status === 403 ? (loadConversations(), null) : r.json()).then(data => {
+        if (!data || !data.success) return;
+        const tmpEl = msngMessages.querySelector(`[data-id="${optimistic.id}"]`);
+        if (tmpEl) tmpEl.replaceWith(buildMessageEl(data.message));
         refreshMsngStatusRow();
-        const cached = convCache[activeConvId];
-        if (cached) { const idx = cached.messages.findIndex(m => m.id === optimistic.id); if (idx !== -1) cached.messages[idx] = data.message; }
         updateConvPreview(activeConvId, data.message);
-      }
+      });
+    }
+
+    // Send each file as a separate message
+    filesToSend.forEach(({ file, isImage, localUrl }) => {
+      const fd = new FormData();
+      fd.append('attachment', file);
+      const optimistic = { id: 'tmp_' + Date.now(), sender_id: ME.id, body: '', created_at: new Date().toISOString(), attachment_url: localUrl || null, attachment_name: file.name, is_image: isImage };
+      appendMessage(optimistic);
+      updateConvPreview(activeConvId, optimistic);
+      fetch(`/messenger/conversations/${activeConvId}/send/`, {
+        method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd,
+      }).then(r => r.status === 403 ? (loadConversations(), null) : r.json()).then(data => {
+        if (!data || !data.success) return;
+        const tmpEl = msngMessages.querySelector(`[data-id="${optimistic.id}"]`);
+        if (tmpEl) tmpEl.replaceWith(buildMessageEl(data.message));
+        refreshMsngStatusRow();
+        updateConvPreview(activeConvId, data.message);
+      });
     });
   }
 
