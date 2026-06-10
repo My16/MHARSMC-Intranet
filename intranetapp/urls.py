@@ -122,5 +122,15 @@ urlpatterns = [
     path('messenger/conversations/<int:conv_id>/read/', views.messenger_read,           name='messenger_read'),
     path('messenger/conversations/<int:conv_id>/delete/', views.messenger_delete_conversation, name='messenger_delete_conversation'),
 
+    # Mute
+    path('messenger/conversations/<int:conv_id>/mute/',   views.messenger_mute,      name='messenger_mute'),
+    path('messenger/conversations/<int:conv_id>/unmute/', views.messenger_unmute,    name='messenger_unmute'),
+    # Archive
+    path('messenger/conversations/<int:conv_id>/archive/',   views.messenger_archive,   name='messenger_archive'),
+    path('messenger/conversations/<int:conv_id>/unarchive/', views.messenger_unarchive, name='messenger_unarchive'),
+    # Block
+    path('messenger/users/<int:user_id>/block/',   views.messenger_block,   name='messenger_block'),
+    path('messenger/users/<int:user_id>/unblock/', views.messenger_unblock, name='messenger_unblock'),
+
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

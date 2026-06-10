@@ -1181,3 +1181,59 @@ class Message(models.Model):
         if self.attachment:
             return self.attachment.name.split('.')[-1].lower()
         return ''
+
+
+
+class ConversationMute(models.Model):
+    """A user muting a specific conversation."""
+    DURATION_CHOICES = [
+        ('indefinite', 'Until I turn it back on'),
+        ('1h',         '1 hour'),
+        ('8h',         '8 hours'),
+        ('24h',        '24 hours'),
+        ('1w',         '1 week'),
+    ]
+
+    user         = models.ForeignKey(User, on_delete=models.CASCADE, related_name='muted_convs')
+    conversation = models.ForeignKey('Conversation', on_delete=models.CASCADE, related_name='mutes')
+    muted_until  = models.DateTimeField(null=True, blank=True,
+                                        help_text='Null means muted indefinitely')
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'conversation')
+
+    def __str__(self):
+        return f'{self.user.username} muted conv {self.conversation_id}'
+
+    @property
+    def is_active(self):
+        if self.muted_until is None:
+            return True
+        return timezone.now() < self.muted_until
+
+
+class ArchivedConversation(models.Model):
+    """A user archiving a specific conversation (soft-hide)."""
+    user         = models.ForeignKey(User, on_delete=models.CASCADE, related_name='archived_convs')
+    conversation = models.ForeignKey('Conversation', on_delete=models.CASCADE, related_name='archives')
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'conversation')
+
+    def __str__(self):
+        return f'{self.user.username} archived conv {self.conversation_id}'
+
+
+class BlockedUser(models.Model):
+    """User A blocking User B."""
+    blocker    = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocking')
+    blocked    = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('blocker', 'blocked')
+
+    def __str__(self):
+        return f'{self.blocker.username} blocked {self.blocked.username}'

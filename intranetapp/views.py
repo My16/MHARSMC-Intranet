@@ -3284,10 +3284,19 @@ def messenger(request):
 
 @login_required
 def messenger_users(request):
-    from .models import UserProfile
+    """List all users, excluding those the current user has blocked OR been blocked by."""
+    from .models import UserProfile, BlockedUser
+    
+    # IDs the current user has blocked
+    i_blocked = set(BlockedUser.objects.filter(blocker=request.user).values_list('blocked_id', flat=True))
+    # IDs that blocked the current user
+    blocked_me = set(BlockedUser.objects.filter(blocked=request.user).values_list('blocker_id', flat=True))
+    excluded = i_blocked | blocked_me
+ 
     profiles = UserProfile.objects.select_related('user').filter(
         user__is_active=True, user__is_superuser=False
-    ).exclude(user=request.user)
+    ).exclude(user=request.user).exclude(user__id__in=excluded)
+ 
     users = [{
         'id':         p.user.pk,
         'username':   p.user.username,
@@ -3304,20 +3313,69 @@ def messenger_users(request):
 
 @login_required
 def messenger_conversations(request):
-    from .models import Conversation, Message
+    """
+    Returns conversations for the current user.
+    Each conv includes: muted, muted_until, archived, blocked_by_me, blocked_by_them.
+    Archived conversations are included but flagged — the frontend filters/separates them.
+    """
+    from .models import (
+        Conversation, Message,
+        ConversationMute, ArchivedConversation, BlockedUser,
+    )
+    from django.utils import timezone
+ 
+    # Build lookup sets for fast membership testing
+    mute_map = {
+        m.conversation_id: m
+        for m in ConversationMute.objects.filter(user=request.user)
+        if m.is_active           # auto-expire timed mutes
+    }
+    # Clean up expired mutes silently
+    ConversationMute.objects.filter(
+        user=request.user,
+        muted_until__lt=timezone.now()
+    ).delete()
+    # Rebuild after cleanup
+    mute_map = {
+        m.conversation_id: m
+        for m in ConversationMute.objects.filter(user=request.user)
+    }
+ 
+    archived_ids = set(
+        ArchivedConversation.objects
+        .filter(user=request.user)
+        .values_list('conversation_id', flat=True)
+    )
+    i_blocked_ids = set(
+        BlockedUser.objects.filter(blocker=request.user).values_list('blocked_id', flat=True)
+    )
+    blocked_me_ids = set(
+        BlockedUser.objects.filter(blocked=request.user).values_list('blocker_id', flat=True)
+    )
+ 
     convs = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
     result = []
+ 
     for c in convs:
-        other   = c.participants.exclude(pk=request.user.pk).first()
-        if not other: continue
-        profile = getattr(other, 'profile', None)
+        other = c.participants.exclude(pk=request.user.pk).first()
+        if not other:
+            continue
+ 
+        profile  = getattr(other, 'profile', None)
         last_msg = c.messages.last()
         unread   = c.messages.filter(is_read=False).exclude(sender=request.user).count()
-        
+ 
         last_preview = last_msg.body[:60] if last_msg and last_msg.body else ''
         if not last_preview and last_msg and last_msg.attachment:
-            last_preview = "Sent an attachment"
-            
+            last_preview = 'Sent an attachment'
+ 
+        mute_obj       = mute_map.get(c.pk)
+        is_muted       = mute_obj is not None
+        muted_until    = mute_obj.muted_until.isoformat() if (mute_obj and mute_obj.muted_until) else None
+        is_archived    = c.pk in archived_ids
+        blocked_by_me  = other.pk in i_blocked_ids
+        blocked_by_them = other.pk in blocked_me_ids
+ 
         result.append({
             'id': c.pk,
             'recipient': {
@@ -3330,12 +3388,19 @@ def messenger_conversations(request):
                 'department': profile.department if profile else '',
                 'bio':        profile.bio if profile else '',
                 'mobile':     profile.mobile_number if profile else '',
-                'is_online': getattr(profile, 'is_online', False),
+                'is_online':  getattr(profile, 'is_online', False),
             },
-            'last_message':      last_preview,
-            'last_message_time': last_msg.created_at.isoformat() if last_msg else None,
-            'unread_count':      unread,
+            'last_message':       last_preview,
+            'last_message_time':  last_msg.created_at.isoformat() if last_msg else None,
+            'unread_count':       unread,
+            # new flags
+            'is_muted':           is_muted,
+            'muted_until':        muted_until,
+            'is_archived':        is_archived,
+            'blocked_by_me':      blocked_by_me,
+            'blocked_by_them':    blocked_by_them,
         })
+ 
     return JsonResponse({'conversations': result})
 
 @login_required
@@ -3356,81 +3421,98 @@ def messenger_messages(request, conv_id):
 
 @login_required
 def messenger_send(request, conv_id):
+    """Send a message — blocked parties cannot send."""
     if request.method == 'POST':
-        from .models import Conversation, Message
+        from .models import Conversation, Message, BlockedUser
         from channels.layers import get_channel_layer
         from asgiref.sync import async_to_sync
-        
+ 
         conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
-        body = request.POST.get('body', '').strip()
+        recipient = conv.participants.exclude(pk=request.user.pk).first()
+ 
+        # ── Block check: sender blocked by recipient, or sender blocked recipient ──
+        if recipient:
+            is_blocked = BlockedUser.objects.filter(
+                blocker=recipient, blocked=request.user
+            ).exists() or BlockedUser.objects.filter(
+                blocker=request.user, blocked=recipient
+            ).exists()
+            if is_blocked:
+                return JsonResponse(
+                    {'success': False, 'error': 'blocked'},
+                    status=403
+                )
+ 
+        body       = request.POST.get('body', '').strip()
         attachment = request.FILES.get('attachment')
-        
+ 
         if not body and not attachment:
             return JsonResponse({'success': False, 'error': 'Empty message'}, status=400)
-            
+ 
         msg = Message.objects.create(
             conversation=conv,
             sender=request.user,
             body=body,
             attachment=attachment,
-            attachment_name=attachment.name if attachment else ''
+            attachment_name=attachment.name if attachment else '',
         )
-        
+ 
         conv.updated_at = msg.created_at
         conv.save()
-        
+ 
         channel_layer = get_channel_layer()
-
-        recipient = conv.participants.exclude(pk=request.user.pk).first()
-
-
+ 
         if recipient:
-            # Get unread count for recipient
-            unread_count = Message.objects.filter(
-                conversation__participants=recipient,
-                is_read=False
-            ).exclude(sender=recipient).count()
-
-            # Get sender profile for avatar/initials
-            sender_profile = request.user.profile
-            sender_avatar = sender_profile.avatar.url if sender_profile.avatar else ''
-            first = request.user.first_name[:1].upper()
-            last  = request.user.last_name[:1].upper()
-
-            async_to_sync(channel_layer.group_send)(
-                f'notif_user_{recipient.pk}',
-                {
-                    'type':            'new_chat_message',
-                    'conv_id':         conv.pk,
-                    'sender_id':       request.user.pk,
-                    'sender_name':     request.user.get_full_name() or request.user.username,
-                    'sender_avatar':   sender_avatar,
-                    'sender_initials': first + last,
-                    'body':       msg.body or 'Sent an attachment',
-                    'created_at': msg.created_at.isoformat(),
-                    'unread_count':    unread_count,
-                }
-            )
-
-
+            # Only push real-time notification if recipient has NOT muted this conv
+            from .models import ConversationMute
+            from django.utils import timezone
+            mute = ConversationMute.objects.filter(
+                user=recipient, conversation=conv
+            ).first()
+            should_notify = not mute or (mute.muted_until and timezone.now() > mute.muted_until)
+ 
+            if should_notify:
+                unread_count = Message.objects.filter(
+                    conversation__participants=recipient,
+                    is_read=False,
+                ).exclude(sender=recipient).count()
+ 
+                sender_profile   = request.user.profile
+                sender_avatar    = sender_profile.avatar.url if sender_profile.avatar else ''
+                first = request.user.first_name[:1].upper()
+                last  = request.user.last_name[:1].upper()
+ 
+                async_to_sync(channel_layer.group_send)(
+                    f'notif_user_{recipient.pk}',
+                    {
+                        'type':            'new_chat_message',
+                        'conv_id':         conv.pk,
+                        'sender_id':       request.user.pk,
+                        'sender_name':     request.user.get_full_name() or request.user.username,
+                        'sender_avatar':   sender_avatar,
+                        'sender_initials': first + last,
+                        'body':            msg.body or 'Sent an attachment',
+                        'created_at':      msg.created_at.isoformat(),
+                        'unread_count':    unread_count,
+                    }
+                )
+ 
         msg_data = {
-            'id': msg.pk,
-            'body': msg.body,
-            'sender_id': request.user.pk,
-            'created_at': msg.created_at.isoformat(),
-            'attachment_url': msg.attachment.url if msg.attachment else None,
+            'id':              msg.pk,
+            'body':            msg.body,
+            'sender_id':       request.user.pk,
+            'created_at':      msg.created_at.isoformat(),
+            'attachment_url':  msg.attachment.url if msg.attachment else None,
             'attachment_name': msg.attachment_name,
-            'is_image': msg.is_image,
-            'status': msg.status,
+            'is_image':        msg.is_image,
+            'status':          msg.status,
         }
+ 
         async_to_sync(channel_layer.group_send)(
             f'chat_{conv_id}',
-            {
-                'type': 'chat_message',
-                'message': msg_data
-            }
+            {'type': 'chat_message', 'message': msg_data}
         )
-        
+ 
         return JsonResponse({'success': True, 'message': msg_data})
     return JsonResponse({'success': False}, status=405)
 
@@ -3498,3 +3580,121 @@ def messenger_start(request):
         conv.participants.add(request.user, other)
         return JsonResponse({'conversation_id': conv.pk})
     return JsonResponse({'success': False}, status=405)
+
+
+
+import json as _json
+from django.utils import timezone as _tz
+import datetime as _dt
+
+
+# ── helpers ────────────────────────────────────────────────────────────────────
+
+def _mute_duration_to_dt(duration_str):
+    """Convert a duration key to a concrete datetime (or None for indefinite)."""
+    map_ = {
+        'indefinite': None,
+        '1h':  _dt.timedelta(hours=1),
+        '8h':  _dt.timedelta(hours=8),
+        '24h': _dt.timedelta(hours=24),
+        '1w':  _dt.timedelta(weeks=1),
+    }
+    delta = map_.get(duration_str)
+    if delta is None:
+        return None          # indefinite
+    return _tz.now() + delta
+
+
+# ── MUTE ──────────────────────────────────────────────────────────────────────
+
+@login_required
+def messenger_mute(request, conv_id):
+    """POST {duration: '1h'|'8h'|'24h'|'1w'|'indefinite'} → mute conversation."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    from .models import Conversation, ConversationMute
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+
+    data     = _json.loads(request.body or '{}')
+    duration = data.get('duration', 'indefinite')
+    until    = _mute_duration_to_dt(duration)
+
+    mute, _ = ConversationMute.objects.get_or_create(
+        user=request.user, conversation=conv,
+        defaults={'muted_until': until},
+    )
+    mute.muted_until = until
+    mute.save()
+
+    return JsonResponse({'success': True, 'muted_until': until.isoformat() if until else None})
+
+
+@login_required
+def messenger_unmute(request, conv_id):
+    """POST → unmute conversation."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    from .models import Conversation, ConversationMute
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    ConversationMute.objects.filter(user=request.user, conversation=conv).delete()
+
+    return JsonResponse({'success': True})
+
+
+# ── ARCHIVE ───────────────────────────────────────────────────────────────────
+
+@login_required
+def messenger_archive(request, conv_id):
+    """POST → archive conversation."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    from .models import Conversation, ArchivedConversation
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    ArchivedConversation.objects.get_or_create(user=request.user, conversation=conv)
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+def messenger_unarchive(request, conv_id):
+    """POST → unarchive conversation."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    from .models import Conversation, ArchivedConversation
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    ArchivedConversation.objects.filter(user=request.user, conversation=conv).delete()
+
+    return JsonResponse({'success': True})
+
+
+# ── BLOCK ─────────────────────────────────────────────────────────────────────
+
+@login_required
+def messenger_block(request, user_id):
+    """POST → block a user."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    from .models import BlockedUser
+    target = get_object_or_404(User, pk=user_id)
+    if target == request.user:
+        return JsonResponse({'success': False, 'error': 'Cannot block yourself.'})
+
+    BlockedUser.objects.get_or_create(blocker=request.user, blocked=target)
+    return JsonResponse({'success': True})
+
+
+@login_required
+def messenger_unblock(request, user_id):
+    """POST → unblock a user."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    from .models import BlockedUser
+    target = get_object_or_404(User, pk=user_id)
+    BlockedUser.objects.filter(blocker=request.user, blocked=target).delete()
+    return JsonResponse({'success': True})

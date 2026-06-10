@@ -51,6 +51,26 @@
   .msng__convs::-webkit-scrollbar { width: 3px; }
   .msng__convs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+  /* ─── ARCHIVED SECTION TOGGLE ─── */
+  .msng__archived-toggle {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 16px; cursor: pointer; user-select: none;
+    color: var(--text-muted); font-size: .78rem; font-weight: 600;
+    letter-spacing: .03em; text-transform: uppercase;
+    border-top: 1px solid var(--border); transition: background .12s;
+    flex-shrink: 0;
+  }
+  .msng__archived-toggle:hover { background: var(--green-pale); color: var(--text-primary); }
+  .msng__archived-toggle i.chevron { margin-left: auto; transition: transform .2s; font-size: .7rem; }
+  .msng__archived-toggle.open i.chevron { transform: rotate(180deg); }
+  .msng__archived-section { display: none; }
+  .msng__archived-section.open { display: block; }
+  .msng__archived-label {
+    padding: 6px 16px 2px;
+    font-size: .7rem; font-weight: 700; letter-spacing: .04em;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+
   /* conversation item */
   .msng__conv {
     display: flex; align-items: center; gap: 12px;
@@ -64,6 +84,7 @@
     left: 0; top: 0; bottom: 0; width: 3px;
     background: var(--green-accent); border-radius: 0 3px 3px 0;
   }
+  .msng__conv.is-archived { opacity: .7; }
   .msng__conv-avatar {
     width: 46px; height: 46px; border-radius: 50%;
     background: var(--green-mid);
@@ -81,7 +102,9 @@
   .msng__conv-name {
     font-size: .875rem; font-weight: 600; color: var(--text-primary);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: 5px;
   }
+  .msng__mute-icon { font-size: .65rem; color: var(--text-muted); flex-shrink: 0; }
   .msng__conv-preview {
     font-size: .775rem; color: var(--text-muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
@@ -95,7 +118,7 @@
     font-size: .65rem; font-weight: 700; color: var(--white);
   }
 
-  /* ─── 3-DOTS MENU on hover ─── */
+  /* ─── 3-DOTS MENU ─── */
   .msng__conv-dots {
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
     width: 28px; height: 28px; border-radius: 50%;
@@ -110,10 +133,11 @@
   .msng__conv-dots:hover { background: var(--green-pale); color: var(--green-dark); }
 
   .msng__conv-menu {
-    position: absolute; right: 8px; top: calc(50% + 14px);
+    position: fixed;          /* ← fixed instead of absolute */
     background: var(--white); border: 1px solid var(--border);
     border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,.13);
-    z-index: 200; min-width: 190px; padding: 4px 0;
+    z-index: 9999;            /* ← very high z-index */
+    min-width: 200px; padding: 4px 0;
     display: none; animation: menuIn .15s ease;
   }
   .msng__conv-menu.open { display: block; }
@@ -130,6 +154,8 @@
   .msng__conv-menu-item i { width: 16px; text-align: center; color: var(--text-muted); font-size: .85rem; }
   .msng__conv-menu-item.danger { color: #dc2626; }
   .msng__conv-menu-item.danger i { color: #dc2626; }
+  .msng__conv-menu-item.warn { color: #d97706; }
+  .msng__conv-menu-item.warn i { color: #d97706; }
   .msng__conv-menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
 
   /* ─── RIGHT PANEL ─── */
@@ -211,8 +237,7 @@
   .msng__bubble-img {
     width: 220px; height: 160px; object-fit: cover;
     border-radius: 12px; display: block; cursor: pointer;
-    transition: opacity .15s;
-    margin-bottom: 4px;
+    transition: opacity .15s; margin-bottom: 4px;
   }
   .msng__bubble-img:hover { opacity: .88; }
   .msng__bubble.img-only { padding: 6px; background: transparent !important; box-shadow: none !important; }
@@ -267,6 +292,24 @@
     transition: background .15s, color .15s;
   }
   .msng__attach-remove:hover { background: #fca5a5; color: #dc2626; }
+
+  /* ─── BLOCKED BANNER ─── */
+  .msng__blocked-bar {
+    display: none; align-items: center; justify-content: center; gap: 10px;
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    background: #fff8f8; flex-shrink: 0; color: #dc2626;
+    font-size: .84rem; font-weight: 600;
+  }
+  .msng__blocked-bar.visible { display: flex; }
+  .msng__blocked-bar i { font-size: 1rem; }
+
+  /* ─── MUTED BADGE in chat header ─── */
+  .msng__muted-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: .68rem; background: var(--green-pale); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1px 8px; color: var(--text-muted);
+    margin-left: 6px; vertical-align: middle;
+  }
 
   .msng__typing { display: flex; align-items: flex-end; gap: 8px; padding: 4px 0; }
   .msng__typing-bubble {
@@ -331,7 +374,7 @@
   .msng__empty i { font-size: 3rem; color: var(--green-light); }
   .msng__empty p { font-size: .9rem; }
 
-  /* ─── INFO PANEL (right side — two-level) ─── */
+  /* ─── INFO PANEL ─── */
   .msng__info-panel {
     position: relative;
     width: 0; min-width: 0; overflow: hidden;
@@ -343,24 +386,17 @@
                 border-color .24s ease;
     flex-shrink: 0;
   }
-  .msng__info-panel.open {
-    width: 320px; min-width: 320px;
-    border-left-color: var(--border);
-  }
+  .msng__info-panel.open { width: 320px; min-width: 320px; border-left-color: var(--border); }
   .msng__info-slider {
     width: 320px; height: 100%;
-    display: flex; overflow: hidden;
-    position: relative;
+    display: flex; overflow: hidden; position: relative;
   }
   .msng__info-layer {
     width: 320px; min-width: 320px; height: 100%;
     display: flex; flex-direction: column;
-    transition: transform .26s cubic-bezier(.4,0,.2,1);
-    overflow: hidden;
+    transition: transform .26s cubic-bezier(.4,0,.2,1); overflow: hidden;
   }
-  .msng__info-slider.media-open .msng__info-layer {
-    transform: translateX(-320px);
-  }
+  .msng__info-slider.media-open .msng__info-layer { transform: translateX(-320px); }
   .msng__info-scroll { flex: 1; overflow-y: auto; }
   .msng__info-scroll::-webkit-scrollbar { width: 3px; }
   .msng__info-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -608,6 +644,7 @@
   }
   .msng__confirm-icon.danger { background: #fee2e2; color: #dc2626; }
   .msng__confirm-icon.warn   { background: #fef3c7; color: #d97706; }
+  .msng__confirm-icon.primary{ background: var(--green-pale); color: var(--green-mid); }
   .msng__confirm-title { font-family: 'EB Garamond', serif; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
   .msng__confirm-msg { font-size: .85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 22px; }
   .msng__confirm-actions { display: flex; gap: 10px; width: 100%; }
@@ -628,6 +665,48 @@
   .msng__confirm-ok.primary { background: var(--green-mid); color: #fff; }
   .msng__confirm-ok.primary:hover { background: var(--green-dark); }
 
+  /* ─── MUTE MODAL ─── */
+  .msng__mute-modal {
+    display: none; position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,.5); align-items: center; justify-content: center;
+  }
+  .msng__mute-modal.open { display: flex; }
+  .msng__mute-box {
+    background: var(--white); border-radius: 16px;
+    width: 360px; padding: 26px 24px 20px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.22); animation: modalIn .18s ease;
+  }
+  .msng__mute-title {
+    font-family: 'EB Garamond', serif; font-size: 1.1rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 4px;
+  }
+  .msng__mute-subtitle { font-size: .8rem; color: var(--text-muted); margin-bottom: 18px; }
+  .msng__mute-options { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+  .msng__mute-option {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s;
+    user-select: none;
+  }
+  .msng__mute-option:hover { border-color: var(--green-accent); background: var(--green-pale); }
+  .msng__mute-option.selected { border-color: var(--green-mid); background: var(--green-pale); }
+  .msng__mute-option input[type="radio"] { accent-color: var(--green-mid); width: 16px; height: 16px; flex-shrink: 0; }
+  .msng__mute-option-label { font-size: .875rem; font-weight: 600; color: var(--text-primary); }
+  .msng__mute-option-sub { font-size: .73rem; color: var(--text-muted); margin-top: 1px; }
+  .msng__mute-actions { display: flex; gap: 10px; }
+  .msng__mute-cancel {
+    flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--white);
+    border-radius: 10px; font-size: .88rem; font-weight: 600;
+    color: var(--text-primary); cursor: pointer; transition: background .15s;
+  }
+  .msng__mute-cancel:hover { background: var(--green-pale); }
+  .msng__mute-confirm {
+    flex: 1; padding: 10px; border: none; border-radius: 10px;
+    background: var(--green-mid); color: #fff;
+    font-size: .88rem; font-weight: 600; cursor: pointer; transition: background .15s;
+  }
+  .msng__mute-confirm:hover { background: var(--green-dark); }
+
   /* ─── LIGHTBOX ─── */
   .msng__lightbox {
     display: none; position: fixed; inset: 0; z-index: 11000;
@@ -640,8 +719,7 @@
     width: 38px; height: 38px; border-radius: 50%; border: none;
     background: rgba(255,255,255,.15); color: #fff;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 1.1rem; transition: background .15s;
-    z-index: 2;
+    cursor: pointer; font-size: 1.1rem; transition: background .15s; z-index: 2;
   }
   .msng__lightbox-close:hover { background: rgba(255,255,255,.28); }
   .msng__lightbox-download {
@@ -649,17 +727,14 @@
     width: 38px; height: 38px; border-radius: 50%; border: none;
     background: rgba(255,255,255,.15); color: #fff;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 1rem; transition: background .15s; text-decoration: none;
-    z-index: 2;
+    cursor: pointer; font-size: 1rem; transition: background .15s; text-decoration: none; z-index: 2;
   }
   .msng__lightbox-download:hover { background: rgba(255,255,255,.28); }
   .msng__lightbox-img {
     max-width: 90vw; max-height: 82vh; object-fit: contain;
     border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,.5);
   }
-  .msng__lightbox-caption {
-    color: rgba(255,255,255,.6); font-size: .8rem; margin-top: 12px;
-  }
+  .msng__lightbox-caption { color: rgba(255,255,255,.6); font-size: .8rem; margin-top: 12px; }
   .msng__lightbox-file {
     display: flex; flex-direction: column; align-items: center; gap: 16px;
     padding: 48px; background: rgba(255,255,255,.06); border-radius: 18px;
@@ -675,61 +750,12 @@
   }
   .msng__lightbox-file-dl:hover { background: var(--green-dark); }
 
-  /* ─── ENVELOPE DROPDOWN ─── */
-  .msng__env-panel {
-    display: none; position: absolute; top: 44px; right: -8px;
-    width: 320px; background: var(--white);
-    border: 1px solid var(--border); border-radius: 12px;
-    box-shadow: var(--shadow-lg); z-index: 500;
-    overflow: hidden; font-size: .85rem;
-  }
-  .msng__env-panel.open { display: block; }
-  .msng__env-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 13px 16px 10px; border-bottom: 1px solid var(--border);
-  }
-  .msng__env-head strong { font-size: .92rem; }
-  .msng__env-head a { font-size: .75rem; color: var(--green-mid); font-weight: 600; }
-  .msng__env-item {
-    display: flex; gap: 10px; align-items: flex-start;
-    padding: 10px 16px; cursor: pointer; transition: background .15s;
-    border-bottom: 1px solid var(--border); text-decoration: none; color: inherit;
-  }
-  .msng__env-item:last-child { border-bottom: none; }
-  .msng__env-item:hover { background: var(--green-pale); }
-  .msng__env-av {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: var(--green-mid);
-    display: flex; align-items: center; justify-content: center;
-    font-size: .75rem; font-weight: 600; color: var(--white);
-    flex-shrink: 0; overflow: hidden;
-  }
-  .msng__env-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-  .msng__env-name { font-size: .82rem; font-weight: 600; color: var(--text-primary); }
-  .msng__env-preview { font-size: .76rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
-  .msng__env-time { font-size: .68rem; color: var(--text-muted); white-space: nowrap; }
-  .msng__env-unread { width: 8px; height: 8px; border-radius: 50%; background: var(--green-accent); flex-shrink: 0; margin-top: 6px; }
-  .msng__env-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: .82rem; }
-
-  @media (max-width: 768px) {
-    .msng__sidebar { width: 100%; min-width: unset; }
-    .msng__chat { display: none; }
-    .msng__chat.mobile-open { display: flex; }
-    .msng__sidebar.mobile-hidden { display: none; }
-    .msng__fab { bottom: 80px; }
-    .msng__info-panel.open { width: 100% !important; min-width: unset !important; position: absolute; top: 0; right: 0; bottom: 0; z-index: 50; }
-    .msng__info-slider, .msng__info-layer, .msng__media-panel { width: 100%; min-width: unset; }
-    .msng__info-slider.media-open .msng__info-layer { transform: translateX(-100%); }
-  }
-
-  /* ── Message status (Messenger-style) ── */
+  /* ─── MESSAGE STATUS ─── */
   .msng__status-row {
     display: flex; justify-content: flex-end; align-items: center;
     gap: 4px; padding: 0 4px 4px; min-height: 16px;
   }
-  .msng__status-label {
-    font-size: .62rem; color: var(--text-muted);
-  }
+  .msng__status-label { font-size: .62rem; color: var(--text-muted); }
   .msng__status-av {
     width: 14px; height: 14px; border-radius: 50%;
     overflow: hidden; display: flex; align-items: center; justify-content: center;
@@ -737,6 +763,16 @@
     font-size: .44rem; font-weight: 600; color: var(--white);
   }
   .msng__status-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+  @media (max-width: 768px) {
+    .msng__sidebar { width: 100%; min-width: unset; }
+    .msng__chat { display: none; }
+    .msng__chat.mobile-open { display: flex; }
+    .msng__sidebar.mobile-hidden { display: none; }
+    .msng__info-panel.open { width: 100% !important; min-width: unset !important; position: absolute; top: 0; right: 0; bottom: 0; z-index: 50; }
+    .msng__info-slider, .msng__info-layer, .msng__media-panel { width: 100%; min-width: unset; }
+    .msng__info-slider.media-open .msng__info-layer { transform: translateX(-100%); }
+  }
 </style>
 {% endblock %}
 
@@ -754,6 +790,17 @@
     </div>
     <div class="msng__convs" id="convList">
       <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.83rem;">Loading…</div>
+    </div>
+
+    <!-- Archived toggle -->
+    <div class="msng__archived-toggle" id="archivedToggle">
+      <i class="fa-solid fa-box-archive"></i>
+      <span>Archived Chats</span>
+      <span id="archivedCount" style="background:var(--border);border-radius:10px;padding:1px 7px;font-size:.7rem;"></span>
+      <i class="fa-solid fa-chevron-down chevron"></i>
+    </div>
+    <div class="msng__archived-section" id="archivedSection">
+      <div id="archivedList"></div>
     </div>
   </div>
 
@@ -796,7 +843,13 @@
           </button>
         </div>
 
-        <div class="msng__input-area">
+        <!-- Blocked banner (shown instead of input when blocked) -->
+        <div class="msng__blocked-bar" id="blockedBar">
+          <i class="fa-solid fa-ban"></i>
+          <span id="blockedBarText">You can't send messages in this conversation.</span>
+        </div>
+
+        <div class="msng__input-area" id="inputArea">
           <button class="msng__input-btn" id="attachBtn" title="Attach file">
             <i class="fa-solid fa-paperclip"></i>
           </button>
@@ -814,8 +867,6 @@
     <!-- Info Panel -->
     <div class="msng__info-panel" id="msngInfoPanel">
       <div class="msng__info-slider" id="msngInfoSlider">
-
-        <!-- Layer 1: Chat info -->
         <div class="msng__info-layer">
           <div class="msng__info-scroll">
             <div class="msng__info-profile">
@@ -846,13 +897,9 @@
             </div>
           </div>
         </div>
-
-        <!-- Layer 2: Media / Files / Links -->
         <div class="msng__info-layer msng__media-panel">
           <div class="msng__media-panel-head">
-            <button class="msng__media-back" id="closeMediaPanelBtn">
-              <i class="fa-solid fa-arrow-left"></i>
-            </button>
+            <button class="msng__media-back" id="closeMediaPanelBtn"><i class="fa-solid fa-arrow-left"></i></button>
             <span class="msng__media-panel-title">Media, files and links</span>
           </div>
           <div class="msng__media-tabs">
@@ -861,35 +908,14 @@
             <div class="msng__media-tab" data-tab="links">Links</div>
           </div>
           <div class="msng__media-body">
-            <div class="msng__tab-pane active" id="tabMedia">
-              <div id="mediaGridWrap">
-                <div class="msng__tab-empty">
-                  <i class="fa-regular fa-image"></i>
-                  <p>No photos or videos shared yet</p>
-                </div>
-              </div>
-            </div>
-            <div class="msng__tab-pane" id="tabFiles">
-              <div id="filesListWrap">
-                <div class="msng__tab-empty">
-                  <i class="fa-regular fa-file"></i>
-                  <p>No files shared yet</p>
-                </div>
-              </div>
-            </div>
-            <div class="msng__tab-pane" id="tabLinks">
-              <div class="msng__tab-empty">
-                <i class="fa-solid fa-link"></i>
-                <p>No links shared yet</p>
-              </div>
-            </div>
+            <div class="msng__tab-pane active" id="tabMedia"><div id="mediaGridWrap"><div class="msng__tab-empty"><i class="fa-regular fa-image"></i><p>No photos or videos shared yet</p></div></div></div>
+            <div class="msng__tab-pane" id="tabFiles"><div id="filesListWrap"><div class="msng__tab-empty"><i class="fa-regular fa-file"></i><p>No files shared yet</p></div></div></div>
+            <div class="msng__tab-pane" id="tabLinks"><div class="msng__tab-empty"><i class="fa-solid fa-link"></i><p>No links shared yet</p></div></div>
           </div>
         </div>
-
       </div>
     </div>
   </div>
-
 </div>
 
 <!-- New Message Modal -->
@@ -899,12 +925,8 @@
       <strong>New Message</strong>
       <button class="msng__new-modal-close" id="closeNewModal"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="msng__new-search">
-      <input type="text" placeholder="Search people…" id="newMsgSearch" autocomplete="off">
-    </div>
-    <div class="msng__new-list" id="newMsgList">
-      <div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.83rem;">Loading users…</div>
-    </div>
+    <div class="msng__new-search"><input type="text" placeholder="Search people…" id="newMsgSearch" autocomplete="off"></div>
+    <div class="msng__new-list" id="newMsgList"><div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.83rem;">Loading users…</div></div>
   </div>
 </div>
 
@@ -923,17 +945,9 @@
         <span id="profileStatusTxt">Offline</span>
       </div>
       <div class="msng__profile-divider"></div>
-      <div class="msng__profile-field">
-        <div class="msng__profile-field-label">Position</div>
-        <div class="msng__profile-field-value" id="profilePosition">—</div>
-      </div>
-      <div class="msng__profile-field">
-        <div class="msng__profile-field-label">Department</div>
-        <div class="msng__profile-field-value" id="profileDepartment">—</div>
-      </div>
-      <button class="msng__profile-msg-btn" id="profileMsgBtn">
-        <i class="fa-solid fa-paper-plane"></i> Send Message
-      </button>
+      <div class="msng__profile-field"><div class="msng__profile-field-label">Position</div><div class="msng__profile-field-value" id="profilePosition">—</div></div>
+      <div class="msng__profile-field"><div class="msng__profile-field-label">Department</div><div class="msng__profile-field-value" id="profileDepartment">—</div></div>
+      <button class="msng__profile-msg-btn" id="profileMsgBtn"><i class="fa-solid fa-paper-plane"></i> Send Message</button>
     </div>
   </div>
 </div>
@@ -941,9 +955,7 @@
 <!-- Confirmation Modal -->
 <div class="msng__confirm-modal" id="confirmModal">
   <div class="msng__confirm-box">
-    <div class="msng__confirm-icon danger" id="confirmIcon">
-      <i class="fa-solid fa-triangle-exclamation" id="confirmIconI"></i>
-    </div>
+    <div class="msng__confirm-icon danger" id="confirmIcon"><i class="fa-solid fa-triangle-exclamation" id="confirmIconI"></i></div>
     <div class="msng__confirm-title" id="confirmTitle">Are you sure?</div>
     <div class="msng__confirm-msg" id="confirmMsg">This action cannot be undone.</div>
     <div class="msng__confirm-actions">
@@ -953,12 +965,44 @@
   </div>
 </div>
 
+<!-- Mute Modal -->
+<div class="msng__mute-modal" id="muteModal">
+  <div class="msng__mute-box">
+    <div class="msng__mute-title"><i class="fa-solid fa-bell-slash" style="color:var(--green-mid);margin-right:8px;"></i>Mute Notifications</div>
+    <div class="msng__mute-subtitle">Choose how long to mute this conversation.</div>
+    <div class="msng__mute-options" id="muteOptions">
+      <label class="msng__mute-option selected">
+        <input type="radio" name="muteDuration" value="indefinite" checked>
+        <div><div class="msng__mute-option-label">Until I turn it back on</div><div class="msng__mute-option-sub">Muted indefinitely</div></div>
+      </label>
+      <label class="msng__mute-option">
+        <input type="radio" name="muteDuration" value="1h">
+        <div><div class="msng__mute-option-label">1 hour</div></div>
+      </label>
+      <label class="msng__mute-option">
+        <input type="radio" name="muteDuration" value="8h">
+        <div><div class="msng__mute-option-label">8 hours</div></div>
+      </label>
+      <label class="msng__mute-option">
+        <input type="radio" name="muteDuration" value="24h">
+        <div><div class="msng__mute-option-label">24 hours</div><div class="msng__mute-option-sub">Until tomorrow</div></div>
+      </label>
+      <label class="msng__mute-option">
+        <input type="radio" name="muteDuration" value="1w">
+        <div><div class="msng__mute-option-label">1 week</div></div>
+      </label>
+    </div>
+    <div class="msng__mute-actions">
+      <button class="msng__mute-cancel" id="muteCancelBtn">Cancel</button>
+      <button class="msng__mute-confirm" id="muteConfirmBtn">Mute</button>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div class="msng__lightbox" id="lightbox">
   <button class="msng__lightbox-close" id="lightboxClose"><i class="fa-solid fa-xmark"></i></button>
-  <a class="msng__lightbox-download" id="lightboxDownload" download title="Download">
-    <i class="fa-solid fa-download"></i>
-  </a>
+  <a class="msng__lightbox-download" id="lightboxDownload" download title="Download"><i class="fa-solid fa-download"></i></a>
   <div id="lightboxContent"></div>
   <div class="msng__lightbox-caption" id="lightboxCaption"></div>
 </div>
@@ -977,38 +1021,50 @@
 
   let activeConvId    = null;
   let activeRecipient = null;
+  let activeConvData  = null;   // full conv object from API
   let ws              = null;
   let convCache       = {};
   let allUsers        = [];
   let allConvs        = [];
   let infoPanelOpen   = false;
   let profileTarget   = null;
-  let pendingFile     = null; // { file, isImage, url }
+  let pendingFile     = null;
+  let mutePendingConvId = null;
 
-  const convList        = document.getElementById('convList');
-  const msngEmpty       = document.getElementById('msngEmpty');
-  const msngActiveChat  = document.getElementById('msngActiveChat');
-  const chatHeadAvatar  = document.getElementById('chatHeadAvatar');
-  const chatHeadName    = document.getElementById('chatHeadName');
-  const chatHeadStatus  = document.getElementById('chatHeadStatus');
-  const msngMessages    = document.getElementById('msngMessages');
-  const msgInput        = document.getElementById('msgInput');
-  const sendBtn         = document.getElementById('sendBtn');
-  const convSearch      = document.getElementById('convSearch');
-  const newMsgModal     = document.getElementById('newMsgModal');
-  const closeNewModal   = document.getElementById('closeNewModal');
-  const newMsgSearch    = document.getElementById('newMsgSearch');
-  const newMsgList      = document.getElementById('newMsgList');
-  const backBtn         = document.getElementById('backBtn');
-  const infoToggleBtn   = document.getElementById('infoToggleBtn');
-  const msngInfoPanel   = document.getElementById('msngInfoPanel');
-  const profileModal    = document.getElementById('profileModal');
+  // DOM refs
+  const convList       = document.getElementById('convList');
+  const archivedList   = document.getElementById('archivedList');
+  const archivedCount  = document.getElementById('archivedCount');
+  const archivedToggle = document.getElementById('archivedToggle');
+  const archivedSection= document.getElementById('archivedSection');
+  const msngEmpty      = document.getElementById('msngEmpty');
+  const msngActiveChat = document.getElementById('msngActiveChat');
+  const chatHeadAvatar = document.getElementById('chatHeadAvatar');
+  const chatHeadName   = document.getElementById('chatHeadName');
+  const chatHeadStatus = document.getElementById('chatHeadStatus');
+  const msngMessages   = document.getElementById('msngMessages');
+  const msgInput       = document.getElementById('msgInput');
+  const sendBtn        = document.getElementById('sendBtn');
+  const convSearch     = document.getElementById('convSearch');
+  const newMsgModal    = document.getElementById('newMsgModal');
+  const closeNewModal  = document.getElementById('closeNewModal');
+  const newMsgSearch   = document.getElementById('newMsgSearch');
+  const newMsgList     = document.getElementById('newMsgList');
+  const backBtn        = document.getElementById('backBtn');
+  const infoToggleBtn  = document.getElementById('infoToggleBtn');
+  const msngInfoPanel  = document.getElementById('msngInfoPanel');
+  const profileModal   = document.getElementById('profileModal');
   const closeProfileModal = document.getElementById('closeProfileModal');
-  const fileInput       = document.getElementById('fileInput');
-  const attachBtn       = document.getElementById('attachBtn');
-  const attachPreview   = document.getElementById('attachPreview');
-  const attachRemoveBtn = document.getElementById('attachRemoveBtn');
-  const lightbox        = document.getElementById('lightbox');
+  const fileInput      = document.getElementById('fileInput');
+  const attachBtn      = document.getElementById('attachBtn');
+  const attachPreview  = document.getElementById('attachPreview');
+  const attachRemoveBtn= document.getElementById('attachRemoveBtn');
+  const lightbox       = document.getElementById('lightbox');
+  const blockedBar     = document.getElementById('blockedBar');
+  const inputArea      = document.getElementById('inputArea');
+  const muteModal      = document.getElementById('muteModal');
+  const muteCancelBtn  = document.getElementById('muteCancelBtn');
+  const muteConfirmBtn = document.getElementById('muteConfirmBtn');
 
   /* ─── HELPERS ─── */
   function timeAgo(isoStr) {
@@ -1019,9 +1075,7 @@
     if (diff < 86400) return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
     return d.toLocaleDateString([], {month:'short',day:'numeric'});
   }
-  function formatTime(isoStr) {
-    return new Date(isoStr).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  }
+  function formatTime(isoStr) { return new Date(isoStr).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
   function formatDateLabel(isoStr) {
     const d = new Date(isoStr), now = new Date();
     const diff = Math.floor((now - d) / 86400000);
@@ -1029,15 +1083,8 @@
     if (diff === 1) return 'Yesterday';
     return d.toLocaleDateString([], {month:'long',day:'numeric',year:'numeric'});
   }
-  function getCookie(name) {
-    const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return v ? v.pop() : '';
-  }
-  function escapeHTML(str) {
-    return String(str)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-  }
+  function getCookie(name) { const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; }
+  function escapeHTML(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
   function formatFileSize(bytes) {
     if (!bytes) return '';
     if (bytes < 1024) return bytes + ' B';
@@ -1047,22 +1094,60 @@
   function fileIcon(name) {
     if (!name) return 'fa-file';
     const ext = name.split('.').pop().toLowerCase();
-    const map = {
-      pdf:'fa-file-pdf', doc:'fa-file-word', docx:'fa-file-word',
-      xls:'fa-file-excel', xlsx:'fa-file-excel', ppt:'fa-file-powerpoint',
-      pptx:'fa-file-powerpoint', zip:'fa-file-zipper', rar:'fa-file-zipper',
-      txt:'fa-file-lines', mp4:'fa-file-video', mov:'fa-file-video',
-      avi:'fa-file-video', mp3:'fa-file-audio', wav:'fa-file-audio',
-    };
+    const map = { pdf:'fa-file-pdf', doc:'fa-file-word', docx:'fa-file-word', xls:'fa-file-excel', xlsx:'fa-file-excel', ppt:'fa-file-powerpoint', pptx:'fa-file-powerpoint', zip:'fa-file-zipper', rar:'fa-file-zipper', txt:'fa-file-lines', mp4:'fa-file-video', mov:'fa-file-video', avi:'fa-file-video', mp3:'fa-file-audio', wav:'fa-file-audio' };
     return map[ext] || 'fa-file';
   }
-  function isImageUrl(url) {
-    if (!url) return false;
-    return /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url);
+  function isImageUrl(url) { return url && /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url); }
+  function isVideoUrl(url)  { return url && /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(url); }
+
+  /* ─── MUTE MODAL ─── */
+  document.querySelectorAll('.msng__mute-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.msng__mute-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+    });
+  });
+  muteCancelBtn.addEventListener('click', () => muteModal.classList.remove('open'));
+  muteModal.addEventListener('click', (e) => { if (e.target === muteModal) muteModal.classList.remove('open'); });
+
+  muteConfirmBtn.addEventListener('click', () => {
+    const duration = document.querySelector('input[name="muteDuration"]:checked')?.value || 'indefinite';
+    if (!mutePendingConvId) return;
+    fetch(`/messenger/conversations/${mutePendingConvId}/mute/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ duration }),
+    }).then(r => r.json()).then(data => {
+      if (data.success) {
+        muteModal.classList.remove('open');
+        const conv = allConvs.find(c => c.id == mutePendingConvId);
+        if (conv) { conv.is_muted = true; conv.muted_until = data.muted_until; }
+        renderConvList(allConvs, convSearch.value);
+        // Update header if this is the active conv
+        if (activeConvId == mutePendingConvId) updateChatHeaderMuteBadge(true);
+      }
+    });
+  });
+
+  function openMuteModal(convId) {
+    mutePendingConvId = convId;
+    // Reset selection
+    document.querySelectorAll('.msng__mute-option').forEach(o => o.classList.remove('selected'));
+    document.querySelector('.msng__mute-option').classList.add('selected');
+    document.querySelector('input[name="muteDuration"][value="indefinite"]').checked = true;
+    muteModal.classList.add('open');
   }
-  function isVideoUrl(url) {
-    if (!url) return false;
-    return /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(url);
+
+  function updateChatHeaderMuteBadge(isMuted) {
+    const existing = document.getElementById('chatMuteBadge');
+    if (existing) existing.remove();
+    if (isMuted) {
+      const badge = document.createElement('span');
+      badge.id = 'chatMuteBadge';
+      badge.className = 'msng__muted-badge';
+      badge.innerHTML = '<i class="fa-solid fa-bell-slash"></i> Muted';
+      chatHeadName.appendChild(badge);
+    }
   }
 
   /* ─── CONFIRM MODAL ─── */
@@ -1074,31 +1159,22 @@
     const msgEl   = document.getElementById('confirmMsg');
     const okBtn   = document.getElementById('confirmOk');
     const cancelBtn = document.getElementById('confirmCancel');
-
     const iconMap = {
-      danger: { cls: 'danger', ico: 'fa-triangle-exclamation' },
-      warn:   { cls: 'warn',   ico: 'fa-circle-exclamation' },
-      primary:{ cls: 'primary',ico: 'fa-circle-question' },
+      danger:  { cls: 'danger',  ico: 'fa-triangle-exclamation' },
+      warn:    { cls: 'warn',    ico: 'fa-circle-exclamation' },
+      primary: { cls: 'primary', ico: 'fa-circle-question' },
     };
     const cfg = iconMap[type] || iconMap.danger;
-
     icon.className = 'msng__confirm-icon ' + cfg.cls;
     iconI.className = 'fa-solid ' + cfg.ico;
     titleEl.textContent = title;
     msgEl.textContent   = message;
     okBtn.className = 'msng__confirm-ok ' + cfg.cls;
     okBtn.textContent   = okText;
-
     modal.classList.add('open');
-
     const doOk = () => { modal.classList.remove('open'); cleanup(); onOk && onOk(); };
     const doCancel = () => { modal.classList.remove('open'); cleanup(); };
-
-    function cleanup() {
-      okBtn.removeEventListener('click', doOk);
-      cancelBtn.removeEventListener('click', doCancel);
-    }
-
+    function cleanup() { okBtn.removeEventListener('click', doOk); cancelBtn.removeEventListener('click', doCancel); }
     okBtn.addEventListener('click', doOk);
     cancelBtn.addEventListener('click', doCancel);
   }
@@ -1108,16 +1184,11 @@
     const content = document.getElementById('lightboxContent');
     const caption = document.getElementById('lightboxCaption');
     const dlBtn   = document.getElementById('lightboxDownload');
-
-    dlBtn.href = url;
-    dlBtn.download = name || 'file';
-    caption.textContent = name || '';
-
+    dlBtn.href = url; dlBtn.download = name || 'file'; caption.textContent = name || '';
     content.innerHTML = '';
     if (isImageUrl(url)) {
       const img = document.createElement('img');
-      img.src = url; img.className = 'msng__lightbox-img';
-      img.alt = name || '';
+      img.src = url; img.className = 'msng__lightbox-img'; img.alt = name || '';
       content.appendChild(img);
     } else if (isVideoUrl(url)) {
       const vid = document.createElement('video');
@@ -1127,17 +1198,11 @@
     } else {
       const wrap = document.createElement('div');
       wrap.className = 'msng__lightbox-file';
-      wrap.innerHTML = `
-        <i class="fa-solid ${fileIcon(name)}"></i>
-        <div class="msng__lightbox-file-name">${escapeHTML(name || 'File')}</div>
-        <a href="${url}" download="${name||'file'}" class="msng__lightbox-file-dl">
-          <i class="fa-solid fa-download"></i> Download File
-        </a>`;
+      wrap.innerHTML = `<i class="fa-solid ${fileIcon(name)}"></i><div class="msng__lightbox-file-name">${escapeHTML(name||'File')}</div><a href="${url}" download="${name||'file'}" class="msng__lightbox-file-dl"><i class="fa-solid fa-download"></i> Download File</a>`;
       content.appendChild(wrap);
     }
     lightbox.classList.add('open');
   }
-
   document.getElementById('lightboxClose').addEventListener('click', () => lightbox.classList.remove('open'));
   lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('open'); });
 
@@ -1145,17 +1210,14 @@
   const msngInfoSlider     = document.getElementById('msngInfoSlider');
   const openMediaPanelBtn  = document.getElementById('openMediaPanelBtn');
   const closeMediaPanelBtn = document.getElementById('closeMediaPanelBtn');
-
   infoToggleBtn.addEventListener('click', () => {
     infoPanelOpen = !infoPanelOpen;
     msngInfoPanel.classList.toggle('open', infoPanelOpen);
     infoToggleBtn.classList.toggle('active', infoPanelOpen);
     if (!infoPanelOpen) msngInfoSlider.classList.remove('media-open');
   });
-
   openMediaPanelBtn.addEventListener('click', () => msngInfoSlider.classList.add('media-open'));
   closeMediaPanelBtn.addEventListener('click', () => msngInfoSlider.classList.remove('media-open'));
-
   document.querySelectorAll('.msng__media-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.msng__media-tab').forEach(t => t.classList.remove('active'));
@@ -1165,35 +1227,25 @@
     });
   });
 
-  function populateInfoPanel(recipient, isGroup) {
+  function populateInfoPanel(recipient) {
     const infoAv = document.getElementById('infoAvatar');
-    infoAv.innerHTML = recipient.avatar
-      ? `<img src="${recipient.avatar}" alt="">`
-      : `<span style="font-size:1.3rem;">${recipient.initials||'?'}</span>`;
+    infoAv.innerHTML = recipient.avatar ? `<img src="${recipient.avatar}" alt="">` : `<span style="font-size:1.3rem;">${recipient.initials||'?'}</span>`;
     document.getElementById('infoName').textContent = recipient.name;
     document.getElementById('infoSub').textContent  = recipient.position || recipient.department || '';
     document.getElementById('infoOnline').style.display = recipient.is_online ? 'flex' : 'none';
-    document.getElementById('infoMembersSection').style.display = isGroup ? '' : 'none';
+    document.getElementById('infoMembersSection').style.display = 'none';
     document.getElementById('infoMediaCount').textContent = 'Nothing shared yet';
     resetMediaPanel();
     msngInfoSlider.classList.remove('media-open');
   }
-
   function resetMediaPanel() {
     document.getElementById('mediaGridWrap').innerHTML = '<div class="msng__tab-empty"><i class="fa-regular fa-image"></i><p>No photos or videos shared yet</p></div>';
     document.getElementById('filesListWrap').innerHTML = '<div class="msng__tab-empty"><i class="fa-regular fa-file"></i><p>No files shared yet</p></div>';
   }
-
   function populateMediaPanel(messages) {
     const images = messages.filter(m => m.attachment_url && m.is_image);
     const files  = messages.filter(m => m.attachment_url && !m.is_image);
-    let totalCount = images.length + files.length;
-
-    // Update count label
-    document.getElementById('infoMediaCount').textContent =
-      totalCount ? `${totalCount} item${totalCount !== 1 ? 's' : ''} shared` : 'Nothing shared yet';
-
-    // Media grid
+    document.getElementById('infoMediaCount').textContent = (images.length + files.length) ? `${images.length + files.length} item(s) shared` : 'Nothing shared yet';
     const gridWrap = document.getElementById('mediaGridWrap');
     if (images.length) {
       gridWrap.innerHTML = `<div class="msng__media-grid" id="mediaGrid"></div>`;
@@ -1201,30 +1253,20 @@
       images.forEach(m => {
         const div = document.createElement('div');
         div.className = 'msng__media-thumb';
-        div.innerHTML = `<img src="${m.attachment_url}" alt="${m.attachment_name||''}">`;
+        div.innerHTML = `<img src="${m.attachment_url}" alt="">`;
         div.addEventListener('click', () => openLightbox(m.attachment_url, m.attachment_name));
         grid.appendChild(div);
       });
     } else {
       gridWrap.innerHTML = '<div class="msng__tab-empty"><i class="fa-regular fa-image"></i><p>No photos or videos shared yet</p></div>';
     }
-
-    // Files list
     const filesWrap = document.getElementById('filesListWrap');
     if (files.length) {
       filesWrap.innerHTML = '';
       files.forEach(m => {
-        const a = document.createElement('a');
-        a.className = 'msng__file-item';
-        a.href = m.attachment_url;
-        a.target = '_blank';
+        const a = document.createElement('a'); a.className = 'msng__file-item'; a.href = m.attachment_url; a.target = '_blank';
         a.addEventListener('click', (e) => { e.preventDefault(); openLightbox(m.attachment_url, m.attachment_name); });
-        a.innerHTML = `
-          <div class="msng__file-icon"><i class="fa-solid ${fileIcon(m.attachment_name)}"></i></div>
-          <div>
-            <div class="msng__file-name">${escapeHTML(m.attachment_name || 'File')}</div>
-            <div class="msng__file-size">${m.attachment_name ? m.attachment_name.split('.').pop().toUpperCase() : 'FILE'}</div>
-          </div>`;
+        a.innerHTML = `<div class="msng__file-icon"><i class="fa-solid ${fileIcon(m.attachment_name)}"></i></div><div><div class="msng__file-name">${escapeHTML(m.attachment_name||'File')}</div><div class="msng__file-size">${m.attachment_name ? m.attachment_name.split('.').pop().toUpperCase() : 'FILE'}</div></div>`;
         filesWrap.appendChild(a);
       });
     } else {
@@ -1234,34 +1276,33 @@
 
   /* ─── ATTACHMENT HANDLING ─── */
   attachBtn.addEventListener('click', () => fileInput.click());
-
   fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0];
-    if (!file) return;
+    const file = fileInput.files[0]; if (!file) return;
     pendingFile = { file };
-
     const thumbEl = document.getElementById('attachPreviewThumb');
     document.getElementById('attachPreviewName').textContent = file.name;
     document.getElementById('attachPreviewSize').textContent = formatFileSize(file.size);
-
     if (file.type.startsWith('image/')) {
       const url = URL.createObjectURL(file);
-      pendingFile.isImage = true;
-      pendingFile.localUrl = url;
+      pendingFile.isImage = true; pendingFile.localUrl = url;
       thumbEl.innerHTML = `<img class="msng__attach-thumb" src="${url}" alt="">`;
     } else {
       pendingFile.isImage = false;
       thumbEl.innerHTML = `<div class="msng__attach-file-icon"><i class="fa-solid ${fileIcon(file.name)}"></i></div>`;
     }
-
     attachPreview.classList.add('visible');
     fileInput.value = '';
   });
-
   attachRemoveBtn.addEventListener('click', () => {
     pendingFile = null;
     attachPreview.classList.remove('visible');
     document.getElementById('attachPreviewThumb').innerHTML = '';
+  });
+
+  /* ─── ARCHIVED TOGGLE ─── */
+  archivedToggle.addEventListener('click', () => {
+    archivedToggle.classList.toggle('open');
+    archivedSection.classList.toggle('open');
   });
 
   /* ─── LOAD CONVERSATIONS ─── */
@@ -1273,75 +1314,96 @@
         renderConvList(allConvs);
         if (cb) cb();
       })
-      .catch(() => {
-        convList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">Failed to load</div>';
-      });
+      .catch(() => { convList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">Failed to load</div>'; });
   }
 
-  function renderConvList(convs, filterText='') {
+  function renderConvList(convs, filterText = '') {
     const lower    = filterText.toLowerCase();
-    const filtered = convs.filter(c => !lower || c.recipient.name.toLowerCase().includes(lower));
+    const active   = convs.filter(c => !c.is_archived && (!lower || c.recipient.name.toLowerCase().includes(lower)));
+    const archived = convs.filter(c => c.is_archived  && (!lower || c.recipient.name.toLowerCase().includes(lower)));
 
-    if (!filtered.length) {
+    // Active list
+    if (!active.length) {
       convList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.82rem;">No conversations yet</div>';
-      return;
+    } else {
+      convList.innerHTML = '';
+      active.forEach(c => convList.appendChild(buildConvItem(c)));
     }
 
-    convList.innerHTML = '';
-    filtered.forEach(c => {
-      const div = document.createElement('div');
-      div.className = 'msng__conv' + (c.id === activeConvId ? ' active' : '');
-      div.dataset.id = c.id;
-      const isUnread = c.unread_count > 0;
-
-      div.innerHTML = `
-        <div class="msng__conv-avatar">
-          ${c.recipient.avatar ? `<img src="${c.recipient.avatar}" alt="${c.recipient.name}">` : `<span style="font-size:.78rem;">${c.recipient.initials||'?'}</span>`}
-          ${c.recipient.is_online ? '<span class="msng__online-dot"></span>' : ''}
-        </div>
-        <div class="msng__conv-info">
-          <div class="msng__conv-name">${c.recipient.name}</div>
-          <div class="msng__conv-preview${isUnread?' unread':''}">${c.last_message||'Start a conversation'}</div>
-        </div>
-        <div class="msng__conv-meta">
-          <div class="msng__conv-time">${c.last_message_time ? timeAgo(c.last_message_time) : ''}</div>
-          ${isUnread ? `<div class="msng__unread-badge">${c.unread_count}</div>` : ''}
-        </div>
-        <button class="msng__conv-dots" title="More options" data-conv-id="${c.id}">
-          <i class="fa-solid fa-ellipsis"></i>
-        </button>
-        <div class="msng__conv-menu" id="convMenu_${c.id}">
-          <div class="msng__conv-menu-item" data-action="mark-read">
-            <i class="fa-solid fa-envelope-open"></i> Mark as Read
-          </div>
-          <div class="msng__conv-menu-item" data-action="mute">
-            <i class="fa-solid fa-bell-slash"></i> Mute Notifications
-          </div>
-          <div class="msng__conv-menu-item" data-action="view-profile" data-user='${JSON.stringify(c.recipient)}'>
-            <i class="fa-solid fa-user"></i> View Profile
-          </div>
-          <div class="msng__conv-menu-sep"></div>
-          <div class="msng__conv-menu-item" data-action="archive">
-            <i class="fa-solid fa-box-archive"></i> Archive Chat
-          </div>
-          <div class="msng__conv-menu-item" data-action="block">
-            <i class="fa-solid fa-ban"></i> Block
-          </div>
-          <div class="msng__conv-menu-sep"></div>
-          <div class="msng__conv-menu-item danger" data-action="delete">
-            <i class="fa-solid fa-trash"></i> Delete Chat
-          </div>
-        </div>`;
-
-      div.addEventListener('click', (e) => {
-        if (e.target.closest('.msng__conv-dots') || e.target.closest('.msng__conv-menu')) return;
-        openConversation(c.id, c.recipient);
-      });
-
-      convList.appendChild(div);
-    });
+    // Archived list
+    archivedCount.textContent = archived.length || '';
+    if (!archived.length) {
+      archivedList.innerHTML = '<div style="padding:12px 16px;font-size:.8rem;color:var(--text-muted);">No archived conversations</div>';
+    } else {
+      archivedList.innerHTML = '';
+      archived.forEach(c => archivedList.appendChild(buildConvItem(c)));
+    }
 
     attachConvMenuHandlers();
+  }
+
+  function buildConvItem(c) {
+    const div = document.createElement('div');
+    div.className = 'msng__conv' + (c.id === activeConvId ? ' active' : '') + (c.is_archived ? ' is-archived' : '');
+    div.dataset.id = c.id;
+    const isUnread = c.unread_count > 0;
+
+    // Mute label
+    const muteLabel = c.is_muted
+      ? `<span class="msng__mute-icon" title="Notifications muted"><i class="fa-solid fa-bell-slash"></i></span>`
+      : '';
+
+    // Block indicator
+    const blockLabel = c.blocked_by_me
+      ? `<span style="font-size:.68rem;color:#dc2626;margin-left:4px;" title="You blocked this person"><i class="fa-solid fa-ban"></i></span>`
+      : (c.blocked_by_them ? `<span style="font-size:.68rem;color:#d97706;margin-left:4px;" title="Blocked by this person"><i class="fa-solid fa-ban"></i></span>` : '');
+
+    div.innerHTML = `
+      <div class="msng__conv-avatar">
+        ${c.recipient.avatar ? `<img src="${c.recipient.avatar}" alt="">` : `<span style="font-size:.78rem;">${c.recipient.initials||'?'}</span>`}
+        ${c.recipient.is_online ? '<span class="msng__online-dot"></span>' : ''}
+      </div>
+      <div class="msng__conv-info">
+        <div class="msng__conv-name">${escapeHTML(c.recipient.name)}${muteLabel}${blockLabel}</div>
+        <div class="msng__conv-preview${isUnread?' unread':''}">${c.last_message||'Start a conversation'}</div>
+      </div>
+      <div class="msng__conv-meta">
+        <div class="msng__conv-time">${c.last_message_time ? timeAgo(c.last_message_time) : ''}</div>
+        ${isUnread && !c.is_muted ? `<div class="msng__unread-badge">${c.unread_count}</div>` : ''}
+      </div>
+      <button class="msng__conv-dots" title="More options" data-conv-id="${c.id}">
+        <i class="fa-solid fa-ellipsis"></i>
+      </button>
+      <div class="msng__conv-menu" id="convMenu_${c.id}">
+        ${c.is_archived ? `
+          <div class="msng__conv-menu-item" data-action="unarchive"><i class="fa-solid fa-box-open"></i> Unarchive Chat</div>
+          <div class="msng__conv-menu-item" data-action="view-profile" data-user='${JSON.stringify(c.recipient)}'><i class="fa-solid fa-user"></i> View Profile</div>
+          <div class="msng__conv-menu-sep"></div>
+          <div class="msng__conv-menu-item danger" data-action="delete"><i class="fa-solid fa-trash"></i> Delete Chat</div>
+        ` : `
+          <div class="msng__conv-menu-item" data-action="mark-read"><i class="fa-solid fa-envelope-open"></i> Mark as Read</div>
+          ${c.is_muted
+            ? `<div class="msng__conv-menu-item" data-action="unmute"><i class="fa-solid fa-bell"></i> Unmute</div>`
+            : `<div class="msng__conv-menu-item" data-action="mute"><i class="fa-solid fa-bell-slash"></i> Mute Notifications</div>`
+          }
+          <div class="msng__conv-menu-item" data-action="view-profile" data-user='${JSON.stringify(c.recipient)}'><i class="fa-solid fa-user"></i> View Profile</div>
+          <div class="msng__conv-menu-sep"></div>
+          <div class="msng__conv-menu-item" data-action="archive"><i class="fa-solid fa-box-archive"></i> Archive Chat</div>
+          ${c.blocked_by_me
+            ? `<div class="msng__conv-menu-item warn" data-action="unblock" data-user-id="${c.recipient.id}"><i class="fa-solid fa-ban"></i> Unblock</div>`
+            : `<div class="msng__conv-menu-item" data-action="block" data-user-id="${c.recipient.id}" data-user-name="${escapeHTML(c.recipient.name)}"><i class="fa-solid fa-ban"></i> Block</div>`
+          }
+          <div class="msng__conv-menu-sep"></div>
+          <div class="msng__conv-menu-item danger" data-action="delete"><i class="fa-solid fa-trash"></i> Delete Chat</div>
+        `}
+      </div>`;
+
+    div.addEventListener('click', (e) => {
+      if (e.target.closest('.msng__conv-dots') || e.target.closest('.msng__conv-menu')) return;
+      openConversation(c.id, c.recipient, c);
+    });
+
+    return div;
   }
 
   /* ─── CONV CONTEXT MENU ─── */
@@ -1355,7 +1417,22 @@
         const menu   = document.getElementById('convMenu_' + convId);
         const isOpen = menu.classList.contains('open');
         closeAllConvMenus();
-        if (!isOpen) { menu.classList.add('open'); openMenuId = convId; }
+        if (!isOpen) {
+          const rect      = btn.getBoundingClientRect();
+          const itemCount = menu.querySelectorAll('.msng__conv-menu-item').length;
+          const sepCount  = menu.querySelectorAll('.msng__conv-menu-sep').length;
+          const menuH     = (itemCount * 37) + (sepCount * 9) + 8;
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const top  = spaceBelow >= menuH
+            ? rect.bottom + 4
+            : rect.top - menuH - 4;
+          const right = window.innerWidth - rect.right;
+          menu.style.top   = Math.max(8, top) + 'px';
+          menu.style.right = Math.max(8, right) + 'px';
+          menu.style.left  = 'auto';
+          menu.classList.add('open');
+          openMenuId = convId;
+        }
       });
     });
 
@@ -1367,37 +1444,100 @@
         const convId = convEl ? convEl.dataset.id : null;
 
         if (action === 'mark-read') {
-          if (convId) {
-            fetch(`/messenger/conversations/${convId}/read/`, {
-              method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            }).then(() => loadConversations());
-          }
+          if (convId) fetch(`/messenger/conversations/${convId}/read/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } }).then(() => loadConversations());
+
         } else if (action === 'mute') {
-          showConfirm({
-            title: 'Mute Notifications',
-            message: 'Muting notifications is not yet available in this version.',
-            type: 'warn', okText: 'Got it',
-            onOk: () => {}
-          });
-        } else if (action === 'view-profile') {
-          const userData = JSON.parse(item.dataset.user);
-          openProfileModal(userData);
-        } else if (action === 'archive') {
-          showConfirm({
-            title: 'Archive Chat',
-            message: 'Archiving chats is not yet available in this version.',
-            type: 'warn', okText: 'Got it',
-            onOk: () => {}
-          });
-        } else if (action === 'block') {
-          showConfirm({
-            title: 'Block User',
-            message: 'Are you sure you want to block this user? They won\'t be able to message you.',
-            type: 'danger', okText: 'Block',
-            onOk: () => {
-              showConfirm({ title: 'Coming Soon', message: 'Block functionality is not yet available.', type: 'warn', okText: 'OK' });
+          openMuteModal(convId);
+
+        } else if (action === 'unmute') {
+          fetch(`/messenger/conversations/${convId}/unmute/`, {
+            method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+          }).then(r => r.json()).then(data => {
+            if (data.success) {
+              const conv = allConvs.find(c => c.id == convId);
+              if (conv) { conv.is_muted = false; conv.muted_until = null; }
+              renderConvList(allConvs, convSearch.value);
+              if (activeConvId == convId) updateChatHeaderMuteBadge(false);
             }
           });
+
+        } else if (action === 'view-profile') {
+          openProfileModal(JSON.parse(item.dataset.user));
+
+        } else if (action === 'archive') {
+          fetch(`/messenger/conversations/${convId}/archive/`, {
+            method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+          }).then(r => r.json()).then(data => {
+            if (data.success) {
+              const conv = allConvs.find(c => c.id == convId);
+              if (conv) conv.is_archived = true;
+              // If this was the open chat, close it
+              if (activeConvId == convId) {
+                activeConvId = null; activeRecipient = null;
+                msngEmpty.style.display      = 'flex';
+                msngActiveChat.style.display = 'none';
+                if (ws) { ws.close(); ws = null; }
+              }
+              renderConvList(allConvs, convSearch.value);
+              // Auto-open archived section so they can see it moved
+              archivedToggle.classList.add('open');
+              archivedSection.classList.add('open');
+            }
+          });
+
+        } else if (action === 'unarchive') {
+          fetch(`/messenger/conversations/${convId}/unarchive/`, {
+            method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+          }).then(r => r.json()).then(data => {
+            if (data.success) {
+              const conv = allConvs.find(c => c.id == convId);
+              if (conv) conv.is_archived = false;
+              renderConvList(allConvs, convSearch.value);
+            }
+          });
+
+        } else if (action === 'block') {
+          const userId   = item.dataset.userId;
+          const userName = item.dataset.userName;
+          showConfirm({
+            title: 'Block ' + userName,
+            message: `${userName} won't be able to send you messages. They won't be notified that they've been blocked.`,
+            type: 'danger', okText: 'Block',
+            onOk: () => {
+              fetch(`/messenger/users/${userId}/block/`, {
+                method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+              }).then(r => r.json()).then(data => {
+                if (data.success) {
+                  const conv = allConvs.find(c => c.id == convId);
+                  if (conv) conv.blocked_by_me = true;
+                  renderConvList(allConvs, convSearch.value);
+                  // Update blocked bar if this is the active chat
+                  if (activeConvId == convId) setBlockedState(true, false);
+                }
+              });
+            }
+          });
+
+        } else if (action === 'unblock') {
+          const userId = item.dataset.userId;
+          showConfirm({
+            title: 'Unblock user?',
+            message: 'They will be able to send you messages again.',
+            type: 'primary', okText: 'Unblock',
+            onOk: () => {
+              fetch(`/messenger/users/${userId}/unblock/`, {
+                method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+              }).then(r => r.json()).then(data => {
+                if (data.success) {
+                  const conv = allConvs.find(c => c.id == convId);
+                  if (conv) conv.blocked_by_me = false;
+                  renderConvList(allConvs, convSearch.value);
+                  if (activeConvId == convId) setBlockedState(false, false);
+                }
+              });
+            }
+          });
+
         } else if (action === 'delete') {
           showConfirm({
             title: 'Delete Conversation',
@@ -1409,10 +1549,10 @@
               }).then(() => {
                 if (activeConvId == convId) {
                   activeConvId = null; activeRecipient = null;
-                  msngEmpty.style.display      = 'flex';
-                  msngActiveChat.style.display = 'none';
+                  msngEmpty.style.display = 'flex'; msngActiveChat.style.display = 'none';
                   if (ws) { ws.close(); ws = null; }
                 }
+                allConvs = allConvs.filter(c => c.id != convId);
                 loadConversations();
               });
             }
@@ -1430,13 +1570,25 @@
   }
   document.addEventListener('click', closeAllConvMenus);
 
+  /* ─── BLOCKED STATE UI ─── */
+  function setBlockedState(blockedByMe, blockedByThem) {
+    const isBlocked = blockedByMe || blockedByThem;
+    blockedBar.classList.toggle('visible', isBlocked);
+    inputArea.style.display = isBlocked ? 'none' : 'flex';
+    attachPreview.classList.remove('visible');
+
+    if (blockedByMe) {
+      document.getElementById('blockedBarText').textContent = "You've blocked this person. Unblock them to send messages.";
+    } else if (blockedByThem) {
+      document.getElementById('blockedBarText').textContent = "You can't reply to this conversation.";
+    }
+  }
+
   /* ─── PROFILE MODAL ─── */
   function openProfileModal(user) {
     profileTarget = user;
     const avWrap = document.getElementById('profileAv');
-    avWrap.innerHTML = user.avatar
-      ? `<img src="${user.avatar}" alt="${user.name}">`
-      : `<span style="font-size:1.5rem;font-weight:700;color:var(--white);">${user.initials||'?'}</span>`;
+    avWrap.innerHTML = user.avatar ? `<img src="${user.avatar}" alt="">` : `<span style="font-size:1.5rem;font-weight:700;color:var(--white);">${user.initials||'?'}</span>`;
     document.getElementById('profileName').textContent       = user.name;
     document.getElementById('profileUsername').textContent   = '@' + (user.username || user.name.toLowerCase().replace(/\s/g,''));
     document.getElementById('profilePosition').textContent   = user.position || '—';
@@ -1447,10 +1599,8 @@
     else { dot.classList.add('offline'); txt.textContent = 'Offline'; }
     profileModal.classList.add('open');
   }
-
   closeProfileModal.addEventListener('click', () => profileModal.classList.remove('open'));
   profileModal.addEventListener('click', (e) => { if (e.target === profileModal) profileModal.classList.remove('open'); });
-
   document.getElementById('profileMsgBtn').addEventListener('click', () => {
     if (!profileTarget) return;
     profileModal.classList.remove('open');
@@ -1464,15 +1614,16 @@
   });
 
   /* ─── OPEN CONVERSATION ─── */
-  function openConversation(convId, recipient) {
-    activeConvId    = convId;
-    activeRecipient = recipient;
+  function openConversation(convId, recipient, convData) {
+    activeConvId     = convId;
+    activeRecipient  = recipient;
+    activeConvData   = convData || allConvs.find(c => c.id == convId);
 
     document.querySelectorAll('.msng__conv').forEach(el =>
       el.classList.toggle('active', el.dataset.id == convId));
 
     chatHeadAvatar.innerHTML = recipient.avatar
-      ? `<img src="${recipient.avatar}" alt="${recipient.name}">${recipient.is_online ? '<span class="msng__online-dot"></span>' : ''}`
+      ? `<img src="${recipient.avatar}" alt="">${recipient.is_online ? '<span class="msng__online-dot"></span>' : ''}`
       : `<span style="font-size:.78rem;">${recipient.initials||'?'}</span>`;
     chatHeadName.textContent   = recipient.name;
     chatHeadStatus.textContent = recipient.is_online ? 'Active now' : 'Offline';
@@ -1480,7 +1631,18 @@
 
     msngEmpty.style.display      = 'none';
     msngActiveChat.style.display = 'flex';
-    populateInfoPanel(recipient, false);
+
+    // Mute badge in header
+    updateChatHeaderMuteBadge(activeConvData && activeConvData.is_muted);
+
+    // Blocked state
+    if (activeConvData) {
+      setBlockedState(activeConvData.blocked_by_me, activeConvData.blocked_by_them);
+    } else {
+      setBlockedState(false, false);
+    }
+
+    populateInfoPanel(recipient);
 
     if (window.innerWidth <= 768) {
       document.getElementById('msngSidebar').classList.add('mobile-hidden');
@@ -1511,9 +1673,7 @@
         convCache[convId] = { messages: data.messages };
         renderMessages(data.messages);
         populateMediaPanel(data.messages);
-        fetch(`/messenger/conversations/${convId}/read/`, {
-          method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
-        });
+        fetch(`/messenger/conversations/${convId}/read/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
       });
   }
 
@@ -1553,71 +1713,34 @@
     av.innerHTML = src ? `<img src="${src}" alt="">` : `<span style="font-size:.6rem;">${ini}</span>`;
 
     const bubble = document.createElement('div');
-
-    // Build bubble content
     let content = '';
     const hasAttachment = msg.attachment_url;
     const hasBody = msg.body && msg.body.trim();
 
     if (hasAttachment) {
       if (msg.is_image) {
-        // Image — standardized size, clickable for lightbox
         content += `<img class="msng__bubble-img" src="${msg.attachment_url}" alt="${msg.attachment_name||'Image'}" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Image'}">`;
-        if (!hasBody) {
-          bubble.className = 'msng__bubble img-only';
-        } else {
-          bubble.className = 'msng__bubble';
-        }
+        bubble.className = hasBody ? 'msng__bubble' : 'msng__bubble img-only';
       } else if (isVideoUrl(msg.attachment_url)) {
-        // Video thumbnail placeholder — click to open lightbox
-        content += `
-          <div style="position:relative;width:220px;height:140px;border-radius:12px;overflow:hidden;cursor:pointer;margin-bottom:4px;"
-               data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Video'}">
-            <video src="${msg.attachment_url}" style="width:100%;height:100%;object-fit:cover;" muted preload="metadata"></video>
-            <div style="position:absolute;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;">
-              <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;">
-                <i class="fa-solid fa-play" style="color:#1a4731;font-size:.9rem;margin-left:3px;"></i>
-              </div>
-            </div>
-          </div>`;
-        if (!hasBody) bubble.className = 'msng__bubble img-only';
-        else bubble.className = 'msng__bubble';
+        content += `<div style="position:relative;width:220px;height:140px;border-radius:12px;overflow:hidden;cursor:pointer;margin-bottom:4px;" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Video'}"><video src="${msg.attachment_url}" style="width:100%;height:100%;object-fit:cover;" muted preload="metadata"></video><div style="position:absolute;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;"><div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-play" style="color:#1a4731;font-size:.9rem;margin-left:3px;"></i></div></div></div>`;
+        bubble.className = hasBody ? 'msng__bubble' : 'msng__bubble img-only';
       } else {
-        // Non-image file
         bubble.className = 'msng__bubble';
-        content += `
-          <div class="msng__bubble-file" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'File'}">
-            <div class="msng__bubble-file-icon"><i class="fa-solid ${fileIcon(msg.attachment_name)}"></i></div>
-            <div>
-              <div class="msng__bubble-file-name">${escapeHTML(msg.attachment_name||'File')}</div>
-              <div class="msng__bubble-file-size">${msg.attachment_name ? msg.attachment_name.split('.').pop().toUpperCase() : 'FILE'}</div>
-            </div>
-          </div>`;
+        content += `<div class="msng__bubble-file" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'File'}"><div class="msng__bubble-file-icon"><i class="fa-solid ${fileIcon(msg.attachment_name)}"></i></div><div><div class="msng__bubble-file-name">${escapeHTML(msg.attachment_name||'File')}</div><div class="msng__bubble-file-size">${msg.attachment_name ? msg.attachment_name.split('.').pop().toUpperCase() : 'FILE'}</div></div></div>`;
       }
     } else {
       bubble.className = 'msng__bubble';
     }
-
-    if (hasBody) {
-      content += `<span>${escapeHTML(msg.body)}</span>`;
-    }
-
+    if (hasBody) content += `<span>${escapeHTML(msg.body)}</span>`;
     content += `<span class="msng__bubble-time">${formatTime(msg.created_at)}</span>`;
     bubble.innerHTML = content;
 
-    // Bind click events for lightbox
     const imgEl  = bubble.querySelector('.msng__bubble-img');
-    if (imgEl) {
-      imgEl.addEventListener('click', () => openLightbox(imgEl.dataset.url, imgEl.dataset.name));
-    }
+    if (imgEl) imgEl.addEventListener('click', () => openLightbox(imgEl.dataset.url, imgEl.dataset.name));
     const vidDiv = bubble.querySelector('[data-url]');
-    if (vidDiv && !imgEl) {
-      vidDiv.addEventListener('click', () => openLightbox(vidDiv.dataset.url, vidDiv.dataset.name));
-    }
+    if (vidDiv && !imgEl) vidDiv.addEventListener('click', () => openLightbox(vidDiv.dataset.url, vidDiv.dataset.name));
     const fileDiv = bubble.querySelector('.msng__bubble-file');
-    if (fileDiv) {
-      fileDiv.addEventListener('click', () => openLightbox(fileDiv.dataset.url, fileDiv.dataset.name));
-    }
+    if (fileDiv) fileDiv.addEventListener('click', () => openLightbox(fileDiv.dataset.url, fileDiv.dataset.name));
 
     row.appendChild(av);
     row.appendChild(bubble);
@@ -1630,22 +1753,17 @@
     const lastMsg  = messages[messages.length - 1];
     const lastDate = lastMsg ? new Date(lastMsg.created_at).toDateString() : null;
     const thisDate = new Date(msg.created_at).toDateString();
-
     if (thisDate !== lastDate) {
       const div = document.createElement('div');
       div.className = 'msng__date-divider';
       div.innerHTML = `<span>${formatDateLabel(msg.created_at)}</span>`;
       msngMessages.appendChild(div);
     }
-
     const typing = document.getElementById('typingIndicator');
     if (typing) typing.remove();
-
     msngMessages.appendChild(buildMessageEl(msg));
     messages.push(msg);
     scrollToBottom();
-
-    // Refresh media panel
     populateMediaPanel(messages);
     refreshMsngStatusRow();
   }
@@ -1653,30 +1771,22 @@
   function scrollToBottom() { msngMessages.scrollTop = msngMessages.scrollHeight; }
 
   function refreshMsngStatusRow() {
-    // Remove existing status row
     msngMessages.querySelector('.msng__status-row')?.remove();
-
-    // Find last message sent by me
     const myRows = [...msngMessages.querySelectorAll('.msng__msg-row.mine')];
     if (!myRows.length) return;
     const lastRow = myRows[myRows.length - 1];
     const status = lastRow.dataset.msgStatus || 'sent';
-
     const statusRow = document.createElement('div');
     statusRow.className = 'msng__status-row';
-
     if (status === 'seen') {
       const av = activeRecipient;
-      const avInner = av && av.avatar
-        ? `<img src="${av.avatar}" alt="">`
-        : `<span>${av ? av.initials : '?'}</span>`;
+      const avInner = av && av.avatar ? `<img src="${av.avatar}" alt="">` : `<span>${av ? av.initials : '?'}</span>`;
       statusRow.innerHTML = `<div class="msng__status-av">${avInner}</div><span class="msng__status-label">Seen</span>`;
     } else if (status === 'delivered') {
       statusRow.innerHTML = `<span class="msng__status-label">Delivered</span>`;
     } else {
       statusRow.innerHTML = `<span class="msng__status-label">Sent</span>`;
     }
-
     lastRow.insertAdjacentElement('afterend', statusRow);
   }
 
@@ -1692,13 +1802,9 @@
         updateConvPreview(convId, data.message);
         if (activeConvId == convId && data.message.sender_id !== ME.id) {
           appendMessage(data.message);
-          // Mark as read immediately since we're looking at it
-          fetch(`/messenger/conversations/${convId}/read/`, {
-            method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
-          }).catch(() => {});
+          fetch(`/messenger/conversations/${convId}/read/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } }).catch(() => {});
         }
       } else if (data.type === 'messages_seen') {
-        // Update status on affected messages
         (data.message_ids || []).forEach(id => {
           const row = msngMessages.querySelector(`[data-id="${id}"]`);
           if (row) row.dataset.msgStatus = 'seen';
@@ -1711,22 +1817,15 @@
       }
     };
     ws.onclose = () => console.log('[Chat WS] disconnected');
-    }
+  }
 
   let typingTimer = null;
   function showTyping() {
     if (document.getElementById('typingIndicator')) return;
     const el = document.createElement('div');
-    el.id = 'typingIndicator';
-    el.className = 'msng__typing';
+    el.id = 'typingIndicator'; el.className = 'msng__typing';
     const av = activeRecipient;
-    el.innerHTML = `
-      <div class="msng__msg-avatar">${av && av.avatar ? `<img src="${av.avatar}" alt="">` : `<span style="font-size:.6rem;">${av ? av.initials : '?'}</span>`}</div>
-      <div class="msng__typing-bubble">
-        <div class="msng__typing-dot"></div>
-        <div class="msng__typing-dot"></div>
-        <div class="msng__typing-dot"></div>
-      </div>`;
+    el.innerHTML = `<div class="msng__msg-avatar">${av && av.avatar ? `<img src="${av.avatar}" alt="">` : `<span style="font-size:.6rem;">${av ? av.initials : '?'}</span>`}</div><div class="msng__typing-bubble"><div class="msng__typing-dot"></div><div class="msng__typing-dot"></div><div class="msng__typing-dot"></div></div>`;
     msngMessages.appendChild(el);
     scrollToBottom();
     clearTimeout(typingTimer);
@@ -1744,84 +1843,77 @@
     myTypingTimer = setTimeout(() => { isTyping = false; ws.send(JSON.stringify({ type: 'stop_typing' })); }, 1500);
   });
 
-  /* ─── SEND MESSAGE (supports text + attachment via HTTP POST) ─── */
+  /* ─── SEND MESSAGE ─── */
   function sendMessage() {
-      const body = msgInput.value.trim();
-      if (!body && !pendingFile) return;
-      if (!activeConvId) return;
+    const body = msgInput.value.trim();
+    if (!body && !pendingFile) return;
+    if (!activeConvId) return;
+    // Check block state before sending
+    const conv = allConvs.find(c => c.id == activeConvId);
+    if (conv && (conv.blocked_by_me || conv.blocked_by_them)) return;
 
-      const fd = new FormData();
-      if (body) fd.append('body', body);
-      if (pendingFile) fd.append('attachment', pendingFile.file);
+    const fd = new FormData();
+    if (body) fd.append('body', body);
+    if (pendingFile) fd.append('attachment', pendingFile.file);
 
-      // Clear input immediately
-      msgInput.value = '';
-      msgInput.style.height = 'auto';
-      isTyping = false;
+    msgInput.value = ''; msgInput.style.height = 'auto'; isTyping = false;
+    const fileCopy = pendingFile;
+    pendingFile = null;
+    attachPreview.classList.remove('visible');
+    document.getElementById('attachPreviewThumb').innerHTML = '';
 
-      const fileCopy = pendingFile;
-      pendingFile = null;
-      attachPreview.classList.remove('visible');
-      document.getElementById('attachPreviewThumb').innerHTML = '';
+    const optimistic = {
+      id: 'tmp_' + Date.now(),
+      sender_id: ME.id, body: body,
+      created_at: new Date().toISOString(),
+      attachment_url: fileCopy ? fileCopy.localUrl || null : null,
+      attachment_name: fileCopy ? fileCopy.file.name : null,
+      is_image: fileCopy ? fileCopy.isImage : false,
+    };
+    appendMessage(optimistic);
+    updateConvPreview(activeConvId, optimistic);
 
-      // Build an optimistic message and show it instantly
-      const optimistic = {
-          id: 'tmp_' + Date.now(),
-          sender_id: ME.id,
-          body: body,
-          created_at: new Date().toISOString(),
-          attachment_url: fileCopy ? fileCopy.localUrl || null : null,
-          attachment_name: fileCopy ? fileCopy.file.name : null,
-          is_image: fileCopy ? fileCopy.isImage : false,
-      };
-      appendMessage(optimistic);
-      updateConvPreview(activeConvId, optimistic);
-
-      fetch(`/messenger/conversations/${activeConvId}/send/`, {
-          method: 'POST',
-          headers: { 'X-CSRFToken': getCookie('csrftoken') },
-          body: fd,
-      })
-      .then(r => r.json())
-      .then(data => {
-          if (data.success) {
-              // Replace the optimistic message with the real one from server
-              const tmpEl = msngMessages.querySelector(`[data-id="tmp_${optimistic.id.split('_')[1]}"]`);
-              if (tmpEl) {
-                  const realEl = buildMessageEl(data.message);
-                  tmpEl.replaceWith(realEl);
-              }
-              refreshMsngStatusRow();
-              // Update cache
-              const cached = convCache[activeConvId];
-              if (cached) {
-                  const idx = cached.messages.findIndex(m => m.id === optimistic.id);
-                  if (idx !== -1) cached.messages[idx] = data.message;
-              }
-              updateConvPreview(activeConvId, data.message);
-          }
+    fetch(`/messenger/conversations/${activeConvId}/send/`, {
+      method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd,
+    })
+    .then(r => {
+      if (r.status === 403) {
+        // Blocked — reload to sync state
+        loadConversations();
+        return null;
+      }
+      return r.json();
+    })
+    .then(data => {
+      if (!data) return;
+      if (data.success) {
+        const tmpEl = msngMessages.querySelector(`[data-id="tmp_${optimistic.id.split('_')[1]}"]`);
+        if (tmpEl) { const realEl = buildMessageEl(data.message); tmpEl.replaceWith(realEl); }
+        refreshMsngStatusRow();
+        const cached = convCache[activeConvId];
+        if (cached) { const idx = cached.messages.findIndex(m => m.id === optimistic.id); if (idx !== -1) cached.messages[idx] = data.message; }
+        updateConvPreview(activeConvId, data.message);
+      }
     });
   }
 
   sendBtn.addEventListener('click', sendMessage);
-  msgInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
+  msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 
   function updateConvPreview(convId, msg) {
     const conv = allConvs.find(c => c.id == convId);
     if (conv) {
-        conv.last_message = msg.body ? msg.body.slice(0, 60) : 'Sent an attachment';
-        conv.last_message_time = msg.created_at;
-        if (convId != activeConvId && msg.sender_id !== ME.id) {
-            conv.unread_count = (conv.unread_count || 0) + 1;
-        } else {
-            conv.unread_count = 0;
-        }
-        allConvs = [conv, ...allConvs.filter(c => c.id != convId)];
+      conv.last_message = msg.body ? msg.body.slice(0, 60) : 'Sent an attachment';
+      conv.last_message_time = msg.created_at;
+      if (convId != activeConvId && msg.sender_id !== ME.id) {
+        conv.unread_count = (conv.unread_count || 0) + 1;
+      } else {
+        conv.unread_count = 0;
+      }
+      allConvs = [conv, ...allConvs.filter(c => c.id != convId)];
     }
     renderConvList(allConvs, convSearch.value);
-}
+  }
 
   /* ─── NEW MESSAGE MODAL ─── */
   closeNewModal.addEventListener('click', () => newMsgModal.classList.remove('open'));
@@ -1830,77 +1922,12 @@
   function loadUsers() {
     fetch('/messenger/users/')
       .then(r => r.json())
-      .then(data => {
-        allUsers = data.users;
-        renderNewMsgUsers('');
-      });
+      .then(data => { allUsers = data.users; renderNewMsgUsers(''); });
   }
-
-  // Expose so base.html FAB can call it
   window.msngRenderNewUsers = renderNewMsgUsers;
 
-  /* ─── POLL CONVERSATION LIST every 15s ─── */
-    // Keeps previews fresh for conversations you're NOT currently chatting in
-    setInterval(() => {
-        loadConversations();
-    }, 15000);
-
-  /* ─── PRESENCE WEBSOCKET ─── */
-    function connectPresenceWS() {
-        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-        const presWS = new WebSocket(`${proto}://${location.host}/ws/presence/`);
-
-        presWS.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-            if (data.type !== 'presence') return;
-
-            const uid     = data.user_id;
-            const online  = data.is_online;
-
-            // Update allConvs cache
-            allConvs.forEach(c => {
-            if (c.recipient.id === uid) c.recipient.is_online = online;
-            });
-
-            // Update conversation list dot
-            document.querySelectorAll('.msng__conv').forEach(el => {
-            const conv = allConvs.find(c => c.id == el.dataset.id);
-            if (!conv || conv.recipient.id !== uid) return;
-            const av = el.querySelector('.msng__conv-avatar');
-            let dot = av.querySelector('.msng__online-dot');
-            if (online && !dot) {
-                dot = document.createElement('span');
-                dot.className = 'msng__online-dot';
-                av.appendChild(dot);
-            } else if (!online && dot) {
-                dot.remove();
-            }
-            });
-
-            // Update active chat header
-            if (activeRecipient && activeRecipient.id === uid) {
-            activeRecipient.is_online = online;
-            chatHeadStatus.textContent = online ? 'Active now' : 'Offline';
-            chatHeadStatus.className = 'msng__chat-head-status' + (online ? ' online' : '');
-            }
-
-            // Update info panel if open
-            const onlineRow = document.getElementById('infoOnline');
-            if (activeRecipient && activeRecipient.id === uid && onlineRow) {
-            onlineRow.style.display = online ? 'flex' : 'none';
-            }
-        };
-
-        presWS.onclose = () => {
-            // Reconnect after 3s if disconnected
-            setTimeout(connectPresenceWS, 3000);
-        };
-        }
-
-        connectPresenceWS();
-
   function renderNewMsgUsers(filter) {
-    const lower    = filter.toLowerCase();
+    const lower = filter.toLowerCase();
     const filtered = allUsers.filter(u => !lower || u.name.toLowerCase().includes(lower));
     if (!filtered.length) {
       newMsgList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">No users found</div>';
@@ -1910,12 +1937,7 @@
     filtered.forEach(u => {
       const div = document.createElement('div');
       div.className = 'msng__new-user';
-      div.innerHTML = `
-        <div class="msng__new-user-av">${u.avatar ? `<img src="${u.avatar}" alt="${u.name}">` : `<span>${u.initials||'?'}</span>`}</div>
-        <div>
-          <div class="msng__new-user-name">${u.name}</div>
-          <div class="msng__new-user-pos">${u.position||u.department||''}</div>
-        </div>`;
+      div.innerHTML = `<div class="msng__new-user-av">${u.avatar ? `<img src="${u.avatar}" alt="">` : `<span>${u.initials||'?'}</span>`}</div><div><div class="msng__new-user-name">${u.name}</div><div class="msng__new-user-pos">${u.position||u.department||''}</div></div>`;
       div.addEventListener('click', () => {
         newMsgModal.classList.remove('open');
         fetch('/messenger/conversations/start/', {
@@ -1933,20 +1955,50 @@
   newMsgSearch.addEventListener('input', () => renderNewMsgUsers(newMsgSearch.value));
   convSearch.addEventListener('input', () => renderConvList(allConvs, convSearch.value));
 
+  /* ─── PRESENCE WEBSOCKET ─── */
+  function connectPresenceWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const presWS = new WebSocket(`${proto}://${location.host}/ws/presence/`);
+    presWS.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type !== 'presence') return;
+      const uid = data.user_id, online = data.is_online;
+      allConvs.forEach(c => { if (c.recipient.id === uid) c.recipient.is_online = online; });
+      document.querySelectorAll('.msng__conv').forEach(el => {
+        const conv = allConvs.find(c => c.id == el.dataset.id);
+        if (!conv || conv.recipient.id !== uid) return;
+        const av = el.querySelector('.msng__conv-avatar');
+        let dot = av.querySelector('.msng__online-dot');
+        if (online && !dot) { dot = document.createElement('span'); dot.className = 'msng__online-dot'; av.appendChild(dot); }
+        else if (!online && dot) dot.remove();
+      });
+      if (activeRecipient && activeRecipient.id === uid) {
+        activeRecipient.is_online = online;
+        chatHeadStatus.textContent = online ? 'Active now' : 'Offline';
+        chatHeadStatus.className = 'msng__chat-head-status' + (online ? ' online' : '');
+        const onlineRow = document.getElementById('infoOnline');
+        if (onlineRow) onlineRow.style.display = online ? 'flex' : 'none';
+      }
+    };
+    presWS.onclose = () => setTimeout(connectPresenceWS, 3000);
+  }
+  connectPresenceWS();
+
+  /* ─── POLL every 15s ─── */
+  setInterval(loadConversations, 15000);
+
   /* ─── OPEN FROM URL PARAM ─── */
-  const urlParams = new URLSearchParams(location.search);
-  const convParam = urlParams.get('conv');
+  const urlParams  = new URLSearchParams(location.search);
+  const convParam  = urlParams.get('conv');
 
   /* ─── INIT ─── */
   loadConversations(() => {
     if (convParam) {
       const conv = allConvs.find(c => c.id == convParam);
-      if (conv) openConversation(conv.id, conv.recipient);
+      if (conv) openConversation(conv.id, conv.recipient, conv);
     }
   });
   loadUsers();
 })();
 </script>
-
-
 {% endblock %}
