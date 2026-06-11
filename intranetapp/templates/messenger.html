@@ -235,7 +235,9 @@
 
   /* ─── ATTACHMENT IN BUBBLE ─── */
   .msng__bubble-img {
-    width: 220px; height: 160px; object-fit: cover;
+    max-width: 260px; max-height: 320px;
+    width: auto; height: auto;
+    object-fit: contain;
     border-radius: 12px; display: block; cursor: pointer;
     transition: opacity .15s; margin-bottom: 4px;
   }
@@ -711,31 +713,100 @@
   /* ─── LIGHTBOX ─── */
   .msng__lightbox {
     display: none; position: fixed; inset: 0; z-index: 11000;
-    background: rgba(0,0,0,.92); align-items: center; justify-content: center;
-    flex-direction: column;
+    flex-direction: column; background: rgba(0,0,0,.92);
+    align-items: center; justify-content: center;
   }
   .msng__lightbox.open { display: flex; }
+
   .msng__lightbox-close {
     position: absolute; top: 16px; right: 20px;
     width: 38px; height: 38px; border-radius: 50%; border: none;
     background: rgba(255,255,255,.15); color: #fff;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 1.1rem; transition: background .15s; z-index: 2;
+    cursor: pointer; font-size: 1.1rem; transition: background .15s; z-index: 4;
   }
   .msng__lightbox-close:hover { background: rgba(255,255,255,.28); }
+
   .msng__lightbox-download {
     position: absolute; top: 16px; right: 66px;
     width: 38px; height: 38px; border-radius: 50%; border: none;
     background: rgba(255,255,255,.15); color: #fff;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 1rem; transition: background .15s; text-decoration: none; z-index: 2;
+    cursor: pointer; font-size: 1rem; transition: background .15s;
+    text-decoration: none; z-index: 4;
   }
   .msng__lightbox-download:hover { background: rgba(255,255,255,.28); }
-  .msng__lightbox-img {
-    max-width: 90vw; max-height: 82vh; object-fit: contain;
-    border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,.5);
+
+  /* Blurred background layer */
+  .msng__lightbox-main {
+    flex: 1; width: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    position: relative; overflow: hidden; min-height: 0;
   }
-  .msng__lightbox-caption { color: rgba(255,255,255,.6); font-size: .8rem; margin-top: 12px; }
+  .msng__lightbox-bg {
+    position: absolute; inset: 0; z-index: 0;
+    background-size: cover; background-position: center;
+    filter: blur(28px) brightness(.45) saturate(1.3);
+    transform: scale(1.08);
+  }
+  #lightboxContent {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    max-width: 90vw; max-height: calc(100vh - 180px);
+  }
+  .msng__lightbox-img {
+    max-width: 88vw; max-height: calc(100vh - 180px);
+    object-fit: contain; border-radius: 6px;
+    box-shadow: 0 8px 60px rgba(0,0,0,.6);
+    display: block;
+  }
+  .msng__lightbox-caption {
+    position: relative; z-index: 1;
+    color: rgba(255,255,255,.55); font-size: .78rem; margin-top: 10px;
+    text-align: center;
+  }
+
+  /* Nav arrows */
+  .msng__lightbox-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 46px; height: 46px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.12); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1rem; transition: background .15s; z-index: 4;
+  }
+  .msng__lightbox-nav:hover { background: rgba(255,255,255,.25); }
+  .msng__lightbox-nav.hidden { opacity: 0; pointer-events: none; }
+  .msng__lightbox-prev { left: 18px; }
+  .msng__lightbox-next { right: 18px; }
+
+  /* Thumbnail strip */
+  .msng__lightbox-strip {
+    flex-shrink: 0; width: 100%;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 12px 20px 16px;
+    overflow-x: auto; background: transparent; z-index: 4;
+  }
+  .msng__lightbox-strip::-webkit-scrollbar { height: 3px; }
+  .msng__lightbox-strip::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 4px; }
+  .msng__lightbox-thumb {
+    width: 52px; height: 52px; border-radius: 6px;
+    object-fit: cover; cursor: pointer; flex-shrink: 0;
+    border: 2px solid transparent; opacity: .55;
+    transition: opacity .15s, border-color .15s, transform .15s;
+  }
+  .msng__lightbox-thumb:hover { opacity: .85; transform: translateY(-2px); }
+  .msng__lightbox-thumb.active { border-color: #fff; opacity: 1; transform: translateY(-2px); }
+  .msng__lightbox-thumb-file {
+    width: 52px; height: 52px; border-radius: 6px; flex-shrink: 0;
+    background: rgba(255,255,255,.1); border: 2px solid transparent;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; opacity: .55; transition: opacity .15s, border-color .15s;
+    color: rgba(255,255,255,.8); font-size: 1.2rem;
+  }
+  .msng__lightbox-thumb-file:hover { opacity: .85; }
+  .msng__lightbox-thumb-file.active { border-color: #fff; opacity: 1; }
+
+  /* File view in lightbox */
   .msng__lightbox-file {
     display: flex; flex-direction: column; align-items: center; gap: 16px;
     padding: 48px; background: rgba(255,255,255,.06); border-radius: 18px;
@@ -750,6 +821,11 @@
     transition: background .15s;
   }
   .msng__lightbox-file-dl:hover { background: var(--green-dark); }
+
+  @keyframes lightboxFade {
+    from { opacity: 0; transform: scale(.97); }
+    to   { opacity: 1; transform: scale(1); }
+  }
 
   /* ─── MESSAGE STATUS ─── */
   .msng__status-row {
@@ -773,6 +849,190 @@
     .msng__info-panel.open { width: 100% !important; min-width: unset !important; position: absolute; top: 0; right: 0; bottom: 0; z-index: 50; }
     .msng__info-slider, .msng__info-layer, .msng__media-panel { width: 100%; min-width: unset; }
     .msng__info-slider.media-open .msng__info-layer { transform: translateX(-100%); }
+  }
+
+
+  /* ─── FORWARD MODAL ─── */
+  .msng__forward-modal {
+    display: none; position: fixed; inset: 0; z-index: 10500;
+    background: rgba(0,0,0,.5); align-items: center; justify-content: center;
+  }
+  .msng__forward-modal.open { display: flex; }
+  .msng__forward-box {
+    background: var(--white); border-radius: 16px;
+    width: 420px; max-height: 80vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.22); animation: modalIn .2s ease;
+  }
+  .msng__forward-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .msng__forward-head strong { font-family: 'EB Garamond', serif; font-size: 1.1rem; color: var(--text-primary); }
+  .msng__forward-close {
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: var(--green-pale); color: var(--text-muted);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; transition: background .15s;
+  }
+  .msng__forward-close:hover { background: var(--border); }
+
+  /* Message preview in forward modal */
+  .msng__forward-preview {
+    margin: 12px 16px; padding: 10px 14px;
+    background: var(--green-pale); border-left: 3px solid var(--green-accent);
+    border-radius: 0 8px 8px 0; font-size: .82rem; color: var(--text-muted);
+    flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+  }
+  .msng__forward-preview i { color: var(--green-mid); font-size: .9rem; flex-shrink: 0; }
+  .msng__forward-preview-text {
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-primary); font-size: .83rem;
+  }
+
+  .msng__forward-search {
+    position: relative; padding: 0 16px 10px; flex-shrink: 0;
+  }
+  .msng__forward-search i {
+    position: absolute; left: 28px; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted); font-size: .85rem; pointer-events: none;
+  }
+  .msng__forward-search input {
+    width: 100%; padding: 8px 12px 8px 34px;
+    border: 1px solid var(--border); border-radius: 20px;
+    background: var(--green-pale); font-size: .84rem;
+    color: var(--text-primary); outline: none;
+    transition: border-color .18s;
+  }
+  .msng__forward-search input:focus { border-color: var(--green-accent); background: var(--white); }
+
+  .msng__forward-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+  .msng__forward-list::-webkit-scrollbar { width: 3px; }
+  .msng__forward-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .msng__forward-user {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; cursor: pointer; transition: background .15s;
+    position: relative;
+  }
+  .msng__forward-user:hover { background: var(--green-pale); }
+  .msng__forward-user.selected { background: var(--green-pale); }
+  .msng__forward-user-av {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 600; color: var(--white);
+    flex-shrink: 0; overflow: hidden; position: relative;
+  }
+  .msng__forward-user-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .msng__forward-user-info { flex: 1; min-width: 0; }
+  .msng__forward-user-name { font-size: .875rem; font-weight: 600; color: var(--text-primary); }
+  .msng__forward-user-sub { font-size: .73rem; color: var(--text-muted); }
+  .msng__forward-check {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all .15s; font-size: .72rem; color: transparent;
+  }
+  .msng__forward-user.selected .msng__forward-check {
+    background: var(--green-mid); border-color: var(--green-mid); color: var(--white);
+  }
+
+  .msng__forward-footer {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-top: 1px solid var(--border);
+    flex-shrink: 0; background: var(--green-pale);
+  }
+  .msng__forward-selected { flex: 1; font-size: .8rem; color: var(--text-muted); }
+  .msng__forward-send {
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border: none; border-radius: 20px;
+    background: var(--green-mid); color: var(--white);
+    font-size: .85rem; font-weight: 600; cursor: pointer;
+    transition: background .15s; white-space: nowrap;
+  }
+  .msng__forward-send:hover:not(:disabled) { background: var(--green-dark); }
+  .msng__forward-send:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+
+  /* ─── MESSAGE HOVER ACTIONS ─── */
+  .msng__msg-row { position: relative; }
+  .msng__msg-actions {
+    display: none; align-items: center; gap: 3px;
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1); z-index: 5;
+    white-space: nowrap;
+    /* sit in normal flow, aligned to the bubble row */
+    align-self: flex-end;
+    flex-shrink: 0;
+    margin-bottom: 6px;
+  }
+  .msng__msg-row:hover .msng__msg-actions { display: flex; }
+
+  .msng__msg-action-btn {
+    width: 26px; height: 26px; border-radius: 50%; border: none;
+    background: transparent; color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: .75rem; transition: background .12s, color .12s;
+  }
+  .msng__msg-action-btn:hover { background: var(--green-pale); color: var(--green-dark); }
+
+
+  /* ─── REPLY QUOTE ─── */
+  .msng__reply-bar {
+    display: none; align-items: center; gap: 10px;
+    padding: 8px 16px; border-top: 1px solid var(--border);
+    background: var(--green-pale); flex-shrink: 0;
+  }
+  .msng__reply-bar.visible { display: flex; }
+  .msng__reply-bar-accent {
+    width: 3px; height: 100%; min-height: 36px; border-radius: 3px;
+    background: var(--green-accent); flex-shrink: 0;
+  }
+  .msng__reply-bar-content { flex: 1; min-width: 0; }
+  .msng__reply-bar-name {
+    font-size: .72rem; font-weight: 700; color: var(--green-mid);
+    margin-bottom: 1px;
+  }
+  .msng__reply-bar-text {
+    font-size: .78rem; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .msng__reply-cancel {
+    width: 24px; height: 24px; border-radius: 50%; border: none;
+    background: var(--border); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: .7rem; flex-shrink: 0;
+    transition: background .15s;
+  }
+  .msng__reply-cancel:hover { background: #fca5a5; color: #dc2626; }
+
+  /* ─── QUOTED MESSAGE IN BUBBLE ─── */
+  .msng__bubble-quote {
+    border-left: 3px solid rgba(255,255,255,.5);
+    padding: 5px 8px; margin-bottom: 6px;
+    border-radius: 0 6px 6px 0;
+    background: rgba(0,0,0,.1);
+    cursor: pointer;
+  }
+  .msng__msg-row:not(.mine) .msng__bubble-quote {
+    border-left-color: var(--green-accent);
+    background: var(--green-pale);
+  }
+  .msng__bubble-quote-name {
+    font-size: .68rem; font-weight: 700; color: var(--green-accent);
+    margin-bottom: 2px;
+  }
+  .msng__msg-row:not(.mine) .msng__bubble-quote-name {
+    color: var(--green-mid);
+  }
+  .msng__bubble-quote-text {
+    font-size: .75rem; opacity: .85;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 220px;
+  }
+  .msng__msg-row:not(.mine) .msng__bubble-quote-text {
+    color: var(--text-muted);
   }
 </style>
 {% endblock %}
@@ -840,6 +1100,18 @@
             <div class="msng__attach-size" id="attachPreviewSize"></div>
           </div>
           <button class="msng__attach-remove" id="attachRemoveBtn" title="Remove attachment">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Reply bar (shown above input when replying) -->
+        <div class="msng__reply-bar" id="replyBar">
+          <div class="msng__reply-bar-accent"></div>
+          <div class="msng__reply-bar-content">
+            <div class="msng__reply-bar-name" id="replyBarName"></div>
+            <div class="msng__reply-bar-text" id="replyBarText"></div>
+          </div>
+          <button class="msng__reply-cancel" id="replyCancelBtn" title="Cancel reply">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -1004,8 +1276,38 @@
 <div class="msng__lightbox" id="lightbox">
   <button class="msng__lightbox-close" id="lightboxClose"><i class="fa-solid fa-xmark"></i></button>
   <a class="msng__lightbox-download" id="lightboxDownload" download title="Download"><i class="fa-solid fa-download"></i></a>
-  <div id="lightboxContent"></div>
-  <div class="msng__lightbox-caption" id="lightboxCaption"></div>
+  <button class="msng__lightbox-nav msng__lightbox-prev" id="lightboxPrev"><i class="fa-solid fa-chevron-left"></i></button>
+  <button class="msng__lightbox-nav msng__lightbox-next" id="lightboxNext"><i class="fa-solid fa-chevron-right"></i></button>
+  <div class="msng__lightbox-main">
+    <div class="msng__lightbox-bg" id="lightboxBg"></div>
+    <div id="lightboxContent"></div>
+    <div class="msng__lightbox-caption" id="lightboxCaption"></div>
+  </div>
+  <div class="msng__lightbox-strip" id="lightboxStrip"></div>
+</div>
+
+<!-- Forward Modal -->
+<div class="msng__forward-modal" id="forwardModal">
+  <div class="msng__forward-box">
+    <div class="msng__forward-head">
+      <strong>Forward Message</strong>
+      <button class="msng__forward-close" id="closeForwardModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="msng__forward-preview" id="forwardPreview"></div>
+    <div class="msng__forward-search">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" placeholder="Search people…" id="forwardSearch" autocomplete="off">
+    </div>
+    <div class="msng__forward-list" id="forwardList"></div>
+    <div class="msng__forward-footer">
+      <div class="msng__forward-selected" id="forwardSelected">
+        <span id="forwardSelectedCount">Select recipients</span>
+      </div>
+      <button class="msng__forward-send" id="forwardSendBtn" disabled>
+        <i class="fa-solid fa-paper-plane"></i> Send
+      </button>
+    </div>
+  </div>
 </div>
 
 {% endblock %}
@@ -1031,6 +1333,7 @@
   let profileTarget   = null;
   let pendingFiles     = [];
   let mutePendingConvId = null;
+  let replyingTo = null;
 
   // DOM refs
   const convList       = document.getElementById('convList');
@@ -1066,6 +1369,10 @@
   const muteModal      = document.getElementById('muteModal');
   const muteCancelBtn  = document.getElementById('muteCancelBtn');
   const muteConfirmBtn = document.getElementById('muteConfirmBtn');
+  const replyBar       = document.getElementById('replyBar');
+  const replyBarName   = document.getElementById('replyBarName');
+  const replyBarText   = document.getElementById('replyBarText');
+  const replyCancelBtn = document.getElementById('replyCancelBtn');
 
   /* ─── HELPERS ─── */
   function timeAgo(isoStr) {
@@ -1181,31 +1488,124 @@
   }
 
   /* ─── LIGHTBOX ─── */
+  let lightboxItems = [];
+  let lightboxIndex = 0;
+
   function openLightbox(url, name) {
-    const content = document.getElementById('lightboxContent');
-    const caption = document.getElementById('lightboxCaption');
-    const dlBtn   = document.getElementById('lightboxDownload');
-    dlBtn.href = url; dlBtn.download = name || 'file'; caption.textContent = name || '';
+    // Build items list from current conversation cached images + files
+    const cached = convCache[activeConvId];
+    if (cached && cached.messages) {
+      const media = cached.messages.filter(m => m.attachment_url);
+      lightboxItems = media.map(m => ({
+        url: m.attachment_url,
+        name: m.attachment_name || 'File',
+        isImage: m.is_image,
+        isVideo: isVideoUrl(m.attachment_url),
+      }));
+      const idx = lightboxItems.findIndex(i => i.url === url);
+      lightboxIndex = idx >= 0 ? idx : 0;
+    } else {
+      lightboxItems = [{ url, name: name || 'File', isImage: isImageUrl(url), isVideo: isVideoUrl(url) }];
+      lightboxIndex = 0;
+    }
+    renderLightboxItem();
+    lightbox.classList.add('open');
+  }
+
+  function renderLightboxItem() {
+    const item = lightboxItems[lightboxIndex];
+    if (!item) return;
+
+    const content  = document.getElementById('lightboxContent');
+    const caption  = document.getElementById('lightboxCaption');
+    const dlBtn    = document.getElementById('lightboxDownload');
+    const prevBtn  = document.getElementById('lightboxPrev');
+    const nextBtn  = document.getElementById('lightboxNext');
+    const strip    = document.getElementById('lightboxStrip');
+    const bg       = document.getElementById('lightboxBg');
+
+    dlBtn.href = item.url; dlBtn.download = item.name;
+    caption.textContent = item.name || '';
+
+    // Nav
+    prevBtn.classList.toggle('hidden', lightboxIndex === 0);
+    nextBtn.classList.toggle('hidden', lightboxIndex === lightboxItems.length - 1);
+
+    // Blurred BG — only works for images
+    if (item.isImage) {
+      bg.style.backgroundImage = `url('${item.url}')`;
+      bg.style.display = 'block';
+    } else {
+      bg.style.display = 'none';
+    }
+
+    // Main content with fade
+    content.style.animation = 'none';
+    requestAnimationFrame(() => { content.style.animation = 'lightboxFade .18s ease'; });
     content.innerHTML = '';
-    if (isImageUrl(url)) {
+
+    if (item.isImage) {
       const img = document.createElement('img');
-      img.src = url; img.className = 'msng__lightbox-img'; img.alt = name || '';
+      img.src = item.url; img.className = 'msng__lightbox-img'; img.alt = item.name;
       content.appendChild(img);
-    } else if (isVideoUrl(url)) {
+    } else if (item.isVideo) {
       const vid = document.createElement('video');
-      vid.src = url; vid.controls = true;
-      vid.style.cssText = 'max-width:90vw;max-height:82vh;border-radius:8px;';
+      vid.src = item.url; vid.controls = true; vid.autoplay = true;
+      vid.style.cssText = 'max-width:88vw;max-height:calc(100vh - 180px);border-radius:8px;';
       content.appendChild(vid);
     } else {
       const wrap = document.createElement('div');
       wrap.className = 'msng__lightbox-file';
-      wrap.innerHTML = `<i class="fa-solid ${fileIcon(name)}"></i><div class="msng__lightbox-file-name">${escapeHTML(name||'File')}</div><a href="${url}" download="${name||'file'}" class="msng__lightbox-file-dl"><i class="fa-solid fa-download"></i> Download File</a>`;
+      wrap.innerHTML = `<i class="fa-solid ${fileIcon(item.name)}"></i><div class="msng__lightbox-file-name">${escapeHTML(item.name)}</div><a href="${item.url}" download="${item.name}" class="msng__lightbox-file-dl"><i class="fa-solid fa-download"></i> Download File</a>`;
       content.appendChild(wrap);
     }
-    lightbox.classList.add('open');
+
+    // Thumbnail strip
+    strip.innerHTML = '';
+    if (lightboxItems.length > 1) {
+      lightboxItems.forEach((it, idx) => {
+        let thumb;
+        if (it.isImage) {
+          thumb = document.createElement('img');
+          thumb.src = it.url; thumb.className = 'msng__lightbox-thumb';
+          thumb.alt = it.name;
+        } else {
+          thumb = document.createElement('div');
+          thumb.className = 'msng__lightbox-thumb-file';
+          thumb.innerHTML = `<i class="fa-solid ${fileIcon(it.name)}"></i>`;
+        }
+        if (idx === lightboxIndex) thumb.classList.add('active');
+        thumb.addEventListener('click', () => { lightboxIndex = idx; renderLightboxItem(); });
+        strip.appendChild(thumb);
+      });
+      // Scroll active thumb into view
+      setTimeout(() => {
+        const active = strip.querySelector('.active');
+        if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth' });
+      }, 50);
+    }
   }
+
+  document.getElementById('lightboxPrev').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (lightboxIndex > 0) { lightboxIndex--; renderLightboxItem(); }
+  });
+  document.getElementById('lightboxNext').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (lightboxIndex < lightboxItems.length - 1) { lightboxIndex++; renderLightboxItem(); }
+  });
   document.getElementById('lightboxClose').addEventListener('click', () => lightbox.classList.remove('open'));
-  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('open'); });
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox || e.target.id === 'lightboxContent' || e.target.closest('.msng__lightbox-main') && !e.target.closest('img, video, .msng__lightbox-file, .msng__lightbox-nav')) {
+      lightbox.classList.remove('open');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!lightbox.classList.contains('open')) return;
+    if (e.key === 'ArrowLeft'  && lightboxIndex > 0) { lightboxIndex--; renderLightboxItem(); }
+    if (e.key === 'ArrowRight' && lightboxIndex < lightboxItems.length - 1) { lightboxIndex++; renderLightboxItem(); }
+    if (e.key === 'Escape') lightbox.classList.remove('open');
+  });
 
   /* ─── INFO PANEL ─── */
   const msngInfoSlider     = document.getElementById('msngInfoSlider');
@@ -1275,6 +1675,176 @@
     }
   }
 
+  /* ─── FORWARD MESSAGE ─── */
+  let forwardMsg = null;
+  let forwardSelectedIds = new Set();
+  const forwardModal = document.getElementById('forwardModal');
+
+  function openForwardModal(msg, allMsgs) {
+    forwardMsg = msg;
+    forwardMsg._allMsgs = allMsgs || null; // store group if forwarding grouped images
+    forwardSelectedIds = new Set();
+
+    // Show preview
+    const preview = document.getElementById('forwardPreview');
+    if (msg.is_image) {
+      const count = allMsgs && allMsgs.length > 1 ? ` (${allMsgs.length} photos)` : '';
+      preview.innerHTML = `
+        <i class="fa-solid fa-image"></i>
+        <span class="msng__forward-preview-text">Photo${count}</span>
+        ${msg.attachment_url ? `<img src="${msg.attachment_url}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0;margin-left:auto;">` : ''}
+      `;
+    } else if (isVideoUrl(msg.attachment_url)) {
+      preview.innerHTML = `<i class="fa-solid fa-file-video"></i><span class="msng__forward-preview-text">${escapeHTML(msg.attachment_name || 'Video')}</span>`;
+    } else if (msg.attachment_url) {
+      preview.innerHTML = `<i class="fa-solid ${fileIcon(msg.attachment_name)}"></i><span class="msng__forward-preview-text">${escapeHTML(msg.attachment_name || 'File')}</span>`;
+    } else {
+      preview.innerHTML = `<i class="fa-solid fa-quote-left"></i><span class="msng__forward-preview-text">${escapeHTML(msg.body || '')}</span>`;
+    }
+
+    renderForwardList('');
+    document.getElementById('forwardSearch').value = '';
+    document.getElementById('forwardSendBtn').disabled = true;
+    document.getElementById('forwardSendBtn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
+    document.getElementById('forwardSelectedCount').textContent = 'Select recipients';
+    forwardModal.classList.add('open');
+    setTimeout(() => document.getElementById('forwardSearch').focus(), 100);
+  }
+
+  function renderForwardList(filter) {
+    const lower = filter.toLowerCase();
+    // Use allConvs for existing conversations, filtered by name
+    const convFiltered = allConvs.filter(c =>
+      !c.is_archived && (!lower || c.recipient.name.toLowerCase().includes(lower))
+    );
+    const list = document.getElementById('forwardList');
+
+    if (!convFiltered.length) {
+      list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">No conversations found</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    convFiltered.forEach(c => {
+      const u = c.recipient;
+      const isSelected = forwardSelectedIds.has(c.id);
+      const div = document.createElement('div');
+      div.className = 'msng__forward-user' + (isSelected ? ' selected' : '');
+      div.dataset.convId = c.id;
+      div.innerHTML = `
+        <div class="msng__forward-user-av">
+          ${u.avatar ? `<img src="${u.avatar}" alt="">` : `<span>${u.initials||'?'}</span>`}
+          ${u.is_online ? '<span class="msng__online-dot" style="width:9px;height:9px;"></span>' : ''}
+        </div>
+        <div class="msng__forward-user-info">
+          <div class="msng__forward-user-name">${escapeHTML(u.name)}</div>
+          <div class="msng__forward-user-sub">${escapeHTML(u.position || u.department || '')}</div>
+        </div>
+        <div class="msng__forward-check"><i class="fa-solid fa-check"></i></div>
+      `;
+      div.addEventListener('click', () => {
+        if (forwardSelectedIds.has(c.id)) {
+          forwardSelectedIds.delete(c.id);
+          div.classList.remove('selected');
+        } else {
+          forwardSelectedIds.add(c.id);
+          div.classList.add('selected');
+        }
+        updateForwardFooter();
+      });
+      list.appendChild(div);
+    });
+  }
+
+  function updateForwardFooter() {
+    const count = forwardSelectedIds.size;
+    const sendBtn = document.getElementById('forwardSendBtn');
+    const countEl = document.getElementById('forwardSelectedCount');
+    sendBtn.disabled = count === 0;
+    if (count === 0) {
+      countEl.textContent = 'Select recipients';
+    } else {
+      const names = [...forwardSelectedIds].map(id => {
+        const conv = allConvs.find(c => c.id == id);
+        return conv ? conv.recipient.name.split(' ')[0] : '';
+      }).filter(Boolean);
+      countEl.textContent = names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length - 3}` : '');
+    }
+  }
+
+  document.getElementById('forwardSearch').addEventListener('input', (e) => {
+    renderForwardList(e.target.value);
+  });
+
+  document.getElementById('closeForwardModal').addEventListener('click', () => {
+    forwardModal.classList.remove('open');
+    document.getElementById('forwardSendBtn').disabled = true;
+    document.getElementById('forwardSendBtn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
+  });
+  forwardModal.addEventListener('click', (e) => {
+    if (e.target === forwardModal) {
+      forwardModal.classList.remove('open');
+      document.getElementById('forwardSendBtn').disabled = true;
+      document.getElementById('forwardSendBtn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
+    }
+  });
+
+  document.getElementById('forwardSendBtn').addEventListener('click', async () => {
+    if (!forwardMsg || !forwardSelectedIds.size) return;
+    const btn = document.getElementById('forwardSendBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+
+    // Determine which messages to forward
+    const msgsToForward = forwardMsg._allMsgs || [forwardMsg];
+
+    const sends = [...forwardSelectedIds].flatMap(convId =>
+      msgsToForward.map(async msg => {
+        const fd = new FormData();
+
+        if (msg.body) fd.append('body', msg.body);
+
+        if (msg.attachment_url) {
+          try {
+            const res = await fetch(msg.attachment_url);
+            const blob = await res.blob();
+            fd.append('attachment', blob, msg.attachment_name || 'file');
+          } catch (e) {
+            if (!msg.body) fd.append('body', `[Forwarded: ${msg.attachment_name || 'file'}]`);
+          }
+        }
+
+        return fetch(`/messenger/conversations/${convId}/send/`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+          body: fd,
+        }).then(r => r.json());
+      })
+    );
+
+    await Promise.all(sends);
+    forwardModal.classList.remove('open');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
+    loadConversations();
+    showForwardToast(forwardSelectedIds.size);
+  });
+
+  function showForwardToast(count) {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+      background:var(--green-dark); color:#fff; padding:10px 20px;
+      border-radius:20px; font-size:.84rem; font-weight:600;
+      box-shadow:0 4px 20px rgba(0,0,0,.2); z-index:99999;
+      display:flex; align-items:center; gap:8px;
+      animation: fadeInUp .2s ease;
+    `;
+    toast.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Forwarded to ${count} conversation${count > 1 ? 's' : ''}`;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .3s'; setTimeout(() => toast.remove(), 300); }, 2500);
+  }
+
   /* ─── ATTACHMENT HANDLING ─── */
   attachBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
@@ -1292,6 +1862,24 @@
     attachPreview.classList.remove('visible');
     document.getElementById('attachPreviewThumb').innerHTML = '';
   });
+
+  replyCancelBtn.addEventListener('click', () => {
+    replyingTo = null;
+    replyBar.classList.remove('visible');
+  });
+
+  function startReply(msg) {
+    replyingTo = msg;
+    const isMine = msg.sender_id === ME.id;
+    replyBarName.textContent = isMine ? 'You' : (activeRecipient ? activeRecipient.name : 'Them');
+    replyBarText.textContent = msg.body
+      ? msg.body
+      : msg.is_image ? '📷 Photo'
+      : msg.attachment_name ? `📎 ${msg.attachment_name}`
+      : 'Message';
+    replyBar.classList.add('visible');
+    msgInput.focus();
+  }
 
   function addAttachPreview({ file, isImage, localUrl }) {
     pendingFiles.push({ file, isImage, localUrl });
@@ -1699,8 +2287,14 @@
       msngMessages.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:.85rem;">No messages yet. Say hello! 👋</div>';
       return;
     }
+
     let lastDate = null;
-    messages.forEach(msg => {
+    let i = 0;
+
+    while (i < messages.length) {
+      const msg = messages[i];
+
+      // Date divider
       const msgDate = new Date(msg.created_at).toDateString();
       if (msgDate !== lastDate) {
         const div = document.createElement('div');
@@ -1709,8 +2303,31 @@
         msngMessages.appendChild(div);
         lastDate = msgDate;
       }
+
+      // Try to group consecutive image-only messages from the same sender
+      if (msg.is_image && !msg.body) {
+        const group = [msg];
+        while (
+          i + group.length < messages.length &&
+          messages[i + group.length].is_image &&
+          !messages[i + group.length].body &&
+          messages[i + group.length].sender_id === msg.sender_id &&
+          new Date(messages[i + group.length].created_at).toDateString() === msgDate
+        ) {
+          group.push(messages[i + group.length]);
+        }
+
+        if (group.length > 1) {
+          msngMessages.appendChild(buildImageGroupEl(group));
+          i += group.length;
+          continue;
+        }
+      }
+
       msngMessages.appendChild(buildMessageEl(msg));
-    });
+      i++;
+    }
+
     scrollToBottom();
     refreshMsngStatusRow();
   }
@@ -1747,9 +2364,35 @@
     } else {
       bubble.className = 'msng__bubble';
     }
+
+    if (msg.reply_to) {
+      const qt = msg.reply_to;
+      const qtText = qt.body ? escapeHTML(qt.body)
+        : qt.is_image ? '📷 Photo'
+        : qt.attachment_name ? `📎 ${escapeHTML(qt.attachment_name)}`
+        : 'Message';
+      content += `
+        <div class="msng__bubble-quote" data-reply-id="${qt.id}">
+          <div class="msng__bubble-quote-name">${escapeHTML(qt.sender_name || 'Message')}</div>
+          <div class="msng__bubble-quote-text">${qtText}</div>
+        </div>`;
+    }
+
     if (hasBody) content += `<span>${escapeHTML(msg.body)}</span>`;
     content += `<span class="msng__bubble-time">${formatTime(msg.created_at)}</span>`;
     bubble.innerHTML = content;
+
+    bubble.querySelector('.msng__bubble-quote')?.addEventListener('click', () => {
+      const targetId = msg.reply_to?.id;
+      if (!targetId) return;
+      const target = msngMessages.querySelector(`[data-id="${targetId}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.style.transition = 'background .2s';
+        target.style.background = 'rgba(82,183,136,.18)';
+        setTimeout(() => target.style.background = '', 1200);
+      }
+    });
 
     const imgEl  = bubble.querySelector('.msng__bubble-img');
     if (imgEl) imgEl.addEventListener('click', () => openLightbox(imgEl.dataset.url, imgEl.dataset.name));
@@ -1758,8 +2401,95 @@
     const fileDiv = bubble.querySelector('.msng__bubble-file');
     if (fileDiv) fileDiv.addEventListener('click', () => openLightbox(fileDiv.dataset.url, fileDiv.dataset.name));
 
+    // Hover action bar
+    const actions = document.createElement('div');
+    actions.className = 'msng__msg-actions';
+    actions.innerHTML = `
+      <button class="msng__msg-action-btn" title="Reply" data-action="reply">
+        <i class="fa-solid fa-reply"></i>
+      </button>
+      <button class="msng__msg-action-btn" title="Forward" data-action="forward">
+        <i class="fa-solid fa-share"></i>
+      </button>
+    `;
+    actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      startReply(msg);
+    });
+    actions.querySelector('[data-action="forward"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openForwardModal(msg, null);
+    });
+
     row.appendChild(av);
     row.appendChild(bubble);
+    row.appendChild(actions);
+    return row;
+  }
+
+  function buildImageGroupEl(msgs) {
+    const isMine = msgs[0].sender_id === ME.id;
+    const row = document.createElement('div');
+    row.className = 'msng__msg-row' + (isMine ? ' mine' : '');
+    row.dataset.id = msgs[msgs.length - 1].id; // use last msg id for status
+    if (isMine) row.dataset.msgStatus = msgs[msgs.length - 1].status || 'sent';
+
+    const av = document.createElement('div');
+    av.className = 'msng__msg-avatar';
+    const src = isMine ? ME.avatar : (activeRecipient ? activeRecipient.avatar : '');
+    const ini = isMine ? ME.initials : (activeRecipient ? activeRecipient.initials : '?');
+    av.innerHTML = src ? `<img src="${src}" alt="">` : `<span style="font-size:.6rem;">${ini}</span>`;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msng__bubble img-only';
+
+    const cols = Math.min(msgs.length, 2);
+    const grid = document.createElement('div');
+    grid.style.cssText = msgs.length === 1
+      ? 'display:block;'
+      : `display:grid;grid-template-columns:repeat(${cols},1fr);gap:3px;border-radius:12px;overflow:hidden;max-width:260px;`;
+
+    msgs.forEach(msg => {
+      const img = document.createElement('img');
+      img.src = msg.attachment_url;
+      img.alt = msg.attachment_name || 'Image';
+      img.style.cssText = msgs.length === 1
+        ? 'max-width:260px;max-height:320px;width:auto;height:auto;border-radius:12px;display:block;cursor:pointer;'
+        : 'width:100%;height:120px;object-fit:cover;cursor:pointer;display:block;';
+      img.addEventListener('click', () => openLightbox(msg.attachment_url, msg.attachment_name));
+      grid.appendChild(img);
+    });
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'msng__bubble-time';
+    timeSpan.textContent = formatTime(msgs[msgs.length - 1].created_at);
+
+    bubble.appendChild(grid);
+    bubble.appendChild(timeSpan);
+    
+    // Add forward action to image groups too
+    const actions = document.createElement('div');
+    actions.className = 'msng__msg-actions';
+    actions.innerHTML = `
+      <button class="msng__msg-action-btn" title="Reply" data-action="reply">
+        <i class="fa-solid fa-reply"></i>
+      </button>
+      <button class="msng__msg-action-btn" title="Forward" data-action="forward">
+        <i class="fa-solid fa-share"></i>
+      </button>
+    `;
+    actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      startReply(msgs[0]);
+    });
+    actions.querySelector('[data-action="forward"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openForwardModal(msgs[0], msgs);
+    });
+
+    row.appendChild(av);
+    row.appendChild(bubble);
+    row.appendChild(actions);
     return row;
   }
 
@@ -1877,7 +2607,22 @@
     if (body) {
       const fd = new FormData();
       fd.append('body', body);
-      const optimistic = { id: 'tmp_' + Date.now(), sender_id: ME.id, body, created_at: new Date().toISOString(), attachment_url: null, attachment_name: null, is_image: false };
+      if (replyingTo) fd.append('reply_to_id', replyingTo.id);
+      const optimistic = {
+        id: 'tmp_' + Date.now(), sender_id: ME.id, body,
+        created_at: new Date().toISOString(),
+        attachment_url: null, attachment_name: null, is_image: false,
+        reply_to: replyingTo ? {
+          id: replyingTo.id,
+          sender_name: replyingTo.sender_id === ME.id ? 'You' : (activeRecipient ? activeRecipient.name : 'Them'),
+          body: replyingTo.body,
+          is_image: replyingTo.is_image,
+          attachment_name: replyingTo.attachment_name,
+        } : null,
+      };
+      const savedReply = replyingTo;
+      replyingTo = null;
+      replyBar.classList.remove('visible');
       appendMessage(optimistic);
       updateConvPreview(activeConvId, optimistic);
       fetch(`/messenger/conversations/${activeConvId}/send/`, {
@@ -1891,21 +2636,53 @@
       });
     }
 
-    // Send each file as a separate message
+    // Send each file individually — renderMessages will group them visually
     filesToSend.forEach(({ file, isImage, localUrl }) => {
       const fd = new FormData();
       fd.append('attachment', file);
-      const optimistic = { id: 'tmp_' + Date.now(), sender_id: ME.id, body: '', created_at: new Date().toISOString(), attachment_url: localUrl || null, attachment_name: file.name, is_image: isImage };
-      appendMessage(optimistic);
+      const currentReply = replyingTo;  // capture before clearing
+      const optimistic = {
+        id: 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+        sender_id: ME.id, body: '',
+        created_at: new Date().toISOString(),
+        attachment_url: localUrl || null,
+        attachment_name: file.name,
+        is_image: isImage,
+        reply_to: currentReply ? {
+          id: currentReply.id,
+          sender_name: currentReply.sender_id === ME.id ? 'You' : (activeRecipient ? activeRecipient.name : 'Them'),
+          body: currentReply.body,
+          is_image: currentReply.is_image,
+          attachment_name: currentReply.attachment_name,
+        } : null,
+      };
+      replyingTo = null;
+      replyBar.classList.remove('visible');
+      if (optimistic.reply_to) fd.append('reply_to_id', optimistic.reply_to.id);
+      // Add to cache and re-render so grouping applies immediately
+      const cached = convCache[activeConvId];
+      if (cached) {
+        cached.messages.push(optimistic);
+        renderMessages(cached.messages);
+      } else {
+        appendMessage(optimistic);
+      }
       updateConvPreview(activeConvId, optimistic);
+
       fetch(`/messenger/conversations/${activeConvId}/send/`, {
         method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd,
-      }).then(r => r.status === 403 ? (loadConversations(), null) : r.json()).then(data => {
+      }).then(r => r.json()).then(data => {
         if (!data || !data.success) return;
-        const tmpEl = msngMessages.querySelector(`[data-id="${optimistic.id}"]`);
-        if (tmpEl) tmpEl.replaceWith(buildMessageEl(data.message));
-        refreshMsngStatusRow();
+        // Replace optimistic in cache
+        const cached = convCache[activeConvId];
+        if (cached) {
+          const idx = cached.messages.findIndex(m => m.id === optimistic.id);
+          if (idx !== -1) cached.messages[idx] = data.message;
+          renderMessages(cached.messages);
+          populateMediaPanel(cached.messages);
+        }
         updateConvPreview(activeConvId, data.message);
+        refreshMsngStatusRow();
       });
     });
   }

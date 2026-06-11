@@ -3407,7 +3407,7 @@ def messenger_conversations(request):
 def messenger_messages(request, conv_id):
     from .models import Conversation, Message
     conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
-    msgs = conv.messages.select_related('sender').all()
+    msgs = conv.messages.select_related('sender', 'reply_to', 'reply_to__sender').all()
     return JsonResponse({'messages': [{
         'id':         m.pk,
         'body':       m.body,
@@ -3417,6 +3417,15 @@ def messenger_messages(request, conv_id):
         'attachment_name': m.attachment_name,
         'is_image': m.is_image,
         'status': m.status,
+        'reply_to': {
+            'id':          m.reply_to.pk,
+            'body':        m.reply_to.body,
+            'is_image':    m.reply_to.is_image,
+            'attachment_name': m.reply_to.attachment_name,
+            'sender_name': (
+                m.reply_to.sender.get_full_name() or m.reply_to.sender.username
+            ),
+        } if m.reply_to_id else None,
     } for m in msgs]})
 
 @login_required
@@ -3445,6 +3454,7 @@ def messenger_send(request, conv_id):
  
         body       = request.POST.get('body', '').strip()
         attachment = request.FILES.get('attachment')
+        reply_to_id = request.POST.get('reply_to_id')
  
         if not body and not attachment:
             return JsonResponse({'success': False, 'error': 'Empty message'}, status=400)
@@ -3455,6 +3465,7 @@ def messenger_send(request, conv_id):
             body=body,
             attachment=attachment,
             attachment_name=attachment.name if attachment else '',
+            reply_to_id=reply_to_id or None,
         )
  
         conv.updated_at = msg.created_at
@@ -3506,6 +3517,15 @@ def messenger_send(request, conv_id):
             'attachment_name': msg.attachment_name,
             'is_image':        msg.is_image,
             'status':          msg.status,
+            'reply_to': {
+                'id':          msg.reply_to.pk,
+                'body':        msg.reply_to.body,
+                'is_image':    msg.reply_to.is_image,
+                'attachment_name': msg.reply_to.attachment_name,
+                'sender_name': (
+                    msg.reply_to.sender.get_full_name() or msg.reply_to.sender.username
+                ),
+            } if msg.reply_to_id else None,
         }
  
         async_to_sync(channel_layer.group_send)(

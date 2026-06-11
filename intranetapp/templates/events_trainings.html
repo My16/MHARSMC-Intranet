@@ -1282,8 +1282,8 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
                   .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
-function getEv(pk) { return EV_DATA.find(e => e.pk === pk) || null; }
-function getTr(pk) { return TR_DATA.find(t => t.pk === pk) || null; }
+function getEv(pk) { return EV_DATA.find(e => e.pk === Number(pk)) || null; }
+function getTr(pk) { return TR_DATA.find(t => t.pk === Number(pk)) || null; }
 
 function getFileIcon(name) {
   var ext = (name||'').split('.').pop().toLowerCase();

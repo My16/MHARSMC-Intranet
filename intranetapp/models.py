@@ -1168,6 +1168,13 @@ class Message(models.Model):
     is_read         = models.BooleanField(default=False)
     status          = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_SENT)
     created_at      = models.DateTimeField(auto_now_add=True)
+    reply_to        = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='replies',
+    )
 
     @property
     def is_image(self):
