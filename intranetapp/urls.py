@@ -112,7 +112,7 @@ urlpatterns = [
     path('notifications/',           views.notifications_list,           name='notifications_list'),
     path('notifications/mark-read/', views.notifications_mark_all_read,  name='notifications_mark_read'),
     
-
+    # Messenger
     path('messenger/',                                  views.messenger,                name='messenger'),
     path('messenger/users/',                            views.messenger_users,          name='messenger_users'),
     path('messenger/conversations/',                    views.messenger_conversations,  name='messenger_conversations'),
@@ -122,6 +122,12 @@ urlpatterns = [
     path('messenger/conversations/<int:conv_id>/read/', views.messenger_read,           name='messenger_read'),
     path('messenger/conversations/<int:conv_id>/delete/', views.messenger_delete_conversation, name='messenger_delete_conversation'),
 
+    # Group Messenger
+    path('messenger/conversations/create-group/',                   views.messenger_create_group,        name='messenger_create_group'),
+    path('messenger/conversations/<int:conv_id>/add-members/',      views.messenger_group_add_members,   name='messenger_group_add_members'),
+    path('messenger/conversations/<int:conv_id>/remove-member/',    views.messenger_group_remove_member, name='messenger_group_remove_member'),
+    path('messenger/conversations/<int:conv_id>/update-group/',     views.messenger_group_update,        name='messenger_group_update'),
+    path('messenger/conversations/<int:conv_id>/leave/',        views.messenger_leave_group,         name='messenger_group_leave'),
     # Mute
     path('messenger/conversations/<int:conv_id>/mute/',   views.messenger_mute,      name='messenger_mute'),
     path('messenger/conversations/<int:conv_id>/unmute/', views.messenger_unmute,    name='messenger_unmute'),

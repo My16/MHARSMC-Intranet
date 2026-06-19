@@ -220,7 +220,7 @@
   }
   .msng__msg-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
   .msng__bubble {
-    max-width: 65%; padding: 9px 14px; border-radius: 18px;
+    max-width: 100%; padding: 9px 14px; border-radius: 18px;
     font-size: .875rem; line-height: 1.45; word-break: break-word; position: relative;
   }
   .msng__msg-row:not(.mine) .msng__bubble {
@@ -1043,7 +1043,6 @@
   <!-- LEFT: Conversation List -->
   <div class="msng__sidebar" id="msngSidebar">
     <div class="msng__sidebar-head">
-      <div class="msng__sidebar-title">Messages</div>
       <div class="msng__search">
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" placeholder="Search conversations..." id="convSearch" autocomplete="off">
@@ -1154,7 +1153,16 @@
             <div class="msng__info-members" id="infoMembersSection" style="display:none;">
               <div class="msng__info-members-head" onclick="this.closest('.msng__info-members').classList.toggle('collapsed')">
                 <strong>Chat Members</strong>
-                <i class="fa-solid fa-chevron-down"></i>
+                <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+                  <button id="addMemberBtn" onclick="event.stopPropagation();openAddMemberModal();"
+                    style="width:26px;height:26px;border-radius:50%;border:none;background:var(--green-pale);
+                          color:var(--green-mid);display:flex;align-items:center;justify-content:center;
+                          cursor:pointer;font-size:.75rem;transition:background .14s;"
+                    title="Add member">
+                    <i class="fa-solid fa-user-plus"></i>
+                  </button>
+                  <i class="fa-solid fa-chevron-down"></i>
+                </div>
               </div>
               <div class="msng__info-members-body" id="infoMembersList"></div>
             </div>
@@ -1193,13 +1201,53 @@
 
 <!-- New Message Modal -->
 <div class="msng__new-modal" id="newMsgModal">
-  <div class="msng__new-modal-box">
+  <div class="msng__new-modal-box" style="width:460px;max-width:95vw;">
     <div class="msng__new-modal-head">
       <strong>New Message</strong>
       <button class="msng__new-modal-close" id="closeNewModal"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="msng__new-search"><input type="text" placeholder="Search people…" id="newMsgSearch" autocomplete="off"></div>
-    <div class="msng__new-list" id="newMsgList"><div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.83rem;">Loading users…</div></div>
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 4px;">
+      <div id="tabDmBtn" onclick="switchNewMsgTab('dm')"
+        style="flex:1;padding:11px 4px;text-align:center;font-size:.83rem;font-weight:600;
+               color:var(--green-mid);cursor:pointer;border-bottom:2px solid var(--green-mid);
+               transition:color .15s,border-color .15s;user-select:none;">
+        <i class="fa-solid fa-user" style="margin-right:5px;"></i>Direct Message
+      </div>
+      <div id="tabGroupBtn" onclick="switchNewMsgTab('group')"
+        style="flex:1;padding:11px 4px;text-align:center;font-size:.83rem;font-weight:600;
+               color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;
+               transition:color .15s,border-color .15s;user-select:none;">
+        <i class="fa-solid fa-users" style="margin-right:5px;"></i>Group Chat
+      </div>
+    </div>
+    <!-- DM pane -->
+    <div id="newMsgDmPane">
+      <div class="msng__new-search"><input type="text" placeholder="Search people…" id="newMsgSearch" autocomplete="off"></div>
+      <div class="msng__new-list" id="newMsgList"><div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.83rem;">Loading users…</div></div>
+    </div>
+    <!-- Group pane -->
+    <div id="newMsgGroupPane" style="display:none;">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+        <input type="text" id="newGroupName" placeholder="Group name…" autocomplete="off"
+          style="width:100%;padding:8px 14px;border:1px solid var(--border);border-radius:20px;
+                 background:var(--green-pale);font-size:.85rem;color:var(--text-primary);outline:none;">
+      </div>
+      <div class="msng__new-search">
+        <input type="text" id="newGroupSearch" placeholder="Search members…" autocomplete="off">
+      </div>
+      <div id="newGroupSelected" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 16px;min-height:20px;"></div>
+      <div class="msng__new-list" id="newGroupList"></div>
+      <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <span id="newGroupCount" style="font-size:.8rem;color:var(--text-muted);">Select at least 2 members</span>
+        <button id="createGroupBtn"
+          style="padding:9px 20px;border:none;border-radius:20px;background:var(--green-mid);color:#fff;
+                 font-size:.85rem;font-weight:600;cursor:pointer;transition:background .15s;"
+          onmouseover="this.style.background='var(--green-dark)'" onmouseout="this.style.background='var(--green-mid)'">
+          <i class="fa-solid fa-users"></i> Create Group
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1310,6 +1358,29 @@
   </div>
 </div>
 
+<!-- Add Member Modal -->
+<div id="addMemberModal" style="display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.5);align-items:center;justify-content:center;">
+  <div style="background:var(--white);border-radius:16px;width:400px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.22);animation:modalIn .2s ease;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <strong style="font-family:'EB Garamond',serif;font-size:1.1rem;color:var(--text-primary);">Add Members</strong>
+      <button onclick="closeAddMemberModal()" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--green-pale);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;position:relative;">
+      <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:28px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:.82rem;pointer-events:none;"></i>
+      <input type="text" id="addMemberSearch" placeholder="Search people…" autocomplete="off"
+        style="width:100%;padding:8px 12px 8px 34px;border:1px solid var(--border);border-radius:20px;background:var(--green-pale);font-size:.84rem;color:var(--text-primary);outline:none;">
+    </div>
+    <div id="addMemberList" style="flex:1;overflow-y:auto;padding:6px 0;"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--green-pale);flex-shrink:0;">
+      <span id="addMemberCount" style="font-size:.8rem;color:var(--text-muted);">Select members to add</span>
+      <button id="addMemberConfirmBtn" onclick="confirmAddMembers()" disabled
+        style="padding:9px 18px;border:none;border-radius:20px;background:var(--green-mid);color:#fff;font-size:.84rem;font-weight:600;cursor:pointer;opacity:.5;transition:background .15s;">
+        <i class="fa-solid fa-user-plus"></i> Add
+      </button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1373,6 +1444,27 @@
   const replyBarName   = document.getElementById('replyBarName');
   const replyBarText   = document.getElementById('replyBarText');
   const replyCancelBtn = document.getElementById('replyCancelBtn');
+
+  window.switchNewMsgTab = function(tab) {
+    const dmPane    = document.getElementById('newMsgDmPane');
+    const groupPane = document.getElementById('newMsgGroupPane');
+    const dmBtn     = document.getElementById('tabDmBtn');
+    const grpBtn    = document.getElementById('tabGroupBtn');
+    const isGroup   = tab === 'group';
+    dmPane.style.display           = isGroup ? 'none' : '';
+    groupPane.style.display        = isGroup ? '' : 'none';
+    dmBtn.style.color              = isGroup ? 'var(--text-muted)' : 'var(--green-mid)';
+    dmBtn.style.borderBottomColor  = isGroup ? 'transparent' : 'var(--green-mid)';
+    grpBtn.style.color             = isGroup ? 'var(--green-mid)' : 'var(--text-muted)';
+    grpBtn.style.borderBottomColor = isGroup ? 'var(--green-mid)' : 'transparent';
+    if (isGroup) {
+      renderNewGroupUserList('');
+      renderGroupSelectedChips();
+      setTimeout(() => document.getElementById('newGroupName').focus(), 50);
+    } else {
+      setTimeout(() => document.getElementById('newMsgSearch').focus(), 50);
+    }
+  };
 
   /* ─── HELPERS ─── */
   function timeAgo(isoStr) {
@@ -1628,13 +1720,172 @@
     });
   });
 
-  function populateInfoPanel(recipient) {
-    const infoAv = document.getElementById('infoAvatar');
-    infoAv.innerHTML = recipient.avatar ? `<img src="${recipient.avatar}" alt="">` : `<span style="font-size:1.3rem;">${recipient.initials||'?'}</span>`;
-    document.getElementById('infoName').textContent = recipient.name;
-    document.getElementById('infoSub').textContent  = recipient.position || recipient.department || '';
-    document.getElementById('infoOnline').style.display = recipient.is_online ? 'flex' : 'none';
-    document.getElementById('infoMembersSection').style.display = 'none';
+  function populateInfoPanel(recipient, convData) {
+    const isGroup = convData && convData.is_group;
+    const infoAv  = document.getElementById('infoAvatar');
+    const membersSection = document.getElementById('infoMembersSection');
+
+    if (isGroup) {
+      // ── Group info ──────────────────────────────────────────────────────────
+      infoAv.innerHTML = convData.avatar
+        ? `<img src="${convData.avatar}" alt="">`
+        : `<span style="font-size:1.1rem;">${convData.initials || 'GC'}</span>`;
+      document.getElementById('infoName').textContent = convData.name || 'Group Chat';
+      document.getElementById('infoSub').textContent  = `${convData.members ? convData.members.length : 0} members`;
+      document.getElementById('infoOnline').style.display = 'none';
+
+      // Populate members list
+      membersSection.style.display = 'block';
+      const membersList = document.getElementById('infoMembersList');
+      membersList.innerHTML = '';
+      (convData.members || []).forEach(m => {
+        const isCreator   = convData.created_by === m.id;
+        const iAmCreator  = convData.created_by === ME.id;
+        const isMe        = m.id === ME.id;
+
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 4px;position:relative;';
+        div.innerHTML = `
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--green-mid);
+            display:flex;align-items:center;justify-content:center;font-size:.65rem;
+            font-weight:600;color:#fff;flex-shrink:0;overflow:hidden;position:relative;">
+            ${m.avatar ? `<img src="${m.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : `<span>${m.initials || '?'}</span>`}
+            ${m.is_online ? '<span style="position:absolute;bottom:0;right:0;width:8px;height:8px;background:#22c55e;border:1.5px solid #fff;border-radius:50%;"></span>' : ''}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.83rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(m.name)}${isMe ? ' <span style="font-size:.65rem;color:var(--text-muted);">(You)</span>' : ''}</div>
+            ${isCreator ? `<div style="font-size:.65rem;color:var(--green-mid);font-weight:600;">Creator</div>` : ''}
+          </div>
+          <button class="member-dots-btn" data-member-id="${m.id}" data-member-name="${escapeHTML(m.name)}" data-is-creator="${isCreator}" data-is-me="${isMe}"
+            style="width:24px;height:24px;border-radius:50%;border:none;background:transparent;color:var(--text-muted);
+                  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.7rem;
+                  flex-shrink:0;transition:background .12s;"
+            title="Options">
+            <i class="fa-solid fa-ellipsis"></i>
+          </button>
+          <div class="member-menu" data-member-menu="${m.id}"
+            style="display:none;position:absolute;right:0;top:36px;background:var(--white);border:1px solid var(--border);
+                  border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.13);z-index:200;min-width:170px;padding:4px 0;">
+            <div class="member-menu-item" data-action="view-profile" data-user='${JSON.stringify({id:m.id,name:m.name,avatar:m.avatar||'',initials:m.initials||'?',position:m.position||'',department:m.department||'',is_online:m.is_online||false,username:m.username||''})}' style="display:flex;align-items:center;gap:9px;padding:9px 14px;font-size:.82rem;color:var(--text-primary);cursor:pointer;transition:background .12s;white-space:nowrap;">
+              <i class="fa-solid fa-user" style="width:15px;text-align:center;color:var(--text-muted);font-size:.82rem;"></i> View Profile
+            </div>
+            ${!isMe ? `
+            <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+            ${iAmCreator && !isCreator ? `
+            <div class="member-menu-item" data-action="kick" data-member-id="${m.id}" data-member-name="${escapeHTML(m.name)}" style="display:flex;align-items:center;gap:9px;padding:9px 14px;font-size:.82rem;color:#dc2626;cursor:pointer;transition:background .12s;white-space:nowrap;">
+              <i class="fa-solid fa-user-minus" style="width:15px;text-align:center;color:#dc2626;font-size:.82rem;"></i> Remove from Group
+            </div>
+            ` : ''}
+            ` : `
+            <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+            <div class="member-menu-item" data-action="leave" style="display:flex;align-items:center;gap:9px;padding:9px 14px;font-size:.82rem;color:#dc2626;cursor:pointer;transition:background .12s;white-space:nowrap;">
+              <i class="fa-solid fa-right-from-bracket" style="width:15px;text-align:center;color:#dc2626;font-size:.82rem;"></i> Leave Group
+            </div>
+            `}
+          </div>
+        `;
+
+        // Hover style on dots button
+        const dotsBtn = div.querySelector('.member-dots-btn');
+        dotsBtn.addEventListener('mouseenter', () => dotsBtn.style.background = 'var(--green-pale)');
+        dotsBtn.addEventListener('mouseleave', () => dotsBtn.style.background = 'transparent');
+
+        // Toggle member menu
+        dotsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const menu = div.querySelector('.member-menu');
+          const isOpen = menu.style.display === 'block';
+          // Close all other member menus first
+          document.querySelectorAll('.member-menu').forEach(m => m.style.display = 'none');
+          menu.style.display = isOpen ? 'none' : 'block';
+        });
+
+        // Hover style on menu items
+        div.querySelectorAll('.member-menu-item').forEach(item => {
+          item.addEventListener('mouseenter', () => item.style.background = 'var(--green-pale)');
+          item.addEventListener('mouseleave', () => item.style.background = '');
+        });
+
+        // Menu item actions
+        div.querySelector('[data-action="view-profile"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          div.querySelector('.member-menu').style.display = 'none';
+          openProfileModal(JSON.parse(e.currentTarget.dataset.user));
+        });
+
+        div.querySelector('[data-action="kick"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          div.querySelector('.member-menu').style.display = 'none';
+          const memberId   = e.currentTarget.dataset.memberId;
+          const memberName = e.currentTarget.dataset.memberName;
+          showConfirm({
+            title: `Remove ${memberName}?`,
+            message: `${memberName} will be removed from the group and won't be able to see new messages.`,
+            type: 'danger', okText: 'Remove',
+            onOk: () => {
+              fetch(`/messenger/conversations/${activeConvId}/remove-member/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ member_id: memberId }),
+              }).then(r => r.json()).then(data => {
+                if (data.success) {
+                  loadConversations(() => {
+                    const conv = allConvs.find(c => c.id == activeConvId);
+                    if (conv) { activeConvData = conv; populateInfoPanel(null, conv); }
+                  });
+                }
+              });
+            }
+          });
+        });
+
+        div.querySelector('[data-action="leave"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          div.querySelector('.member-menu').style.display = 'none';
+          showConfirm({
+            title: 'Leave Group?',
+            message: 'You will leave this group and no longer receive messages from it.',
+            type: 'danger', okText: 'Leave',
+            onOk: () => {
+              fetch(`/messenger/conversations/${activeConvId}/leave/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+              }).then(r => {
+                if (!r.ok) throw new Error('Server error ' + r.status);
+                return r.json();
+              }).then(data => {
+                if (data.success) {
+                  activeConvId = null; activeRecipient = null; activeConvData = null;
+                  msngEmpty.style.display = 'flex'; msngActiveChat.style.display = 'none';
+                  msngInfoPanel.classList.remove('open'); infoPanelOpen = false;
+                  if (ws) { ws.close(); ws = null; }
+                  loadConversations();
+                }
+              });
+            }
+          });
+        });
+
+        membersList.appendChild(div);
+      });
+
+      // Close member menus on outside click
+      document.addEventListener('click', () => {
+        document.querySelectorAll('.member-menu').forEach(m => m.style.display = 'none');
+      });
+
+    } else {
+      // ── DM info (existing logic) ────────────────────────────────────────────
+      if (!recipient) return;
+      infoAv.innerHTML = recipient.avatar
+        ? `<img src="${recipient.avatar}" alt="">`
+        : `<span style="font-size:1.3rem;">${recipient.initials || '?'}</span>`;
+      document.getElementById('infoName').textContent = recipient.name;
+      document.getElementById('infoSub').textContent  = recipient.position || recipient.department || '';
+      document.getElementById('infoOnline').style.display = recipient.is_online ? 'flex' : 'none';
+      membersSection.style.display = 'none';
+    }
+
     document.getElementById('infoMediaCount').textContent = 'Nothing shared yet';
     resetMediaPanel();
     msngInfoSlider.classList.remove('media-open');
@@ -1713,10 +1964,11 @@
 
   function renderForwardList(filter) {
     const lower = filter.toLowerCase();
-    // Use allConvs for existing conversations, filtered by name
-    const convFiltered = allConvs.filter(c =>
-      !c.is_archived && (!lower || c.recipient.name.toLowerCase().includes(lower))
-    );
+    const convFiltered = allConvs.filter(c => {
+      if (c.is_archived) return false;
+      const displayName = c.is_group ? (c.name || 'Group Chat') : (c.recipient ? c.recipient.name : '');
+      return !lower || displayName.toLowerCase().includes(lower);
+    });
     const list = document.getElementById('forwardList');
 
     if (!convFiltered.length) {
@@ -1726,19 +1978,30 @@
 
     list.innerHTML = '';
     convFiltered.forEach(c => {
-      const u = c.recipient;
+      const isGroup    = c.is_group;
+      const name       = isGroup ? (c.name || 'Group Chat') : (c.recipient ? c.recipient.name : '?');
+      const initials   = isGroup ? (c.initials || 'GC')     : (c.recipient ? c.recipient.initials : '?');
+      const avatar     = isGroup ? c.avatar                 : (c.recipient ? c.recipient.avatar : null);
+      const isOnline   = !isGroup && c.recipient && c.recipient.is_online;
+      const subline    = isGroup
+        ? `${c.members ? c.members.length : 0} members`
+        : (c.recipient ? (c.recipient.position || c.recipient.department || '') : '');
       const isSelected = forwardSelectedIds.has(c.id);
+
       const div = document.createElement('div');
       div.className = 'msng__forward-user' + (isSelected ? ' selected' : '');
       div.dataset.convId = c.id;
       div.innerHTML = `
         <div class="msng__forward-user-av">
-          ${u.avatar ? `<img src="${u.avatar}" alt="">` : `<span>${u.initials||'?'}</span>`}
-          ${u.is_online ? '<span class="msng__online-dot" style="width:9px;height:9px;"></span>' : ''}
+          ${avatar ? `<img src="${avatar}" alt="">` : `<span>${initials}</span>`}
+          ${isOnline ? '<span class="msng__online-dot" style="width:9px;height:9px;"></span>' : ''}
         </div>
         <div class="msng__forward-user-info">
-          <div class="msng__forward-user-name">${escapeHTML(u.name)}</div>
-          <div class="msng__forward-user-sub">${escapeHTML(u.position || u.department || '')}</div>
+          <div class="msng__forward-user-name">
+            ${escapeHTML(name)}
+            ${isGroup ? '<i class="fa-solid fa-users" style="font-size:.6rem;color:var(--green-mid);margin-left:4px;"></i>' : ''}
+          </div>
+          <div class="msng__forward-user-sub">${escapeHTML(subline)}</div>
         </div>
         <div class="msng__forward-check"><i class="fa-solid fa-check"></i></div>
       `;
@@ -1766,7 +2029,10 @@
     } else {
       const names = [...forwardSelectedIds].map(id => {
         const conv = allConvs.find(c => c.id == id);
-        return conv ? conv.recipient.name.split(' ')[0] : '';
+        if (!conv) return '';
+        return conv.is_group
+          ? (conv.name || 'Group Chat')
+          : (conv.recipient ? conv.recipient.name.split(' ')[0] : '');
       }).filter(Boolean);
       countEl.textContent = names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length - 3}` : '');
     }
@@ -1871,7 +2137,19 @@
   function startReply(msg) {
     replyingTo = msg;
     const isMine = msg.sender_id === ME.id;
-    replyBarName.textContent = isMine ? 'You' : (activeRecipient ? activeRecipient.name : 'Them');
+
+    // For groups, look up the sender name from members list
+    let senderName = 'Them';
+    if (isMine) {
+      senderName = 'You';
+    } else if (activeConvData && activeConvData.is_group && activeConvData.members) {
+      const member = activeConvData.members.find(m => m.id === msg.sender_id);
+      senderName = member ? member.name : 'Them';
+    } else if (activeRecipient) {
+      senderName = activeRecipient.name;
+    }
+
+    replyBarName.textContent = senderName;
     replyBarText.textContent = msg.body
       ? msg.body
       : msg.is_image ? '📷 Photo'
@@ -1922,11 +2200,23 @@
   }
 
   function renderConvList(convs, filterText = '') {
-    const lower    = filterText.toLowerCase();
-    const active   = convs.filter(c => !c.is_archived && (!lower || c.recipient.name.toLowerCase().includes(lower)));
-    const archived = convs.filter(c => c.is_archived  && (!lower || c.recipient.name.toLowerCase().includes(lower)));
+    const lower = filterText.toLowerCase();
 
-    // Active list
+    const active = convs.filter(c => {
+      if (c.is_archived) return false;
+      // Hide groups with no messages yet (for members who didn't create it)
+      if (c.is_group && !c.last_message_time) return false;
+      if (!lower) return true;
+      const displayName = c.is_group ? (c.name || '') : (c.recipient ? c.recipient.name : '');
+      return displayName.toLowerCase().includes(lower);
+    });
+    const archived = convs.filter(c => {
+      if (!c.is_archived) return false;
+      if (!lower) return true;
+      const displayName = c.is_group ? (c.name || '') : (c.recipient ? c.recipient.name : '');
+      return displayName.toLowerCase().includes(lower);
+    });
+
     if (!active.length) {
       convList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.82rem;">No conversations yet</div>';
     } else {
@@ -1934,7 +2224,6 @@
       active.forEach(c => convList.appendChild(buildConvItem(c)));
     }
 
-    // Archived list
     archivedCount.textContent = archived.length || '';
     if (!archived.length) {
       archivedList.innerHTML = '<div style="padding:12px 16px;font-size:.8rem;color:var(--text-muted);">No archived conversations</div>';
@@ -1947,29 +2236,42 @@
   }
 
   function buildConvItem(c) {
+    // ── Resolve display values for DM vs Group ──────────────────────────────
+    const isGroup  = c.is_group;
+    const name     = isGroup ? (c.name || 'Group Chat') : (c.recipient ? c.recipient.name : '?');
+    const initials = isGroup ? (c.initials || 'GC')     : (c.recipient ? c.recipient.initials : '?');
+    const avatar   = isGroup ? c.avatar                 : (c.recipient ? c.recipient.avatar : null);
+    const isOnline = !isGroup && c.recipient && c.recipient.is_online;
+
     const div = document.createElement('div');
     div.className = 'msng__conv' + (c.id === activeConvId ? ' active' : '') + (c.is_archived ? ' is-archived' : '');
     div.dataset.id = c.id;
     const isUnread = c.unread_count > 0;
 
-    // Mute label
     const muteLabel = c.is_muted
       ? `<span class="msng__mute-icon" title="Notifications muted"><i class="fa-solid fa-bell-slash"></i></span>`
       : '';
 
-    // Block indicator
-    const blockLabel = c.blocked_by_me
-      ? `<span style="font-size:.68rem;color:#dc2626;margin-left:4px;" title="You blocked this person"><i class="fa-solid fa-ban"></i></span>`
-      : (c.blocked_by_them ? `<span style="font-size:.68rem;color:#d97706;margin-left:4px;" title="Blocked by this person"><i class="fa-solid fa-ban"></i></span>` : '');
+    // Block labels only apply to DMs
+    const blockLabel = !isGroup && c.blocked_by_me
+      ? `<span style="font-size:.68rem;color:#dc2626;margin-left:4px;"><i class="fa-solid fa-ban"></i></span>`
+      : (!isGroup && c.blocked_by_them
+        ? `<span style="font-size:.68rem;color:#d97706;margin-left:4px;"><i class="fa-solid fa-ban"></i></span>`
+        : '');
+
+    // Group badge
+    const groupBadge = isGroup
+      ? `<span style="font-size:.6rem;color:var(--green-mid);margin-left:4px;" title="Group chat"><i class="fa-solid fa-users"></i></span>`
+      : '';
 
     div.innerHTML = `
       <div class="msng__conv-avatar">
-        ${c.recipient.avatar ? `<img src="${c.recipient.avatar}" alt="">` : `<span style="font-size:.78rem;">${c.recipient.initials||'?'}</span>`}
-        ${c.recipient.is_online ? '<span class="msng__online-dot"></span>' : ''}
+        ${avatar ? `<img src="${avatar}" alt="">` : `<span style="font-size:.78rem;">${initials}</span>`}
+        ${isOnline ? '<span class="msng__online-dot"></span>' : ''}
       </div>
       <div class="msng__conv-info">
-        <div class="msng__conv-name">${escapeHTML(c.recipient.name)}${muteLabel}${blockLabel}</div>
-        <div class="msng__conv-preview${isUnread?' unread':''}">${c.last_message||'Start a conversation'}</div>
+        <div class="msng__conv-name">${escapeHTML(name)}${groupBadge}${muteLabel}${blockLabel}</div>
+        <div class="msng__conv-preview${isUnread?' unread':''}">${c.last_message || 'Start a conversation'}</div>
       </div>
       <div class="msng__conv-meta">
         <div class="msng__conv-time">${c.last_message_time ? timeAgo(c.last_message_time) : ''}</div>
@@ -1980,8 +2282,8 @@
       </button>
       <div class="msng__conv-menu" id="convMenu_${c.id}">
         ${c.is_archived ? `
-          <div class="msng__conv-menu-item" data-action="unarchive"><i class="fa-solid fa-box-open"></i> Unarchive Chat</div>
-          <div class="msng__conv-menu-item" data-action="view-profile" data-user='${JSON.stringify(c.recipient)}'><i class="fa-solid fa-user"></i> View Profile</div>
+          <div class="msng__conv-menu-item" data-action="unarchive"><i class="fa-solid fa-box-open"></i> Unarchive</div>
+          ${!isGroup ? `<div class="msng__conv-menu-item" data-action="view-profile" data-user='${JSON.stringify(c.recipient)}'><i class="fa-solid fa-user"></i> View Profile</div>` : ''}
           <div class="msng__conv-menu-sep"></div>
           <div class="msng__conv-menu-item danger" data-action="delete"><i class="fa-solid fa-trash"></i> Delete Chat</div>
         ` : `
@@ -1990,12 +2292,12 @@
             ? `<div class="msng__conv-menu-item" data-action="unmute"><i class="fa-solid fa-bell"></i> Unmute</div>`
             : `<div class="msng__conv-menu-item" data-action="mute"><i class="fa-solid fa-bell-slash"></i> Mute Notifications</div>`
           }
-          <div class="msng__conv-menu-item" data-action="view-profile" data-user='${JSON.stringify(c.recipient)}'><i class="fa-solid fa-user"></i> View Profile</div>
+          ${!isGroup ? `<div class="msng__conv-menu-item" data-action="view-profile" data-user='${JSON.stringify(c.recipient)}'><i class="fa-solid fa-user"></i> View Profile</div>` : ''}
           <div class="msng__conv-menu-sep"></div>
           <div class="msng__conv-menu-item" data-action="archive"><i class="fa-solid fa-box-archive"></i> Archive Chat</div>
-          ${c.blocked_by_me
+          ${!isGroup && c.blocked_by_me
             ? `<div class="msng__conv-menu-item warn" data-action="unblock" data-user-id="${c.recipient.id}"><i class="fa-solid fa-ban"></i> Unblock</div>`
-            : `<div class="msng__conv-menu-item" data-action="block" data-user-id="${c.recipient.id}" data-user-name="${escapeHTML(c.recipient.name)}"><i class="fa-solid fa-ban"></i> Block</div>`
+            : (!isGroup ? `<div class="msng__conv-menu-item" data-action="block" data-user-id="${c.recipient.id}" data-user-name="${escapeHTML(c.recipient.name)}"><i class="fa-solid fa-ban"></i> Block</div>` : '')
           }
           <div class="msng__conv-menu-sep"></div>
           <div class="msng__conv-menu-item danger" data-action="delete"><i class="fa-solid fa-trash"></i> Delete Chat</div>
@@ -2004,7 +2306,7 @@
 
     div.addEventListener('click', (e) => {
       if (e.target.closest('.msng__conv-dots') || e.target.closest('.msng__conv-menu')) return;
-      openConversation(c.id, c.recipient, c);
+      openConversation(c.id, isGroup ? null : c.recipient, c);
     });
 
     return div;
@@ -2219,34 +2521,54 @@
 
   /* ─── OPEN CONVERSATION ─── */
   function openConversation(convId, recipient, convData) {
-    activeConvId     = convId;
-    activeRecipient  = recipient;
-    activeConvData   = convData || allConvs.find(c => c.id == convId);
+    activeConvId    = convId;
+    activeRecipient = recipient;  // null for groups
+    activeConvData  = convData || allConvs.find(c => c.id == convId);
+
+    const isGroup  = activeConvData && activeConvData.is_group;
+    const dispName = isGroup ? (activeConvData.name || 'Group Chat') : (recipient ? recipient.name : '?');
+    const dispAv   = isGroup ? activeConvData.avatar : (recipient ? recipient.avatar : null);
+    const dispIni  = isGroup ? (activeConvData.initials || 'GC') : (recipient ? recipient.initials : '?');
 
     document.querySelectorAll('.msng__conv').forEach(el =>
       el.classList.toggle('active', el.dataset.id == convId));
 
-    chatHeadAvatar.innerHTML = recipient.avatar
-      ? `<img src="${recipient.avatar}" alt="">${recipient.is_online ? '<span class="msng__online-dot"></span>' : ''}`
-      : `<span style="font-size:.78rem;">${recipient.initials||'?'}</span>`;
-    chatHeadName.textContent   = recipient.name;
-    chatHeadStatus.textContent = recipient.is_online ? 'Active now' : 'Offline';
-    chatHeadStatus.className   = 'msng__chat-head-status' + (recipient.is_online ? ' online' : '');
+    // Header avatar
+    chatHeadAvatar.innerHTML = dispAv
+      ? `<img src="${dispAv}" alt="">`
+      : `<span style="font-size:.78rem;">${dispIni}</span>`;
+
+    // For DMs, show online dot on avatar
+    if (!isGroup && recipient && recipient.is_online) {
+      const dot = document.createElement('span');
+      dot.className = 'msng__online-dot';
+      chatHeadAvatar.appendChild(dot);
+    }
+
+    chatHeadName.textContent = dispName;
+
+    if (isGroup) {
+      const memberCount = activeConvData.members ? activeConvData.members.length : 0;
+      chatHeadStatus.textContent = `${memberCount} member${memberCount !== 1 ? 's' : ''}`;
+      chatHeadStatus.className   = 'msng__chat-head-status';
+    } else {
+      chatHeadStatus.textContent = recipient && recipient.is_online ? 'Active now' : 'Offline';
+      chatHeadStatus.className   = 'msng__chat-head-status' + (recipient && recipient.is_online ? ' online' : '');
+    }
 
     msngEmpty.style.display      = 'none';
     msngActiveChat.style.display = 'flex';
 
-    // Mute badge in header
     updateChatHeaderMuteBadge(activeConvData && activeConvData.is_muted);
 
-    // Blocked state
-    if (activeConvData) {
+    // Blocked state — groups are never blocked
+    if (!isGroup && activeConvData) {
       setBlockedState(activeConvData.blocked_by_me, activeConvData.blocked_by_them);
     } else {
       setBlockedState(false, false);
     }
 
-    populateInfoPanel(recipient);
+    populateInfoPanel(recipient, activeConvData);
 
     if (window.innerWidth <= 768) {
       document.getElementById('msngSidebar').classList.add('mobile-hidden');
@@ -2333,17 +2655,53 @@
   }
 
   function buildMessageEl(msg) {
-    const isMine = msg.sender_id === ME.id;
+
+    if (msg.is_system) {
+        const el = document.createElement('div');
+        el.dataset.id = msg.id;
+        el.style.cssText = 'display:flex;align-items:center;gap:8px;margin:10px 0;padding:0 12px;';
+        el.innerHTML = `
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+            <span style="font-size:.72rem;color:var(--text-muted);white-space:nowrap;
+                         background:var(--green-pale);border:1px solid var(--border);
+                         border-radius:12px;padding:3px 10px;">
+                ${escapeHTML(msg.body)}
+            </span>
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+        `;
+        return el;
+    }
+
+    const isMine   = msg.sender_id === ME.id;
+    const isGroup  = activeConvData && activeConvData.is_group;
     const row = document.createElement('div');
     row.className = 'msng__msg-row' + (isMine ? ' mine' : '');
     row.dataset.id = msg.id;
     if (isMine) row.dataset.msgStatus = msg.status || 'sent';
 
+    // Avatar: for groups, look up sender from members
     const av = document.createElement('div');
     av.className = 'msng__msg-avatar';
-    const src = isMine ? ME.avatar : (activeRecipient ? activeRecipient.avatar : '');
-    const ini = isMine ? ME.initials : (activeRecipient ? activeRecipient.initials : '?');
+    let src = '', ini = '?';
+    if (isMine) {
+      src = ME.avatar; ini = ME.initials;
+    } else if (isGroup && activeConvData.members) {
+      const member = activeConvData.members.find(m => m.id === msg.sender_id);
+      src = member ? (member.avatar || '') : '';
+      ini = member ? (member.initials || '?') : '?';
+    } else {
+      src = activeRecipient ? activeRecipient.avatar : '';
+      ini = activeRecipient ? activeRecipient.initials : '?';
+    }
     av.innerHTML = src ? `<img src="${src}" alt="">` : `<span style="font-size:.6rem;">${ini}</span>`;
+
+    // Sender name label above bubble — only in group chats, only for others' messages
+    let senderLabel = '';
+    if (isGroup && !isMine && activeConvData.members) {
+      const member = activeConvData.members.find(m => m.id === msg.sender_id);
+      const senderName = member ? member.name : 'Unknown';
+      senderLabel = `<div style="font-size:.65rem;color:var(--text-muted);margin-bottom:2px;padding-left:2px;">${escapeHTML(senderName)}</div>`;
+    }
 
     const bubble = document.createElement('div');
     let content = '';
@@ -2401,28 +2759,24 @@
     const fileDiv = bubble.querySelector('.msng__bubble-file');
     if (fileDiv) fileDiv.addEventListener('click', () => openLightbox(fileDiv.dataset.url, fileDiv.dataset.name));
 
-    // Hover action bar
     const actions = document.createElement('div');
     actions.className = 'msng__msg-actions';
     actions.innerHTML = `
-      <button class="msng__msg-action-btn" title="Reply" data-action="reply">
-        <i class="fa-solid fa-reply"></i>
-      </button>
-      <button class="msng__msg-action-btn" title="Forward" data-action="forward">
-        <i class="fa-solid fa-share"></i>
-      </button>
+      <button class="msng__msg-action-btn" title="Reply" data-action="reply"><i class="fa-solid fa-reply"></i></button>
+      <button class="msng__msg-action-btn" title="Forward" data-action="forward"><i class="fa-solid fa-share"></i></button>
     `;
-    actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => {
-      e.stopPropagation();
-      startReply(msg);
-    });
-    actions.querySelector('[data-action="forward"]').addEventListener('click', (e) => {
-      e.stopPropagation();
-      openForwardModal(msg, null);
-    });
+    actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => { e.stopPropagation(); startReply(msg); });
+    actions.querySelector('[data-action="forward"]').addEventListener('click', (e) => { e.stopPropagation(); openForwardModal(msg, null); });
+
+    // Wrap bubble + sender label in a column div
+    const bubbleWrap = document.createElement('div');
+    // REMOVE max-width:65% from here — bubble already constrains width
+    bubbleWrap.style.cssText = 'display:flex;flex-direction:column;max-width:65%;min-width:0;';
+    bubbleWrap.innerHTML = senderLabel;
+    bubbleWrap.appendChild(bubble);
 
     row.appendChild(av);
-    row.appendChild(bubble);
+    row.appendChild(bubbleWrap);
     row.appendChild(actions);
     return row;
   }
@@ -2546,9 +2900,17 @@
       const data = JSON.parse(e.data);
       if (data.type === 'chat_message') {
         updateConvPreview(convId, data.message);
-        if (activeConvId == convId && data.message.sender_id !== ME.id) {
-          appendMessage(data.message);
-          fetch(`/messenger/conversations/${convId}/read/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } }).catch(() => {});
+        if (activeConvId == convId) {
+          // System messages (leave/kick/add) always append, no read receipt needed
+          if (data.message.is_system) {
+            appendMessage(data.message);
+          } else if (data.message.sender_id !== ME.id) {
+            appendMessage(data.message);
+            fetch(`/messenger/conversations/${convId}/read/`, {
+              method: 'POST',
+              headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            }).catch(() => {});
+          }
         }
       } else if (data.type === 'messages_seen') {
         (data.message_ids || []).forEach(id => {
@@ -2560,6 +2922,10 @@
         showTyping();
       } else if (data.type === 'stop_typing') {
         hideTyping();
+      } else if (data.type === 'kicked_from_group') {
+          allConvs = allConvs.filter(c => c.id != data.conv_id);
+          showKickedModal(data.conv_name, data.conv_id);  // pass convId so it can close the pane
+          renderConvList(allConvs, convSearch.value);
       }
     };
     ws.onclose = () => console.log('[Chat WS] disconnected');
@@ -2636,55 +3002,61 @@
       });
     }
 
-    // Send each file individually — renderMessages will group them visually
-    filesToSend.forEach(({ file, isImage, localUrl }) => {
-      const fd = new FormData();
-      fd.append('attachment', file);
-      const currentReply = replyingTo;  // capture before clearing
-      const optimistic = {
+    // Build all optimistic messages first, then render once so grouping works
+    if (filesToSend.length) {
+      const capturedReply = replyingTo;
+      replyingTo = null;
+      replyBar.classList.remove('visible');
+
+      const optimisticList = filesToSend.map(({ file, isImage, localUrl }) => ({
         id: 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2),
         sender_id: ME.id, body: '',
         created_at: new Date().toISOString(),
         attachment_url: localUrl || null,
         attachment_name: file.name,
         is_image: isImage,
-        reply_to: currentReply ? {
-          id: currentReply.id,
-          sender_name: currentReply.sender_id === ME.id ? 'You' : (activeRecipient ? activeRecipient.name : 'Them'),
-          body: currentReply.body,
-          is_image: currentReply.is_image,
-          attachment_name: currentReply.attachment_name,
+        reply_to: capturedReply ? {
+          id: capturedReply.id,
+          sender_name: capturedReply.sender_id === ME.id ? 'You' : (activeRecipient ? activeRecipient.name : 'Them'),
+          body: capturedReply.body,
+          is_image: capturedReply.is_image,
+          attachment_name: capturedReply.attachment_name,
         } : null,
-      };
-      replyingTo = null;
-      replyBar.classList.remove('visible');
-      if (optimistic.reply_to) fd.append('reply_to_id', optimistic.reply_to.id);
-      // Add to cache and re-render so grouping applies immediately
+      }));
+
+      // Add ALL optimistics to cache at once, then render once — this lets grouping fire
       const cached = convCache[activeConvId];
       if (cached) {
-        cached.messages.push(optimistic);
+        optimisticList.forEach(o => cached.messages.push(o));
         renderMessages(cached.messages);
       } else {
-        appendMessage(optimistic);
+        optimisticList.forEach(o => appendMessage(o));
       }
-      updateConvPreview(activeConvId, optimistic);
+      updateConvPreview(activeConvId, optimisticList[optimisticList.length - 1]);
 
-      fetch(`/messenger/conversations/${activeConvId}/send/`, {
-        method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd,
-      }).then(r => r.json()).then(data => {
-        if (!data || !data.success) return;
-        // Replace optimistic in cache
-        const cached = convCache[activeConvId];
-        if (cached) {
-          const idx = cached.messages.findIndex(m => m.id === optimistic.id);
-          if (idx !== -1) cached.messages[idx] = data.message;
-          renderMessages(cached.messages);
-          populateMediaPanel(cached.messages);
-        }
-        updateConvPreview(activeConvId, data.message);
-        refreshMsngStatusRow();
+      // Send each file to the server, replacing optimistics as responses come in
+      filesToSend.forEach(({ file, isImage, localUrl }, idx) => {
+        const optimistic = optimisticList[idx];
+        const fd = new FormData();
+        fd.append('attachment', file);
+        if (optimistic.reply_to) fd.append('reply_to_id', optimistic.reply_to.id);
+
+        fetch(`/messenger/conversations/${activeConvId}/send/`, {
+          method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd,
+        }).then(r => r.json()).then(data => {
+          if (!data || !data.success) return;
+          const cached = convCache[activeConvId];
+          if (cached) {
+            const i = cached.messages.findIndex(m => m.id === optimistic.id);
+            if (i !== -1) cached.messages[i] = data.message;
+            renderMessages(cached.messages);
+            populateMediaPanel(cached.messages);
+          }
+          updateConvPreview(activeConvId, data.message);
+          refreshMsngStatusRow();
+        });
       });
-    });
+    }
   }
 
   sendBtn.addEventListener('click', sendMessage);
@@ -2706,8 +3078,12 @@
   }
 
   /* ─── NEW MESSAGE MODAL ─── */
-  closeNewModal.addEventListener('click', () => newMsgModal.classList.remove('open'));
-  newMsgModal.addEventListener('click', (e) => { if (e.target === newMsgModal) newMsgModal.classList.remove('open'); });
+  function closeNewMsgModal() {
+    newMsgModal.classList.remove('open');
+    switchNewMsgTab('dm');
+  }
+  closeNewModal.addEventListener('click', closeNewMsgModal);
+  newMsgModal.addEventListener('click', (e) => { if (e.target === newMsgModal) closeNewMsgModal(); });
 
   function loadUsers() {
     fetch('/messenger/users/')
@@ -2753,10 +3129,10 @@
       const data = JSON.parse(e.data);
       if (data.type !== 'presence') return;
       const uid = data.user_id, online = data.is_online;
-      allConvs.forEach(c => { if (c.recipient.id === uid) c.recipient.is_online = online; });
+      allConvs.forEach(c => { if (!c.is_group && c.recipient && c.recipient.id === uid) c.recipient.is_online = online; });
       document.querySelectorAll('.msng__conv').forEach(el => {
         const conv = allConvs.find(c => c.id == el.dataset.id);
-        if (!conv || conv.recipient.id !== uid) return;
+        if (!conv || conv.is_group || !conv.recipient || conv.recipient.id !== uid) return;
         const av = el.querySelector('.msng__conv-avatar');
         let dot = av.querySelector('.msng__online-dot');
         if (online && !dot) { dot = document.createElement('span'); dot.className = 'msng__online-dot'; av.appendChild(dot); }
@@ -2789,6 +3165,276 @@
     }
   });
   loadUsers();
+
+
+  /* ─── NEW GROUP MODAL ─── */
+  let newGroupSelectedIds = new Set();
+
+    function renderNewGroupUserList(filter) {
+      const lower    = (filter || '').toLowerCase();
+      const filtered = allUsers.filter(u => !lower || u.name.toLowerCase().includes(lower));
+      const list     = document.getElementById('newGroupList');
+      list.innerHTML = '';
+
+      if (!filtered.length) {
+        list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">No users found</div>';
+        return;
+      }
+
+      filtered.forEach(u => {
+        const isSelected = newGroupSelectedIds.has(u.id);
+        const div = document.createElement('div');
+        div.className = 'msng__new-user';
+        div.style.background = isSelected ? 'var(--green-pale)' : '';
+        div.innerHTML = `
+          <div class="msng__new-user-av">
+            ${u.avatar ? `<img src="${u.avatar}" alt="">` : `<span>${u.initials||'?'}</span>`}
+          </div>
+          <div style="flex:1;">
+            <div class="msng__new-user-name">${escapeHTML(u.name)}</div>
+            <div class="msng__new-user-pos">${escapeHTML(u.position || u.department || '')}</div>
+          </div>
+          <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${isSelected ? 'var(--green-mid)' : 'var(--border)'};
+            background:${isSelected ? 'var(--green-mid)' : 'transparent'};display:flex;align-items:center;
+            justify-content:center;font-size:.7rem;color:#fff;flex-shrink:0;">
+            ${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}
+          </div>`;
+        div.addEventListener('click', () => {
+          if (newGroupSelectedIds.has(u.id)) newGroupSelectedIds.delete(u.id);
+          else newGroupSelectedIds.add(u.id);
+          renderNewGroupUserList(document.getElementById('newGroupSearch').value);
+          renderGroupSelectedChips();
+        });
+        list.appendChild(div);
+      });
+    }
+
+    function renderGroupSelectedChips() {
+      const wrap    = document.getElementById('newGroupSelected');
+      const countEl = document.getElementById('newGroupCount');
+      wrap.innerHTML = '';
+      newGroupSelectedIds.forEach(id => {
+        const u = allUsers.find(u => u.id === id);
+        if (!u) return;
+        const chip = document.createElement('div');
+        chip.style.cssText = 'display:flex;align-items:center;gap:5px;background:var(--green-pale);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:.78rem;color:var(--text-primary);';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = u.name.split(' ')[0];
+
+        const removeBtn = document.createElement('button');
+        removeBtn.style.cssText = 'border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:.7rem;padding:0;margin-left:2px;line-height:1;';
+        removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        removeBtn.addEventListener('click', () => {
+          newGroupSelectedIds.delete(id);
+          renderNewGroupUserList('');
+          renderGroupSelectedChips();
+        });
+
+        chip.appendChild(nameSpan);
+        chip.appendChild(removeBtn);
+        wrap.appendChild(chip);
+      });
+      const count = newGroupSelectedIds.size;
+      countEl.textContent = count < 2
+        ? `Select at least 2 members (${count} selected)`
+        : `${count} member${count !== 1 ? 's' : ''} selected`;
+    }
+
+    document.getElementById('newGroupSearch').addEventListener('input', e => {
+      renderNewGroupUserList(e.target.value);
+    });
+
+    document.getElementById('createGroupBtn').addEventListener('click', async () => {
+      const name = document.getElementById('newGroupName').value.trim();
+      if (!name) {
+        document.getElementById('newGroupName').focus();
+        document.getElementById('newGroupName').style.borderColor = '#dc2626';
+        setTimeout(() => document.getElementById('newGroupName').style.borderColor = '', 2000);
+        return;
+      }
+      if (newGroupSelectedIds.size < 2) {
+        document.getElementById('newGroupCount').style.color = '#dc2626';
+        setTimeout(() => document.getElementById('newGroupCount').style.color = '', 2000);
+        return;
+      }
+
+      const btn = document.getElementById('createGroupBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating…';
+
+      const fd = new FormData();
+      fd.append('name', name);
+      newGroupSelectedIds.forEach(id => fd.append('member_ids', id));
+
+      const res  = await fetch('/messenger/conversations/create-group/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: fd,
+      });
+      const data = await res.json();
+
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-users"></i> Create Group';
+
+      if (data.success) {
+          newMsgModal.classList.remove('open');
+          switchNewMsgTab('dm');
+        loadConversations(() => {
+          const conv = allConvs.find(c => c.id == data.conversation_id);
+          if (conv) openConversation(conv.id, null, conv);
+        });
+      }
+    });
+
+    /* ─── ADD MEMBER MODAL ─── */
+    let addMemberSelectedIds = new Set();
+
+    window.openAddMemberModal = function() {
+      addMemberSelectedIds = new Set();
+      document.getElementById('addMemberSearch').value = '';
+      renderAddMemberList('');
+      document.getElementById('addMemberModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('addMemberSearch').focus(), 50);
+    };
+
+    window.closeAddMemberModal = function() {
+      document.getElementById('addMemberModal').style.display = 'none';
+    };
+
+    document.getElementById('addMemberSearch').addEventListener('input', (e) => {
+      renderAddMemberList(e.target.value);
+    });
+
+    document.getElementById('addMemberModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('addMemberModal')) closeAddMemberModal();
+    });
+
+    function renderAddMemberList(filter) {
+      const lower = (filter || '').toLowerCase();
+      // Exclude current members
+      const currentMemberIds = new Set((activeConvData?.members || []).map(m => m.id));
+      const eligible = allUsers.filter(u =>
+        !currentMemberIds.has(u.id) && (!lower || u.name.toLowerCase().includes(lower))
+      );
+      const list = document.getElementById('addMemberList');
+
+      if (!eligible.length) {
+        list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.82rem;">No users to add</div>';
+        return;
+      }
+
+      list.innerHTML = '';
+      eligible.forEach(u => {
+        const isSelected = addMemberSelectedIds.has(u.id);
+        const div = document.createElement('div');
+        div.style.cssText = `display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background .12s;background:${isSelected ? 'var(--green-pale)' : ''};`;
+        div.innerHTML = `
+          <div style="width:38px;height:38px;border-radius:50%;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:600;color:#fff;flex-shrink:0;overflow:hidden;">
+            ${u.avatar ? `<img src="${u.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : `<span>${u.initials||'?'}</span>`}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.875rem;font-weight:600;color:var(--text-primary);">${escapeHTML(u.name)}</div>
+            <div style="font-size:.73rem;color:var(--text-muted);">${escapeHTML(u.position||u.department||'')}</div>
+          </div>
+          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${isSelected ? 'var(--green-mid)' : 'var(--border)'};background:${isSelected ? 'var(--green-mid)' : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;flex-shrink:0;">
+            ${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}
+          </div>`;
+        div.addEventListener('mouseenter', () => { if (!isSelected) div.style.background = 'var(--green-pale)'; });
+        div.addEventListener('mouseleave', () => { if (!isSelected) div.style.background = ''; });
+        div.addEventListener('click', () => {
+          if (addMemberSelectedIds.has(u.id)) addMemberSelectedIds.delete(u.id);
+          else addMemberSelectedIds.add(u.id);
+          updateAddMemberFooter();
+          renderAddMemberList(document.getElementById('addMemberSearch').value);
+        });
+        list.appendChild(div);
+      });
+    }
+
+    function updateAddMemberFooter() {
+      const count   = addMemberSelectedIds.size;
+      const countEl = document.getElementById('addMemberCount');
+      const btn     = document.getElementById('addMemberConfirmBtn');
+      countEl.textContent = count === 0 ? 'Select members to add' : `${count} member${count !== 1 ? 's' : ''} selected`;
+      btn.disabled  = count === 0;
+      btn.style.opacity = count === 0 ? '.5' : '1';
+    }
+
+    window.confirmAddMembers = async function() {
+      if (!addMemberSelectedIds.size || !activeConvId) return;
+      const btn = document.getElementById('addMemberConfirmBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+      const fd = new FormData();
+      addMemberSelectedIds.forEach(id => fd.append('member_ids', id));
+
+      const res  = await fetch(`/messenger/conversations/${activeConvId}/add-members/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: fd,
+      });
+      const data = await res.json();
+
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Add';
+
+      if (data.success) {
+        closeAddMemberModal();
+        loadConversations(() => {
+          const conv = allConvs.find(c => c.id == activeConvId);
+          if (conv) { activeConvData = conv; populateInfoPanel(null, conv); }
+        });
+      }
+    };
+
+    function showKickedModal(convName, convId) {
+      // Close the chat pane immediately if this group is currently open
+      if (activeConvId == convId) {
+          activeConvId = null; activeRecipient = null; activeConvData = null;
+          msngEmpty.style.display      = 'flex';
+          msngActiveChat.style.display = 'none';
+          msngInfoPanel.classList.remove('open'); infoPanelOpen = false;
+          if (ws) { ws.close(); ws = null; }
+      }
+
+      const kickedEl = document.createElement('div');
+      kickedEl.style.cssText = `
+          position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.55);
+          display:flex;align-items:center;justify-content:center;
+      `;
+      kickedEl.innerHTML = `
+          <div style="background:var(--white);border-radius:16px;width:360px;padding:32px 28px 24px;
+                      box-shadow:0 24px 60px rgba(0,0,0,.25);text-align:center;animation:modalIn .2s ease;">
+              <div style="width:60px;height:60px;border-radius:50%;background:#fee2e2;
+                          display:flex;align-items:center;justify-content:center;
+                          font-size:1.4rem;color:#dc2626;margin:0 auto 16px;">
+                  <i class="fa-solid fa-user-minus"></i>
+              </div>
+              <div style="font-family:'EB Garamond',serif;font-size:1.15rem;font-weight:700;
+                          color:var(--text-primary);margin-bottom:8px;">Removed from Group</div>
+              <div style="font-size:.85rem;color:var(--text-muted);line-height:1.5;margin-bottom:22px;">
+                  You have been removed from <strong>${escapeHTML(convName)}</strong>
+                  by the group creator.
+              </div>
+              <button id="kickedOkBtn" style="width:100%;padding:11px;border:none;border-radius:10px;
+                  background:var(--green-mid);color:#fff;font-size:.9rem;font-weight:600;cursor:pointer;">
+                  OK
+              </button>
+          </div>
+      `;
+      document.body.appendChild(kickedEl);
+      kickedEl.querySelector('#kickedOkBtn').addEventListener('click', () => {
+          kickedEl.remove();
+          loadConversations();
+      });
+  }
+  window.showKickedModal = showKickedModal;  // expose for base.html notif WS
+
 })();
+
+
+
 </script>
 {% endblock %}

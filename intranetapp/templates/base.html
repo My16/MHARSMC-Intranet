@@ -359,7 +359,7 @@
       width: 296px; background: var(--white);
       border: 1px solid var(--border); border-radius: 14px;
       box-shadow: 0 8px 36px rgba(26,71,49,.22);
-      z-index: 8100; overflow: hidden;
+      z-index: 8100; overflow: visible;
       display: none; flex-direction: column; max-height: 430px;
     }
     .gm-picker.open { display: flex; animation: gmUp .18s ease; }
@@ -717,7 +717,8 @@
     /* ── Global lightbox ── */
     .gm-lightbox {
       display:none; position:fixed; inset:0; z-index:99000;
-      background:rgba(0,0,0,.92); align-items:center; justify-content:center; flex-direction:column;
+      flex-direction:column; background:rgba(0,0,0,.92);
+      align-items:center; justify-content:center;
     }
     .gm-lightbox.open { display:flex; }
     .gm-lightbox__close {
@@ -734,11 +735,80 @@
       cursor:pointer; font-size:1rem; transition:background .15s; text-decoration:none; z-index:2;
     }
     .gm-lightbox__dl:hover { background:rgba(255,255,255,.28); }
-    .gm-lightbox__img { max-width:90vw; max-height:82vh; object-fit:contain; border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,.5); }
-    .gm-lightbox__caption { color:rgba(255,255,255,.6); font-size:.8rem; margin-top:12px; }
+
+    /* Nav arrows */
+    .gm-lightbox__nav {
+      position:absolute; top:50%; transform:translateY(-50%);
+      width:46px; height:46px; border-radius:50%; border:none;
+      background:rgba(255,255,255,.12); color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:1rem; transition:background .15s; z-index:4;
+    }
+    .gm-lightbox__nav:hover { background:rgba(255,255,255,.25); }
+    .gm-lightbox__nav.hidden { opacity:0; pointer-events:none; }
+    .gm-lightbox__prev { left:18px; }
+    .gm-lightbox__next { right:18px; }
+
+    /* Main area */
+    .gm-lightbox__main {
+      flex:1; width:100%; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      position:relative; overflow:hidden; min-height:0;
+    }
+    .gm-lightbox__bg {
+      position:absolute; inset:0; z-index:0;
+      background-size:cover; background-position:center;
+      filter:blur(28px) brightness(.45) saturate(1.3);
+      transform:scale(1.08); display:none;
+    }
+    #gmLightboxContent {
+      position:relative; z-index:1;
+      display:flex; align-items:center; justify-content:center;
+      max-width:90vw; max-height:calc(100vh - 180px);
+    }
+    .gm-lightbox__img {
+      max-width:88vw; max-height:calc(100vh - 180px);
+      object-fit:contain; border-radius:6px;
+      box-shadow:0 8px 60px rgba(0,0,0,.6); display:block;
+    }
+    .gm-lightbox__caption {
+      position:relative; z-index:1;
+      color:rgba(255,255,255,.55); font-size:.78rem;
+      margin-top:10px; text-align:center;
+    }
+
+    /* Thumbnail strip */
+    .gm-lightbox__strip {
+      flex-shrink:0; width:100%;
+      display:flex; align-items:center; justify-content:center;
+      gap:6px; padding:12px 20px 16px;
+      overflow-x:auto; z-index:4;
+    }
+    .gm-lightbox__strip::-webkit-scrollbar { height:3px; }
+    .gm-lightbox__strip::-webkit-scrollbar-thumb { background:rgba(255,255,255,.2); border-radius:4px; }
+    .gm-lightbox__thumb {
+      width:52px; height:52px; border-radius:6px;
+      object-fit:cover; cursor:pointer; flex-shrink:0;
+      border:2px solid transparent; opacity:.55;
+      transition:opacity .15s, border-color .15s, transform .15s;
+    }
+    .gm-lightbox__thumb:hover { opacity:.85; transform:translateY(-2px); }
+    .gm-lightbox__thumb.active { border-color:#fff; opacity:1; transform:translateY(-2px); }
+    .gm-lightbox__thumb-file {
+      width:52px; height:52px; border-radius:6px; flex-shrink:0;
+      background:rgba(255,255,255,.1); border:2px solid transparent;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; opacity:.55; transition:opacity .15s, border-color .15s;
+      color:rgba(255,255,255,.8); font-size:1.2rem;
+    }
+    .gm-lightbox__thumb-file:hover { opacity:.85; }
+    .gm-lightbox__thumb-file.active { border-color:#fff; opacity:1; }
+
+    /* File view */
     .gm-lightbox__file {
       display:flex; flex-direction:column; align-items:center; gap:16px;
-      padding:48px; background:rgba(255,255,255,.06); border-radius:18px; border:1px solid rgba(255,255,255,.12);
+      padding:48px; background:rgba(255,255,255,.06); border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
     }
     .gm-lightbox__file i { font-size:3.5rem; color:rgba(255,255,255,.7); }
     .gm-lightbox__file-name { color:#fff; font-size:1rem; font-weight:600; }
@@ -748,6 +818,11 @@
       text-decoration:none; font-size:.88rem; font-weight:600; transition:background .15s;
     }
     .gm-lightbox__file-dl:hover { background:var(--green-dark); }
+
+    @keyframes gmLightboxFade {
+      from { opacity:0; transform:scale(.97); }
+      to   { opacity:1; transform:scale(1); }
+    }
 
     /* ── Global mute modal ── */
     .gm-mute-modal {
@@ -1100,8 +1175,14 @@
   <div class="gm-lightbox" id="gmLightbox">
     <button class="gm-lightbox__close" id="gmLightboxClose"><i class="fa-solid fa-xmark"></i></button>
     <a class="gm-lightbox__dl" id="gmLightboxDl" download title="Download"><i class="fa-solid fa-download"></i></a>
-    <div id="gmLightboxContent"></div>
-    <div class="gm-lightbox__caption" id="gmLightboxCaption"></div>
+    <button class="gm-lightbox__nav gm-lightbox__prev" id="gmLightboxPrev"><i class="fa-solid fa-chevron-left"></i></button>
+    <button class="gm-lightbox__nav gm-lightbox__next" id="gmLightboxNext"><i class="fa-solid fa-chevron-right"></i></button>
+    <div class="gm-lightbox__main">
+      <div class="gm-lightbox__bg" id="gmLightboxBg"></div>
+      <div id="gmLightboxContent"></div>
+      <div class="gm-lightbox__caption" id="gmLightboxCaption"></div>
+    </div>
+    <div class="gm-lightbox__strip" id="gmLightboxStrip"></div>
   </div>
 
   <!-- ═══ GLOBAL MUTE MODAL ════════════════════════════════════ -->
@@ -1356,14 +1437,21 @@
                 window.setMsgBadge(total);
               }).catch(() => {});
             }
-
             if (document.getElementById('envPanel').classList.contains('open')) {
               window._reloadEnvPanel && window._reloadEnvPanel();
             }
-
             showChatToast(data);
-
             if (window.gmHandleIncoming) window.gmHandleIncoming(data);
+
+          } else if (data.type === 'kicked_from_group') {
+            // Only the kicked user receives this on their notif channel, so always show
+            if (typeof window.showKickedModal === 'function') {
+              window.showKickedModal(data.conv_name, data.conv_id);
+            } else {
+              // Fallback if on messenger page
+              closeWindow && closeWindow(String(data.conv_id));
+            }
+            window._reloadEnvPanel && window._reloadEnvPanel();
           }
         };
       }
@@ -1386,47 +1474,66 @@
       if (!envBtn) return;
 
       function tAgo(iso) {
-        const d=new Date(iso),now=new Date(),diff=Math.floor((now-d)/1000);
-        if(diff<60) return 'Just now';
-        if(diff<3600) return Math.floor(diff/60)+'m';
-        if(diff<86400) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        const d=new Date(iso), now=new Date(), diff=Math.floor((now-d)/1000);
+        if (diff<60)    return 'Just now';
+        if (diff<3600)  return Math.floor(diff/60)+'m';
+        if (diff<86400) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
         return d.toLocaleDateString([],{month:'short',day:'numeric'});
       }
 
       function loadEnv() {
         fetch('/messenger/conversations/').then(r => r.json()).then(data => {
-          const convs       = (data.conversations || []).slice(0, 6);
+          const convs       = (data.conversations || []).filter(c => !c.is_archived).slice(0, 6);
           const totalUnread = convs.reduce((s, c) => s + (c.unread_count || 0), 0);
-          window.setMsgBadge(totalUnread);
+          window.setMsgBadge && window.setMsgBadge(totalUnread);
 
           if (!convs.length) {
             listEl.innerHTML = '<div class="msng__env-empty">No messages yet</div>';
             return;
           }
           listEl.innerHTML = '';
+
           convs.forEach(c => {
+            const isGroup    = !!c.is_group;
+            const name       = isGroup ? (c.name || 'Group Chat') : (c.recipient ? c.recipient.name : '?');
+            const initials   = isGroup ? (c.initials || 'GC')       : (c.recipient ? c.recipient.initials : '?');
+            const avatar     = isGroup ? c.avatar                   : (c.recipient ? c.recipient.avatar : null);
+            const isOnline   = !isGroup && c.recipient?.is_online;
+
             const item = document.createElement('div');
             item.className = 'msng__env-item';
             item.innerHTML = `
-              <div class="msng__env-av">
-                ${c.recipient.avatar
-                  ? `<img src="${c.recipient.avatar}" alt="">`
-                  : `<span>${c.recipient.initials || '?'}</span>`}
+              <div class="msng__env-av" style="position:relative;">
+                ${avatar
+                  ? `<img src="${avatar}" alt="">`
+                  : `<span>${initials}</span>`}
+                ${isOnline ? '<span style="position:absolute;bottom:0;right:0;width:8px;height:8px;background:#22c55e;border:1.5px solid var(--white);border-radius:50%;"></span>' : ''}
               </div>
               <div style="flex:1;min-width:0;">
-                <div class="msng__env-name">${c.recipient.name}</div>
+                <div class="msng__env-name" style="display:flex;align-items:center;gap:5px;">
+                  ${name}
+                  ${isGroup
+                    ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:600;color:var(--green-mid);background:var(--green-pale);border:1px solid var(--green-light);padding:1px 5px;border-radius:8px;white-space:nowrap;"><i class="fa-solid fa-users"></i> Group</span>'
+                    : ''}
+                </div>
                 <div class="msng__env-preview" style="${c.unread_count > 0 ? 'font-weight:600;color:var(--text-primary);' : ''}">
                   ${c.last_message || 'No messages yet'}
                 </div>
               </div>
-              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
                 <div class="msng__env-time">${c.last_message_time ? tAgo(c.last_message_time) : ''}</div>
                 ${c.unread_count > 0 ? '<div class="msng__env-unread"></div>' : ''}
               </div>`;
+
             item.addEventListener('click', () => {
               panel.classList.remove('open');
-              if (window.gmOpenChat) window.gmOpenChat(c.id, c.recipient);
-              else window.location.href = `/messenger/?conv=${c.id}`;
+              if (isGroup) {
+                if (window.gmOpenGroupChat) window.gmOpenGroupChat(c.id, c);
+                else window.location.href = `/messenger/?conv=${c.id}`;
+              } else {
+                if (window.gmOpenChat) window.gmOpenChat(c.id, c.recipient);
+                else window.location.href = `/messenger/?conv=${c.id}`;
+              }
             });
             listEl.appendChild(item);
           });
@@ -1448,7 +1555,7 @@
       function pollUnread() {
         fetch('/messenger/conversations/').then(r => r.json()).then(data => {
           const total = (data.conversations || []).reduce((s, c) => s + (c.unread_count || 0), 0);
-          window.setMsgBadge(total);
+          window.setMsgBadge && window.setMsgBadge(total);
         }).catch(() => {});
       }
       pollUnread();
@@ -1459,366 +1566,758 @@
   <!-- ═══ GLOBAL MESSENGER FAB + FLOATING WINDOWS ══════════════ -->
   <script>
     (function () {
-      const IS_MESSENGER = document.getElementById('msng') !== null;
-
+      'use strict';
+  
+      /* ── On messenger page: wire FAB to new-message modal only ── */
+      if (document.getElementById('msng')) {
+        const fab = document.getElementById('gmFab');
+        if (fab) {
+          fab.addEventListener('click', () => {
+            const modal = document.getElementById('newMsgModal');
+            if (modal) {
+              modal.classList.add('open');
+              const si = document.getElementById('newMsgSearch');
+              if (si) { si.value = ''; si.focus(); }
+              if (window.msngRenderNewUsers) window.msngRenderNewUsers('');
+            }
+          });
+        }
+        return;
+      }
+  
+      /* ════════════════════════════════════════════════════════════
+        FIX #1 — ME_ID must come from the Django-rendered template,
+        NOT from data attributes (body tag has none).
+        These three consts are rendered inline by Django above this
+        script block — they are already in scope.  We just reference
+        them.  If they are somehow 0/empty we fall back gracefully.
+      ════════════════════════════════════════════════════════════ */
+      const ME_ID       = {{ request.user.pk }};
+      const ME_INITIALS = "{{ request.user.first_name|slice:':1'|upper }}{{ request.user.last_name|slice:':1'|upper }}";
+      const ME_AVATAR   = "{% if request.user.profile.avatar %}{{ request.user.profile.avatar.url }}{% endif %}";
+  
+      const MAX_OPEN = 3;
+      const SS_KEY   = 'gm_state_v2';
+  
+      let allConvs   = [];
+      let allUsers   = [];
+      let openWins   = {};
+      let miniWins   = {};
+      let pickerOpen = false;
+      let pickerTab  = 'dm';
+      let groupSelectedIds = new Set();
+  
+      /* ── Helpers ── */
+      const getCsrf = () => { const v = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; };
+      const esc     = s  => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      const fmtT    = iso => new Date(iso).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+      const avHTML  = (av, ini, size) => av
+        ? `<img src="${av}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+        : `<span style="font-size:${Math.round(size * .32)}px;">${ini || '?'}</span>`;
+      function isImageUrl(url) { return url && /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url); }
+      function isVideoUrl(url) { return url && /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(url); }
+      function fileIcon(name) {
+        if (!name) return 'fa-file';
+        const ext = name.split('.').pop().toLowerCase();
+        return ({pdf:'fa-file-pdf',doc:'fa-file-word',docx:'fa-file-word',xls:'fa-file-excel',
+                xlsx:'fa-file-excel',ppt:'fa-file-powerpoint',pptx:'fa-file-powerpoint',
+                zip:'fa-file-zipper',rar:'fa-file-zipper',txt:'fa-file-lines',
+                mp4:'fa-file-video',mov:'fa-file-video',mp3:'fa-file-audio',wav:'fa-file-audio'})[ext] || 'fa-file';
+      }
+  
+      /* ════════════════════════════════════════════════════════════
+        SESSION PERSISTENCE
+      ════════════════════════════════════════════════════════════ */
+      function saveState() {
+        try {
+          sessionStorage.setItem(SS_KEY, JSON.stringify({
+            open: Object.keys(openWins).map(id => ({
+              id, isGroup: openWins[id].isGroup,
+              recipient: openWins[id].recipient || null,
+              convData:  openWins[id].convData  || null,
+            })),
+            mini: Object.keys(miniWins).map(id => ({
+              id, isGroup: miniWins[id].isGroup,
+              recipient: miniWins[id].recipient || null,
+              convData:  miniWins[id].convData  || null,
+              unread:    miniWins[id].unread    || 0,
+            })),
+          }));
+        } catch(_) {}
+      }
+  
+      function loadSavedState() {
+        try {
+          const raw = sessionStorage.getItem(SS_KEY);
+          if (!raw) return;
+          const state = JSON.parse(raw);
+          (state.mini || []).forEach(s => {
+            if (!miniWins[s.id] && !openWins[s.id])
+              _spawnBubble(s.id, s.recipient, s.convData, s.isGroup, s.unread);
+          });
+          (state.open || []).forEach(s => {
+            if (!openWins[s.id] && !miniWins[s.id]) {
+              if (s.isGroup) openGroupChat(s.id, s.convData);
+              else           openChat(s.id, s.recipient);
+            }
+          });
+        } catch(_) {}
+      }
+  
+      window.addEventListener('beforeunload', saveState);
+  
+      /* ── DOM refs ── */
       const fab          = document.getElementById('gmFab');
+      const fabBadge     = document.getElementById('gmFabBadge');
       const picker       = document.getElementById('gmPicker');
       const pickerClose  = document.getElementById('gmPickerClose');
       const pickerSearch = document.getElementById('gmPickerSearch');
       const pickerList   = document.getElementById('gmPickerList');
       const winsRow      = document.getElementById('gmWinsRow');
       const bubblesCol   = document.getElementById('gmBubblesCol');
-      const fabBadge     = document.getElementById('gmFabBadge');
-
-      /* ── On messenger page: hide floating UI, wire FAB to new-message modal ── */
-      if (IS_MESSENGER) {
-        picker.style.display = winsRow.style.display = bubblesCol.style.display = 'none';
-        fab.addEventListener('click', () => {
-          const modal = document.getElementById('newMsgModal');
-          if (modal) {
-            modal.classList.add('open');
-            const si = document.getElementById('newMsgSearch');
-            if (si) { si.value = ''; si.focus(); }
-            if (window.msngRenderNewUsers) window.msngRenderNewUsers('');
-          }
+  
+      function setFabBadge(n) {
+        fabBadge.textContent = n > 99 ? '99+' : n;
+        fabBadge.classList.toggle('show', n > 0);
+      }
+  
+      /* ════════════════════════════════════════════════════════════
+        DATA
+      ════════════════════════════════════════════════════════════ */
+      function loadConvs(cb) {
+        fetch('/messenger/conversations/').then(r => r.json()).then(data => {
+          allConvs = data.conversations || [];
+          const total = allConvs.reduce((s, c) => s + (c.unread_count || 0), 0);
+          setFabBadge(total);
+          window.setMsgBadge && window.setMsgBadge(total);
+          if (cb) cb();
+        }).catch(() => {});
+      }
+  
+      function loadUsers(cb) {
+        fetch('/messenger/users/').then(r => r.json()).then(data => {
+          allUsers = data.users || [];
+          if (cb) cb();
+        }).catch(() => {});
+      }
+  
+      /* ════════════════════════════════════════════════════════════
+        PICKER TABS
+        FIX #4 — use a dedicated class instead of fragile cssText regex
+      ════════════════════════════════════════════════════════════ */
+  
+      /* Add this CSS once */
+      (function() {
+        const s = document.createElement('style');
+        s.textContent = `
+          .gm-ptab { flex:1;padding:9px 4px;text-align:center;font-size:.8rem;font-weight:600;
+            cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);
+            transition:color .15s,border-color .15s;user-select:none; }
+          .gm-ptab.active { color:var(--green-mid);border-bottom-color:var(--green-mid); }
+        `;
+        document.head.appendChild(s);
+      })();
+  
+      function _ensurePickerTabs() {
+        if (document.getElementById('gmPickerTabBar')) return;
+        const tabBar = document.createElement('div');
+        tabBar.id = 'gmPickerTabBar';
+        tabBar.style.cssText = 'display:flex;border-bottom:1px solid var(--border);flex-shrink:0;';
+        tabBar.innerHTML = `
+          <div id="gmPTabDm" class="gm-ptab active">
+            <i class="fa-solid fa-user" style="margin-right:4px;"></i>Direct
+          </div>
+          <div id="gmPTabGroup" class="gm-ptab">
+            <i class="fa-solid fa-users" style="margin-right:4px;"></i>New Group
+          </div>`;
+        picker.querySelector('.gm-picker__srch').insertAdjacentElement('afterend', tabBar);
+  
+        document.getElementById('gmPTabDm').addEventListener('click', () => {
+          pickerTab = 'dm'; groupSelectedIds.clear(); _syncTabUI(); renderPicker(pickerSearch.value);
         });
-        return;
+        document.getElementById('gmPTabGroup').addEventListener('click', () => {
+          pickerTab = 'group'; _syncTabUI();
+          if (!allUsers.length) loadUsers(() => renderPicker(pickerSearch.value));
+          else renderPicker(pickerSearch.value);
+        });
       }
-
-      /* ── Constants ── */
-      const MAX_OPEN    = 3;
-      const ME_ID       = {{ request.user.pk }};
-      const ME_INITIALS = "{{ request.user.first_name|slice:':1'|upper }}{{ request.user.last_name|slice:':1'|upper }}";
-      const ME_AVATAR   = "{% if request.user.profile.avatar %}{{ request.user.profile.avatar.url }}{% endif %}";
-
-      let allConvs   = [];
-      let allUsers   = [];
-      let openWins   = {};
-      let miniWins   = {};
-      let pickerOpen = false;
-
-      /* ── Helpers ── */
-      const getCsrf = () => { const v=document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)'); return v?v.pop():''; };
-      const esc     = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-      const fmtT    = iso => new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-      const tAgo    = iso => { const d=new Date(iso),now=new Date(),diff=Math.floor((now-d)/1000); if(diff<60)return 'now'; if(diff<3600)return Math.floor(diff/60)+'m'; if(diff<86400)return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); return d.toLocaleDateString([],{month:'short',day:'numeric'}); };
-      const avHTML  = (av,ini,size) => av ? `<img src="${av}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : `<span style="font-size:${Math.round(size*.32)}px;">${ini||'?'}</span>`;
-
-      function isImage(url) { return url && /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url); }
-      function isVideo(url) { return url && /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(url); }
-      function fileIcon(name) {
-        if (!name) return 'fa-file';
-        const ext=name.split('.').pop().toLowerCase();
-        const map={pdf:'fa-file-pdf',doc:'fa-file-word',docx:'fa-file-word',xls:'fa-file-excel',xlsx:'fa-file-excel',ppt:'fa-file-powerpoint',pptx:'fa-file-powerpoint',zip:'fa-file-zipper',rar:'fa-file-zipper',txt:'fa-file-lines',mp4:'fa-file-video',mov:'fa-file-video',avi:'fa-file-video',mp3:'fa-file-audio',wav:'fa-file-audio'};
-        return map[ext]||'fa-file';
+  
+      function _syncTabUI() {
+        const dm  = document.getElementById('gmPTabDm');
+        const grp = document.getElementById('gmPTabGroup');
+        if (!dm || !grp) return;
+        dm.classList.toggle('active',  pickerTab === 'dm');
+        grp.classList.toggle('active', pickerTab === 'group');
       }
-
-      let gmLbItems = [], gmLbIndex = 0;
-
-      function gmLightbox(url, name, allItems) {
-        if (allItems && allItems.length) {
-          gmLbItems = allItems;
-          gmLbIndex = allItems.findIndex(i => i.url === url);
-          if (gmLbIndex < 0) gmLbIndex = 0;
-        } else {
-          gmLbItems = [{ url, name: name||'File', isImage: isImage(url), isVideo: isVideo(url) }];
-          gmLbIndex = 0;
+  
+      /* ════════════════════════════════════════════════════════════
+        PICKER RENDER
+      ════════════════════════════════════════════════════════════ */
+      function renderPicker(filter) {
+        if (pickerTab === 'group') { renderGroupPane(filter); return; }
+        renderDmPane(filter);
+      }
+  
+      function renderDmPane(filter) {
+        const lo = (filter || '').toLowerCase();
+        pickerList.innerHTML = '';
+        _ensurePickerTabs();
+        _syncTabUI();
+  
+        const convs = allConvs.filter(c => {
+          if (c.is_archived) return false;
+          const n = c.is_group ? (c.name || 'Group Chat') : (c.recipient ? c.recipient.name : '');
+          return !lo || n.toLowerCase().includes(lo);
+        });
+  
+        if (convs.length) {
+          if (!lo) {
+            const s = document.createElement('div');
+            s.className = 'gm-picker__sec'; s.textContent = 'Recent';
+            pickerList.appendChild(s);
+          }
+          convs.forEach(c => pickerList.appendChild(c.is_group ? _mkGroupItem(c) : _mkDmItem(c, null)));
         }
-        renderGmLightbox();
+  
+        if (lo) {
+          const ids = new Set(allConvs.filter(c => !c.is_group && c.recipient).map(c => c.recipient.id));
+          const others = allUsers.filter(u => u.name.toLowerCase().includes(lo) && !ids.has(u.id));
+          if (others.length) {
+            const s = document.createElement('div');
+            s.className = 'gm-picker__sec'; s.textContent = 'People';
+            pickerList.appendChild(s);
+            others.forEach(u => pickerList.appendChild(_mkDmItem(null, u)));
+          }
+        }
+  
+        if (!pickerList.children.length)
+          pickerList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.8rem;">No conversations yet</div>';
+      }
+  
+      function renderGroupPane(filter) {
+        document.getElementById('gmGroupFooter')?.remove();
+        const lo = (filter || '').toLowerCase();
+        pickerList.innerHTML = '';
+        _ensurePickerTabs();
+        _syncTabUI();
+  
+        /* Chips */
+        if (groupSelectedIds.size) {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:6px 12px;border-bottom:1px solid var(--border);';
+          groupSelectedIds.forEach(id => {
+            const u = allUsers.find(u => u.id === id); if (!u) return;
+            const chip = document.createElement('div');
+            chip.style.cssText = 'display:flex;align-items:center;gap:4px;background:var(--green-pale);border:1px solid var(--border);border-radius:14px;padding:2px 8px;font-size:.74rem;';
+            chip.innerHTML = `<span>${esc(u.name.split(' ')[0])}</span>`;
+            const rm = document.createElement('button');
+            rm.style.cssText = 'border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:.65rem;padding:0;margin-left:2px;';
+            rm.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            rm.addEventListener('click', e => { e.stopPropagation(); groupSelectedIds.delete(id); renderGroupPane(pickerSearch.value); });
+            chip.appendChild(rm); wrap.appendChild(chip);
+          });
+          pickerList.appendChild(wrap);
+        }
+  
+        /* Group name */
+        const nw = document.createElement('div');
+        nw.style.cssText = 'padding:7px 12px;border-bottom:1px solid var(--border);';
+        nw.innerHTML = `<input id="gmPickerGroupName" type="text" placeholder="Group name…" autocomplete="off"
+          style="width:100%;padding:5px 10px;border:1px solid var(--border);border-radius:14px;
+                background:var(--green-pale);font-size:.81rem;color:var(--text-primary);outline:none;">`;
+        pickerList.appendChild(nw);
+        document.getElementById('gmPickerGroupName').value = window._gmGroupNameDraft || '';
+        document.getElementById('gmPickerGroupName').addEventListener('input', (e) => {
+          window._gmGroupNameDraft = e.target.value;
+        });
+  
+        /* User list */
+        const filtered = allUsers.filter(u => !lo || u.name.toLowerCase().includes(lo));
+        if (!filtered.length) {
+          const e = document.createElement('div');
+          e.style.cssText = 'padding:16px;text-align:center;color:var(--text-muted);font-size:.8rem;';
+          e.textContent = 'No users found';
+          pickerList.appendChild(e);
+        } else {
+          filtered.forEach(u => {
+            const sel = groupSelectedIds.has(u.id);
+            const div = document.createElement('div');
+            div.className = 'gm-picker__item';
+            div.style.background = sel ? 'var(--green-pale)' : '';
+            div.innerHTML = `
+              <div class="gm-picker__av">
+                ${avHTML(u.avatar, u.initials, 36)}
+                ${u.is_online ? '<span class="gm-picker__av-dot"></span>' : ''}
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div class="gm-picker__name">${esc(u.name)}</div>
+                <div class="gm-picker__preview">${esc(u.position || '')}</div>
+              </div>
+              <div style="width:18px;height:18px;border-radius:50%;border:2px solid ${sel ? 'var(--green-mid)' : 'var(--border)'};
+                background:${sel ? 'var(--green-mid)' : 'transparent'};display:flex;align-items:center;
+                justify-content:center;font-size:.6rem;color:#fff;flex-shrink:0;">
+                ${sel ? '<i class="fa-solid fa-check"></i>' : ''}
+              </div>`;
+            div.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (groupSelectedIds.has(u.id)) groupSelectedIds.delete(u.id);
+              else groupSelectedIds.add(u.id);
+              renderGroupPane(pickerSearch.value);
+            });
+            pickerList.appendChild(div);
+          });
+        }
+  
+        /* Footer */
+        const footer = document.createElement('div');
+        footer.id = 'gmGroupFooter'
+        footer.style.cssText = 'padding:8px 12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
+        const cnt = document.createElement('span');
+        cnt.style.cssText = 'font-size:.75rem;color:var(--text-muted);';
+        cnt.textContent = groupSelectedIds.size < 2
+          ? `Select at least 2 (${groupSelectedIds.size} chosen)`
+          : `${groupSelectedIds.size} selected`;
+        const btn = document.createElement('button');
+        btn.style.cssText = `padding:7px 14px;border:none;border-radius:14px;background:var(--green-mid);
+          color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;opacity:${groupSelectedIds.size < 2 ? '.5' : '1'};`;
+        btn.innerHTML = '<i class="fa-solid fa-users"></i> Create';
+        btn.disabled = groupSelectedIds.size < 2;
+        btn.addEventListener('click', async () => {
+          const ni = document.getElementById('gmPickerGroupName');
+          const name = ni ? ni.value.trim() : '';
+          if (!name) { if (ni) { ni.style.borderColor = '#dc2626'; setTimeout(() => ni.style.borderColor = '', 2000); } return; }
+          if (groupSelectedIds.size < 2) return;
+          btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+          const fd = new FormData();
+          fd.append('name', name);
+          groupSelectedIds.forEach(id => fd.append('member_ids', id));
+          const res  = await fetch('/messenger/conversations/create-group/', { method:'POST', headers:{'X-CSRFToken':getCsrf()}, body: fd });
+          const data = await res.json();
+          if (data.success) {
+            groupSelectedIds.clear(); closePicker();
+            loadConvs(() => {
+              const conv = allConvs.find(c => c.id == data.conversation_id);
+              if (conv) openGroupChat(String(conv.id), conv);
+            });
+          }
+          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-users"></i> Create';
+        });
+        footer.appendChild(cnt); footer.appendChild(btn);
+        picker.appendChild(footer);
+      }
+  
+      function _mkDmItem(conv, user) {
+        const r = conv ? conv.recipient : user;
+        const convId  = conv ? conv.id : null;
+        const unread  = conv ? (conv.unread_count || 0) : 0;
+        const preview = conv ? (conv.last_message || '') : (user ? (user.position || '') : '');
+        const div = document.createElement('div');
+        div.className = 'gm-picker__item';
+        div.innerHTML = `
+          <div class="gm-picker__av">
+            ${avHTML(r.avatar, r.initials, 36)}
+            ${r.is_online ? '<span class="gm-picker__av-dot"></span>' : ''}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="gm-picker__name">${esc(r.name)}</div>
+            <div class="gm-picker__preview">${esc(preview)}</div>
+          </div>
+          ${unread > 0 ? `<div class="gm-picker__unread">${unread}</div>` : ''}`;
+        div.addEventListener('click', () => {
+          closePicker();
+          if (convId) openChat(String(convId), r);
+          else fetch('/messenger/conversations/start/', {
+            method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+            body: JSON.stringify({ user_id: r.id }),
+          }).then(res => res.json()).then(d => loadConvs(() => openChat(String(d.conversation_id), r)));
+        });
+        return div;
+      }
+  
+      function _mkGroupItem(conv) {
+        const div = document.createElement('div');
+        div.className = 'gm-picker__item';
+        div.innerHTML = `
+          <div class="gm-picker__av">
+            ${conv.avatar ? `<img src="${conv.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : `<span style="font-size:11px;">${conv.initials||'GC'}</span>`}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="gm-picker__name">${esc(conv.name||'Group Chat')} <i class="fa-solid fa-users" style="font-size:.6rem;color:var(--green-accent);margin-left:3px;"></i></div>
+            <div class="gm-picker__preview">${esc(conv.last_message||'')}</div>
+          </div>
+          ${conv.unread_count > 0 ? `<div class="gm-picker__unread">${conv.unread_count}</div>` : ''}`;
+        div.addEventListener('click', () => { closePicker(); openGroupChat(String(conv.id), conv); });
+        return div;
+      }
+  
+      
+      /* ════════════════════════════════════════════════════════════
+        LIGHTBOX
+      ════════════════════════════════════════════════════════════ */
+      let lbItems = [], lbIdx = 0;
+
+      function openLightbox(url, name, allItems) {
+        if (allItems && allItems.length) {
+          lbItems = allItems;
+          lbIdx   = allItems.findIndex(i => i.url === url);
+          if (lbIdx < 0) lbIdx = 0;
+        } else {
+          lbItems = [{ url, name: name||'File', isImage: isImageUrl(url), isVideo: isVideoUrl(url) }];
+          lbIdx   = 0;
+        }
+        _renderLb();
         document.getElementById('gmLightbox').classList.add('open');
       }
 
-      function renderGmLightbox() {
-        const item = gmLbItems[gmLbIndex];
-        if (!item) return;
-        const lb      = document.getElementById('gmLightbox');
+      function _renderLb() {
+        const item    = lbItems[lbIdx]; if (!item) return;
         const content = document.getElementById('gmLightboxContent');
         const caption = document.getElementById('gmLightboxCaption');
-        const dl      = document.getElementById('gmLightboxDl');
+        const dlBtn   = document.getElementById('gmLightboxDl');
+        const prevBtn = document.getElementById('gmLightboxPrev');
+        const nextBtn = document.getElementById('gmLightboxNext');
+        const strip   = document.getElementById('gmLightboxStrip');
+        const bg      = document.getElementById('gmLightboxBg');
 
-        dl.href = item.url; dl.download = item.name||'file';
-        caption.textContent = item.name||'';
+        dlBtn.href = item.url; dlBtn.download = item.name || 'file';
+        caption.textContent = item.name || '';
+
+        prevBtn.classList.toggle('hidden', lbIdx === 0);
+        nextBtn.classList.toggle('hidden', lbIdx === lbItems.length - 1);
+
+        if (item.isImage) {
+          bg.style.backgroundImage = `url('${item.url}')`;
+          bg.style.display = 'block';
+        } else {
+          bg.style.display = 'none';
+        }
+
+        content.style.animation = 'none';
+        requestAnimationFrame(() => { content.style.animation = 'gmLightboxFade .18s ease'; });
         content.innerHTML = '';
 
         if (item.isImage) {
           const img = document.createElement('img');
-          img.src = item.url; img.className = 'gm-lightbox__img'; img.alt = item.name||'';
+          img.src = item.url; img.className = 'gm-lightbox__img'; img.alt = item.name || '';
           content.appendChild(img);
         } else if (item.isVideo) {
-          const vid = document.createElement('video');
-          vid.src = item.url; vid.controls = true; vid.autoplay = true;
-          vid.style.cssText = 'max-width:90vw;max-height:82vh;border-radius:8px;';
-          content.appendChild(vid);
+          const v = document.createElement('video');
+          v.src = item.url; v.controls = true; v.autoplay = true;
+          v.style.cssText = 'max-width:88vw;max-height:calc(100vh - 180px);border-radius:8px;';
+          content.appendChild(v);
         } else {
-          content.innerHTML = `<div class="gm-lightbox__file"><i class="fa-solid ${fileIcon(item.name)}"></i><div class="gm-lightbox__file-name">${esc(item.name||'File')}</div><a href="${item.url}" download="${item.name||'file'}" class="gm-lightbox__file-dl"><i class="fa-solid fa-download"></i> Download File</a></div>`;
+          content.innerHTML = `<div class="gm-lightbox__file">
+            <i class="fa-solid ${fileIcon(item.name)}"></i>
+            <div class="gm-lightbox__file-name">${esc(item.name||'File')}</div>
+            <a href="${item.url}" download="${item.name||'file'}" class="gm-lightbox__file-dl">
+              <i class="fa-solid fa-download"></i> Download
+            </a></div>`;
         }
 
-        // Nav arrows — remove old ones first
-        lb.querySelector('.gm-lb-prev')?.remove();
-        lb.querySelector('.gm-lb-next')?.remove();
-
-        if (gmLbItems.length > 1) {
-          if (gmLbIndex > 0) {
-            const prev = document.createElement('button');
-            prev.className = 'gm-lb-prev';
-            prev.style.cssText = 'position:absolute;left:14px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.9rem;z-index:3;transition:background .15s;';
-            prev.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-            prev.addEventListener('click', e => { e.stopPropagation(); gmLbIndex--; renderGmLightbox(); });
-            lb.appendChild(prev);
-          }
-          if (gmLbIndex < gmLbItems.length - 1) {
-            const next = document.createElement('button');
-            next.className = 'gm-lb-next';
-            next.style.cssText = 'position:absolute;right:14px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.9rem;z-index:3;transition:background .15s;';
-            next.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-            next.addEventListener('click', e => { e.stopPropagation(); gmLbIndex++; renderGmLightbox(); });
-            lb.appendChild(next);
-          }
-
-          // Thumbnail strip — remove old first
-          lb.querySelector('.gm-lb-strip')?.remove();
-          const strip = document.createElement('div');
-          strip.className = 'gm-lb-strip';
-          strip.style.cssText = 'position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 16px 14px;overflow-x:auto;z-index:3;';
-          gmLbItems.forEach((it, idx) => {
+        /* Thumbnail strip */
+        strip.innerHTML = '';
+        if (lbItems.length > 1) {
+          lbItems.forEach((it, idx) => {
             let thumb;
             if (it.isImage) {
               thumb = document.createElement('img');
-              thumb.src = it.url;
-              thumb.style.cssText = `width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0;border:2px solid ${idx===gmLbIndex?'#fff':'transparent'};opacity:${idx===gmLbIndex?'1':'.55'};transition:all .15s;`;
+              thumb.src = it.url; thumb.className = 'gm-lightbox__thumb'; thumb.alt = it.name || '';
             } else {
               thumb = document.createElement('div');
-              thumb.style.cssText = `width:46px;height:46px;border-radius:6px;cursor:pointer;flex-shrink:0;border:2px solid ${idx===gmLbIndex?'#fff':'transparent'};opacity:${idx===gmLbIndex?'1':'.55'};background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.8);font-size:1.1rem;`;
+              thumb.className = 'gm-lightbox__thumb-file';
               thumb.innerHTML = `<i class="fa-solid ${fileIcon(it.name)}"></i>`;
             }
-            thumb.addEventListener('click', e => { e.stopPropagation(); gmLbIndex = idx; renderGmLightbox(); });
+            if (idx === lbIdx) thumb.classList.add('active');
+            thumb.addEventListener('click', () => { lbIdx = idx; _renderLb(); });
             strip.appendChild(thumb);
           });
-          lb.appendChild(strip);
-          // Scroll active thumb into view
           setTimeout(() => {
-            const active = strip.children[gmLbIndex];
+            const active = strip.querySelector('.active');
             if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth' });
           }, 50);
         }
       }
 
-      document.getElementById('gmLightboxClose').addEventListener('click', () => document.getElementById('gmLightbox').classList.remove('open'));
+      document.getElementById('gmLightboxPrev').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (lbIdx > 0) { lbIdx--; _renderLb(); }
+      });
+      document.getElementById('gmLightboxNext').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (lbIdx < lbItems.length - 1) { lbIdx++; _renderLb(); }
+      });
+      document.getElementById('gmLightboxClose').addEventListener('click', () =>
+        document.getElementById('gmLightbox').classList.remove('open'));
       document.getElementById('gmLightbox').addEventListener('click', e => {
         if (e.target === document.getElementById('gmLightbox')) document.getElementById('gmLightbox').classList.remove('open');
       });
       document.addEventListener('keydown', e => {
-        if (!document.getElementById('gmLightbox').classList.contains('open')) return;
-        if (e.key === 'ArrowLeft'  && gmLbIndex > 0) { gmLbIndex--; renderGmLightbox(); }
-        if (e.key === 'ArrowRight' && gmLbIndex < gmLbItems.length - 1) { gmLbIndex++; renderGmLightbox(); }
-        if (e.key === 'Escape') document.getElementById('gmLightbox').classList.remove('open');
+        const lb = document.getElementById('gmLightbox');
+        if (!lb.classList.contains('open')) return;
+        if (e.key === 'ArrowLeft'  && lbIdx > 0) { lbIdx--; _renderLb(); }
+        if (e.key === 'ArrowRight' && lbIdx < lbItems.length - 1) { lbIdx++; _renderLb(); }
+        if (e.key === 'Escape') lb.classList.remove('open');
       });
 
-      /* ── FAB badge ── */
-      function setFabBadge(n) {
-        fabBadge.textContent = n > 99 ? '99+' : n;
-        fabBadge.classList.toggle('show', n > 0);
-      }
 
-      /* ── Load conversations ── */
-      function loadConvs(cb) {
-        fetch('/messenger/conversations/').then(r=>r.json()).then(data=>{
-          allConvs = data.conversations || [];
-          const total = allConvs.reduce((s,c)=>s+(c.unread_count||0),0);
-          setFabBadge(total);
-          window.setMsgBadge(total);
-          renderPicker(pickerSearch.value);
-          /* Re-sync block + mute state for all open windows */
-          Object.keys(openWins).forEach(cid => {
-            setWinBlockedState(cid);
-            updateWinMuteLabel(cid);
-          });
-          if (cb) cb();
-        }).catch(()=>{});
+      /* ════════════════════════════════════════════════════════════
+        MUTE MODAL
+      ════════════════════════════════════════════════════════════ */
+      let mutePendingId = null;
+      function openGmMuteModal(convId) {
+        mutePendingId = convId;
+        document.querySelectorAll('.gm-mute-opt').forEach(o => o.classList.remove('selected'));
+        document.querySelector('.gm-mute-opt').classList.add('selected');
+        document.querySelector('input[name="gmMuteDur"][value="indefinite"]').checked = true;
+        document.getElementById('gmMuteModal').classList.add('open');
       }
-
-      function loadUsers() {
-        fetch('/messenger/users/').then(r=>r.json()).then(data=>{ allUsers=data.users||[]; renderPicker(pickerSearch.value); }).catch(()=>{});
-      }
-
-      /* ── Picker ── */
-      function renderPicker(filter) {
-        const lo=(filter||'').toLowerCase();
-        pickerList.innerHTML='';
-        const convs=allConvs.filter(c=>!lo||c.recipient.name.toLowerCase().includes(lo));
-        if (convs.length) {
-          if (!lo) { const s=document.createElement('div'); s.className='gm-picker__sec'; s.textContent='Recent'; pickerList.appendChild(s); }
-          convs.forEach(c=>pickerList.appendChild(makePickerItem(c.recipient,c.id,c.unread_count,c.last_message)));
-        }
-        if (lo) {
-          const ids=new Set(allConvs.map(c=>c.recipient.id));
-          const others=allUsers.filter(u=>u.name.toLowerCase().includes(lo)&&!ids.has(u.id));
-          if (others.length) {
-            const s=document.createElement('div'); s.className='gm-picker__sec'; s.textContent='People'; pickerList.appendChild(s);
-            others.forEach(u=>pickerList.appendChild(makePickerItem(u,null,0,u.position||'')));
-          }
-        }
-        if (!pickerList.children.length)
-          pickerList.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.8rem;">No conversations yet</div>';
-      }
-
-      function makePickerItem(recipient, convId, unread, preview) {
-        const div=document.createElement('div'); div.className='gm-picker__item';
-        div.innerHTML=`
-          <div class="gm-picker__av">
-            ${avHTML(recipient.avatar,recipient.initials,36)}
-            ${recipient.is_online?'<span class="gm-picker__av-dot"></span>':''}
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div class="gm-picker__name">${esc(recipient.name)}</div>
-            <div class="gm-picker__preview">${esc(preview||'')}</div>
-          </div>
-          ${unread>0?`<div class="gm-picker__unread">${unread}</div>`:''}`;
-        div.addEventListener('click',()=>{
-          closePicker();
-          if (convId) openChat(convId,recipient);
-          else fetch('/messenger/conversations/start/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},body:JSON.stringify({user_id:recipient.id})})
-            .then(r=>r.json()).then(data=>loadConvs(()=>openChat(data.conversation_id,recipient)));
-        });
-        return div;
-      }
-
-      /* ── Build message element ── */
+      document.querySelectorAll('.gm-mute-opt').forEach(opt => {
+        opt.addEventListener('click', () => { document.querySelectorAll('.gm-mute-opt').forEach(o => o.classList.remove('selected')); opt.classList.add('selected'); });
+      });
+      document.getElementById('gmMuteCancel').addEventListener('click', () => document.getElementById('gmMuteModal').classList.remove('open'));
+      document.getElementById('gmMuteModal').addEventListener('click', e => { if (e.target === document.getElementById('gmMuteModal')) document.getElementById('gmMuteModal').classList.remove('open'); });
+      document.getElementById('gmMuteConfirm').addEventListener('click', () => {
+        const dur = document.querySelector('input[name="gmMuteDur"]:checked')?.value || 'indefinite';
+        if (!mutePendingId) return;
+        fetch(`/messenger/conversations/${mutePendingId}/mute/`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify({ duration: dur }) })
+          .then(r => r.json()).then(d => { if (d.success) { document.getElementById('gmMuteModal').classList.remove('open'); loadConvs(); } });
+      });
+  
+      /* ════════════════════════════════════════════════════════════
+        FIX #2 — MESSAGE BUILDER
+        mine detection uses ME_ID (now correctly set from Django template)
+        FIX #3 — IMAGE GROUPING in load
+      ════════════════════════════════════════════════════════════ */
       function buildWinMsg(msg, convId) {
-        const mine=msg.sender_id===ME_ID;
-        const row=document.createElement('div'); row.className='gm-win__row'+(mine?' mine':''); row.dataset.id=msg.id;
-        const hasAtt=msg.attachment_url, hasBody=msg.body&&msg.body.trim();
-        const bubble=document.createElement('div');
-        let content='';
-
+        const mine = (msg.sender_id === ME_ID);   /* ← this now works correctly */
+        const row  = document.createElement('div');
+        row.className = 'gm-win__row' + (mine ? ' mine' : '');
+        row.dataset.id = msg.id;
+  
+        const hasAtt  = msg.attachment_url;
+        const hasBody = msg.body && msg.body.trim();
+        const bubble  = document.createElement('div');
+        let content   = '';
+  
         if (hasAtt) {
-          if (msg.is_image||isImage(msg.attachment_url)) {
-            bubble.className=hasBody?'gm-win__bubble':'gm-win__bubble img-only';
-            content+=`<img class="gm-win__bubble-img" src="${msg.attachment_url}" alt="${msg.attachment_name||''}" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Image'}">`;
-          } else if (isVideo(msg.attachment_url)) {
-            bubble.className=hasBody?'gm-win__bubble':'gm-win__bubble img-only';
-            content+=`<div style="position:relative;width:200px;height:130px;border-radius:10px;overflow:hidden;cursor:pointer;margin-bottom:3px;" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Video'}" class="gm-win__vid-preview"><video src="${msg.attachment_url}" style="width:100%;height:100%;object-fit:cover;" muted preload="metadata"></video><div style="position:absolute;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;"><div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-play" style="color:#1a4731;font-size:.8rem;margin-left:2px;"></i></div></div></div>`;
+          if (msg.is_image || isImageUrl(msg.attachment_url)) {
+            bubble.className = hasBody ? 'gm-win__bubble' : 'gm-win__bubble img-only';
+            content += `<img class="gm-win__bubble-img" src="${msg.attachment_url}" alt=""
+              data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Image'}"
+              style="width:200px;height:140px;object-fit:cover;border-radius:10px;display:block;cursor:pointer;margin-bottom:3px;">`;
+          } else if (isVideoUrl(msg.attachment_url)) {
+            bubble.className = hasBody ? 'gm-win__bubble' : 'gm-win__bubble img-only';
+            content += `<div class="gm-win__vid-preview" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Video'}"
+              style="position:relative;width:200px;height:130px;border-radius:10px;overflow:hidden;cursor:pointer;margin-bottom:3px;">
+              <video src="${msg.attachment_url}" style="width:100%;height:100%;object-fit:cover;" muted preload="metadata"></video>
+              <div style="position:absolute;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;">
+                  <i class="fa-solid fa-play" style="color:#1a4731;font-size:.8rem;margin-left:2px;"></i>
+                </div></div></div>`;
           } else {
-            bubble.className='gm-win__bubble';
-            content+=`<div class="gm-win__bubble-file" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'File'}"><div class="gm-win__bubble-file-icon"><i class="fa-solid ${fileIcon(msg.attachment_name)}"></i></div><div><div class="gm-win__bubble-file-name">${esc(msg.attachment_name||'File')}</div><div class="gm-win__bubble-file-size">${msg.attachment_name?msg.attachment_name.split('.').pop().toUpperCase():'FILE'}</div></div></div>`;
+            bubble.className = 'gm-win__bubble';
+            content += `<div class="gm-win__bubble-file" data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'File'}">
+              <div class="gm-win__bubble-file-icon"><i class="fa-solid ${fileIcon(msg.attachment_name)}"></i></div>
+              <div><div class="gm-win__bubble-file-name">${esc(msg.attachment_name||'File')}</div></div></div>`;
           }
         } else {
-          bubble.className='gm-win__bubble';
+          bubble.className = 'gm-win__bubble';
         }
-
-        if (hasBody) content+=`<span>${esc(msg.body)}</span>`;
-        const statusIcon = mine ? `<span class="gm-win__status" data-status="${msg.status||'sent'}"></span>` : '';
-        content+=`<span class="gm-win__btime">${fmtT(msg.created_at)}${statusIcon}</span>`;
-        bubble.innerHTML=content;
-
-        bubble.querySelector('.gm-win__bubble-img')?.addEventListener('click', e => {
-          const state = convId ? openWins[String(convId)] : null;
-          const msgs = state ? Array.from(state.msgsEl.querySelectorAll('.gm-win__bubble-img')).map(img=>({
-            url: img.dataset.url, name: img.dataset.name,
-            isImage: true, isVideo: false,
-          })) : [];
-          gmLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name, msgs.length > 1 ? msgs : null);
-        });
-        bubble.querySelector('.gm-win__vid-preview')?.addEventListener('click',e=>gmLightbox(e.currentTarget.dataset.url,e.currentTarget.dataset.name));
-        bubble.querySelector('.gm-win__bubble-file')?.addEventListener('click',e=>gmLightbox(e.currentTarget.dataset.url,e.currentTarget.dataset.name));
-
+  
+        if (hasBody) content += `<span>${esc(msg.body)}</span>`;
+        const tick = mine ? `<span class="gm-win__status" data-status="${msg.status||'sent'}"></span>` : '';
+        content += `<span class="gm-win__btime">${fmtT(msg.created_at)}${tick}</span>`;
+        bubble.innerHTML = content;
+  
+        bubble.querySelector('.gm-win__bubble-img')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
+        bubble.querySelector('.gm-win__vid-preview')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
+        bubble.querySelector('.gm-win__bubble-file')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
+  
         row.appendChild(bubble);
-        // Forward button
-        const fwdBtn=document.createElement('button');
-        fwdBtn.title='Forward';
-        fwdBtn.style.cssText='display:none;width:22px;height:22px;border-radius:50%;border:none;background:var(--white);border:1px solid var(--border);color:var(--text-muted);align-items:center;justify-content:center;cursor:pointer;font-size:.62rem;flex-shrink:0;align-self:flex-end;margin-bottom:4px;box-shadow:0 1px 4px rgba(0,0,0,.1);';
-        fwdBtn.innerHTML='<i class="fa-solid fa-share"></i>';
-        fwdBtn.addEventListener('click',(e)=>{e.stopPropagation();openGmForwardModal(msg,null,convId);});
-        row.addEventListener('mouseenter',()=>fwdBtn.style.display='flex');
-        row.addEventListener('mouseleave',()=>fwdBtn.style.display='none');
-        row.appendChild(fwdBtn);
         return row;
       }
-
-      function buildWinImgGroup(msgs, convId) {
-        const mine=msgs[0].sender_id===ME_ID;
-        const row=document.createElement('div'); row.className='gm-win__row'+(mine?' mine':'');
-        const bubble=document.createElement('div'); bubble.className='gm-win__bubble img-only';
-        const cols=Math.min(msgs.length,2);
-        const grid=document.createElement('div');
-        grid.style.cssText=`display:grid;grid-template-columns:repeat(${cols},1fr);gap:2px;border-radius:10px;overflow:hidden;max-width:200px;`;
-        msgs.forEach(msg=>{
-          const img=document.createElement('img');
-          img.src=msg.attachment_url; img.alt=msg.attachment_name||'Image';
-          img.style.cssText='width:100%;height:90px;object-fit:cover;cursor:pointer;display:block;';
-          img.addEventListener('click', () => {
-            const allImgs = msgs.map(m => ({ url: m.attachment_url, name: m.attachment_name||'Image', isImage: true, isVideo: false }));
-            gmLightbox(msg.attachment_url, msg.attachment_name, allImgs);
-          });
+  
+      /* FIX #3 — grouped image bubble (multiple images sent together) */
+      function buildImgGroupMsg(msgs) {
+        const mine = (msgs[0].sender_id === ME_ID);
+        const row  = document.createElement('div');
+        row.className = 'gm-win__row' + (mine ? ' mine' : '');
+        row.dataset.id = msgs[msgs.length - 1].id;
+  
+        const bubble = document.createElement('div');
+        bubble.className = 'gm-win__bubble img-only';
+  
+        const cols = Math.min(msgs.length, 2);
+        const grid = document.createElement('div');
+        grid.style.cssText = `display:grid;grid-template-columns:repeat(${cols},1fr);gap:2px;border-radius:10px;overflow:hidden;max-width:204px;`;
+  
+        const allImgItems = msgs.map(m => ({ url: m.attachment_url, name: m.attachment_name||'Image', isImage: true, isVideo: false }));
+        msgs.forEach(msg => {
+          const img = document.createElement('img');
+          img.src = msg.attachment_url;
+          img.style.cssText = 'width:100%;height:90px;object-fit:cover;cursor:pointer;display:block;';
+          img.addEventListener('click', () => openLightbox(msg.attachment_url, msg.attachment_name, allImgItems));
           grid.appendChild(img);
         });
-        const timeSpan=document.createElement('span'); timeSpan.className='gm-win__btime';
-        timeSpan.textContent=fmtT(msgs[msgs.length-1].created_at);
-        bubble.appendChild(grid); bubble.appendChild(timeSpan);
-        // Forward button
-        const fwdBtn=document.createElement('button');
-        fwdBtn.title='Forward';
-        fwdBtn.style.cssText='display:none;width:22px;height:22px;border-radius:50%;border:none;background:var(--white);border:1px solid var(--border);color:var(--text-muted);align-items:center;justify-content:center;cursor:pointer;font-size:.62rem;flex-shrink:0;align-self:flex-end;margin-bottom:4px;box-shadow:0 1px 4px rgba(0,0,0,.1);';
-        fwdBtn.innerHTML='<i class="fa-solid fa-share"></i>';
-        fwdBtn.addEventListener('click',(e)=>{e.stopPropagation();openGmForwardModal(msgs[0],msgs,convId);});
-        row.addEventListener('mouseenter',()=>fwdBtn.style.display='flex');
-        row.addEventListener('mouseleave',()=>fwdBtn.style.display='none');
-        row.appendChild(bubble); row.appendChild(fwdBtn);
+  
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'gm-win__btime';
+        timeSpan.textContent = fmtT(msgs[msgs.length - 1].created_at);
+  
+        bubble.appendChild(grid);
+        bubble.appendChild(timeSpan);
+        row.appendChild(bubble);
         return row;
       }
-
+  
       function appendWinMsg(msgsEl, msg, convId) {
         msgsEl.querySelector('.gm-win__typing')?.remove();
         msgsEl.appendChild(buildWinMsg(msg, convId));
-        msgsEl.scrollTop=msgsEl.scrollHeight;
+        msgsEl.scrollTop = msgsEl.scrollHeight;
       }
-
-      /* ── Bubble preview popup ── */
-      let bubblePreviewTimers = {};
-
-      function showBubblePreview(convId, senderName, body, createdAt) {
-        const mini = miniWins[convId];
-        if (!mini) return;
-        let preview = mini.bubbleEl.querySelector('.gm-bubble__preview');
-        if (!preview) {
-          preview = document.createElement('div');
-          preview.className = 'gm-bubble__preview';
-          mini.bubbleEl.appendChild(preview);
+  
+      /* ════════════════════════════════════════════════════════════
+        FIX #1 — FLOATING BUBBLE spawned on any new incoming message,
+        even when no window is currently open/minimised for that conv.
+        _spawnBubble is also reused by minimizeWindow + loadSavedState.
+      ════════════════════════════════════════════════════════════ */
+      let bubbleTimers = {};
+  
+      function _spawnBubble(convId, recipient, convData, isGroup, initialUnread) {
+        convId = String(convId);
+        if (miniWins[convId]) return;
+  
+        const bubble = document.createElement('div');
+        bubble.className = 'gm-bubble';
+        bubble.dataset.convId = convId;
+        bubble.title = isGroup ? (convData?.name||'Group Chat') : (recipient?.name||'');
+  
+        const inner = document.createElement('div');
+        inner.className = 'gm-bubble__inner';
+        inner.innerHTML = avHTML(isGroup ? convData?.avatar : recipient?.avatar,
+                                isGroup ? (convData?.initials||'GC') : (recipient?.initials||'?'), 48);
+        bubble.appendChild(inner);
+  
+        if (!isGroup && recipient?.is_online) {
+          const dot = document.createElement('span'); dot.className = 'gm-bubble__online'; bubble.appendChild(dot);
         }
-        const timeStr = new Date(createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-        preview.innerHTML = `
-          <div class="gm-bubble__preview-name">${esc(senderName)}</div>
-          <div class="gm-bubble__preview-msg">${esc(body || 'Sent an attachment')}</div>
-          <div class="gm-bubble__preview-time">${timeStr}</div>`;
-        requestAnimationFrame(() => { requestAnimationFrame(() => preview.classList.add('visible')); });
-        clearTimeout(bubblePreviewTimers[convId]);
-        bubblePreviewTimers[convId] = setTimeout(() => { preview.classList.remove('visible'); }, 4000);
+  
+        const badge = document.createElement('span');
+        badge.className = 'gm-bubble__badge' + (initialUnread > 0 ? ' show' : '');
+        badge.id = `gmBubBadge_${convId}`;
+        badge.textContent = initialUnread > 0 ? initialUnread : '';
+        bubble.appendChild(badge);
+  
+        const closeBtn = document.createElement('button');
+        closeBtn.style.cssText = 'position:absolute;top:-3px;right:-3px;width:17px;height:17px;border-radius:50%;border:none;background:rgba(0,0,0,.35);color:rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.5rem;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.2);';
+        closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeWindow(convId); });
+        bubble.appendChild(closeBtn);
+  
+        bubble.addEventListener('click', () => {
+          if (isGroup) _restoreGroupBubble(convId, convData);
+          else         _restoreDmBubble(convId);
+        });
+  
+        bubblesCol.appendChild(bubble);
+        miniWins[convId] = { bubbleEl: bubble, recipient, convData, isGroup, ws: null, unread: initialUnread || 0 };
+        saveState();
       }
-
-      /* ══════════════════════════════════════════════════════
-         OPEN CHAT WINDOW
-      ══════════════════════════════════════════════════════ */
-      function openChat(convId, recipient) {
-        convId=String(convId);
-        if (miniWins[convId]) { restoreFromBubble(convId); return; }
-        if (openWins[convId]) { openWins[convId].el.querySelector('.gm-win__input').focus(); return; }
-        if (Object.keys(openWins).length>=MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
-
-        const win=document.createElement('div'); win.className='gm-win'; win.dataset.convId=convId;
-        win.innerHTML=`
+  
+      function showBubblePreview(convId, senderName, body, createdAt) {
+        const mini = miniWins[convId]; if (!mini) return;
+        const pv = mini.bubbleEl.querySelector('.gm-bubble__preview'); if (!pv) return;
+        const t = new Date(createdAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+        pv.innerHTML = `
+          <div class="gm-bubble__preview-name">${esc(senderName)}</div>
+          <div class="gm-bubble__preview-msg">${esc(body||'Sent an attachment')}</div>
+          <div class="gm-bubble__preview-time">${t}</div>`;
+        requestAnimationFrame(() => requestAnimationFrame(() => pv.classList.add('visible')));
+        clearTimeout(bubbleTimers[convId]);
+        bubbleTimers[convId] = setTimeout(() => pv.classList.remove('visible'), 4000);
+      }
+  
+      /* ════════════════════════════════════════════════════════════
+        MINIMISE / RESTORE / CLOSE
+      ════════════════════════════════════════════════════════════ */
+      function minimizeWindow(convId) {
+        convId = String(convId);
+        const state = openWins[convId]; if (!state) return;
+        const { ws, recipient, convData, isGroup } = state;
+        state.el.remove();
+        delete openWins[convId];
+  
+        _spawnBubble(convId, recipient, convData, isGroup, 0);
+  
+        const mini = miniWins[convId];
+        if (ws) {
+          mini.ws = ws;
+          ws.onmessage = e => {
+            const data = JSON.parse(e.data);
+            if (data.type === 'chat_message' && data.message.sender_id !== ME_ID) {
+              const m = miniWins[convId]; if (!m) return;
+              m.unread++;
+              const b = document.getElementById(`gmBubBadge_${convId}`);
+              if (b) { b.textContent = m.unread; b.classList.add('show'); }
+              showBubblePreview(convId, isGroup ? (convData?.name||'Group') : (recipient?.name||''), data.message.body, data.message.created_at);
+              saveState();
+            }
+          };
+        }
+        saveState();
+      }
+  
+      function _restoreDmBubble(convId) {
+        convId = String(convId);
+        const mini = miniWins[convId]; if (!mini) return;
+        mini.bubbleEl.querySelector('.gm-bubble__preview')?.classList.remove('visible');
+        clearTimeout(bubbleTimers[convId]);
+        mini.unread = 0;
+        const b = document.getElementById(`gmBubBadge_${convId}`);
+        if (b) { b.textContent = ''; b.classList.remove('show'); }
+        const { recipient } = mini;
+        mini.bubbleEl.remove(); delete miniWins[convId];
+        if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
+        openChat(convId, recipient);
+      }
+  
+      function _restoreGroupBubble(convId, convData) {
+        convId = String(convId);
+        const mini = miniWins[convId]; if (!mini) return;
+        mini.bubbleEl.querySelector('.gm-bubble__preview')?.classList.remove('visible');
+        clearTimeout(bubbleTimers[convId]);
+        mini.unread = 0;
+        const b = document.getElementById(`gmBubBadge_${convId}`);
+        if (b) { b.textContent = ''; b.classList.remove('show'); }
+        mini.bubbleEl.remove(); delete miniWins[convId];
+        if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
+        openGroupChat(convId, convData || mini.convData);
+      }
+  
+      function closeWindow(convId) {
+        convId = String(convId);
+        const s = openWins[convId]; if (s) { if (s.ws) s.ws.close(); s.el.remove(); delete openWins[convId]; }
+        const m = miniWins[convId]; if (m) { if (m.ws) m.ws.close(); m.bubbleEl.remove(); delete miniWins[convId]; }
+        saveState();
+      }
+  
+      /* ════════════════════════════════════════════════════════════
+        BUILD + WIRE WINDOW SHELL
+      ════════════════════════════════════════════════════════════ */
+      function buildWinShell(title, subtitle, avatarHtml) {
+        const win = document.createElement('div');
+        win.className = 'gm-win';
+        win.innerHTML = `
           <div class="gm-win__head">
-            <div class="gm-win__hav">
-              ${avHTML(recipient.avatar,recipient.initials,28)}
-              ${recipient.is_online?'<span class="gm-win__hav-dot"></span>':''}
-            </div>
+            <div class="gm-win__hav">${avatarHtml}</div>
             <div style="flex:1;min-width:0;">
-              <div class="gm-win__hname">${esc(recipient.name)}</div>
-              <div class="gm-win__hstatus">${recipient.is_online?'Active now':'Offline'}</div>
+              <div class="gm-win__hname">${esc(title)}</div>
+              <div class="gm-win__hstatus">${subtitle}</div>
             </div>
             <div class="gm-win__hbtns">
-              <button class="gm-win__hbtn js-more" title="More options"><i class="fa-solid fa-ellipsis"></i></button>
-              <button class="gm-win__hbtn js-min" title="Minimize"><i class="fa-solid fa-minus"></i></button>
-              <button class="gm-win__hbtn js-close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+              <button class="gm-win__hbtn js-more"><i class="fa-solid fa-ellipsis"></i></button>
+              <button class="gm-win__hbtn js-min"><i class="fa-solid fa-minus"></i></button>
+              <button class="gm-win__hbtn js-close"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="gm-win__menu js-menu">
               <div class="gm-win__menu-item js-mute-btn"><i class="fa-solid fa-bell-slash"></i> Mute Notifications</div>
@@ -1827,583 +2326,394 @@
               <div class="gm-win__menu-item js-open-full"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Messenger</div>
             </div>
           </div>
-          <div class="gm-win__msgs js-msgs">
-            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:.75rem;padding:20px;">Loading…</div>
-          </div>
+          <div class="gm-win__msgs js-msgs"></div>
           <div class="gm-win__attach-preview js-attach-preview">
             <div class="js-attach-thumb"></div>
             <div class="gm-win__attach-name js-attach-name"></div>
-            <button class="gm-win__attach-rm js-attach-rm" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+            <button class="gm-win__attach-rm js-attach-rm"><i class="fa-solid fa-xmark"></i></button>
           </div>
           <div class="gm-win__blocked js-blocked">
             <i class="fa-solid fa-ban"></i>
             <span class="js-blocked-txt">You can't send messages in this conversation.</span>
           </div>
           <div class="gm-win__foot js-foot">
-            <button class="gm-win__attach-btn js-attach-btn" title="Attach file"><i class="fa-solid fa-paperclip"></i></button>
-            <input type="file" class="js-file-input" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
+            <button class="gm-win__attach-btn js-attach-btn"><i class="fa-solid fa-paperclip"></i></button>
+            <input type="file" class="js-file-input" style="display:none;"
+              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
             <textarea class="gm-win__input js-input" placeholder="Aa" rows="1"></textarea>
             <button class="gm-win__send js-send"><i class="fa-solid fa-paper-plane"></i></button>
           </div>`;
-
-        winsRow.appendChild(win);
-
-        const msgsEl     = win.querySelector('.js-msgs');
-        const inputEl    = win.querySelector('.js-input');
-        const sendEl     = win.querySelector('.js-send');
-        const attachBtn  = win.querySelector('.js-attach-btn');
-        const fileInput  = win.querySelector('.js-file-input');
-        const attachPrev = win.querySelector('.js-attach-preview');
-        const thumbEl    = win.querySelector('.js-attach-thumb');
-        const attachName = win.querySelector('.js-attach-name');
-        const attachRm   = win.querySelector('.js-attach-rm');
-        let pendingFile  = null;
-
-        /* ── Header click: minimize (but not when clicking buttons) ── */
-        win.querySelector('.gm-win__head').addEventListener('click', e => {
-          if(e.target.closest('.gm-win__hbtns') || e.target.closest('.gm-win__menu')) return;
-          minimizeWindow(convId);
-        });
-        win.querySelector('.js-min').addEventListener('click',  e => { e.stopPropagation(); minimizeWindow(convId); });
-        win.querySelector('.js-close').addEventListener('click', e => { e.stopPropagation(); closeWindow(convId); });
-
-        /* ── ⋯ More options dropdown ── */
-        const moreBtn = win.querySelector('.js-more');
-        const menu    = win.querySelector('.js-menu');
+        return win;
+      }
+  
+      function wireWin(win, convId, state) {
+        const msgsEl    = win.querySelector('.js-msgs');
+        const inputEl   = win.querySelector('.js-input');
+        const sendEl    = win.querySelector('.js-send');
+        const attachBtn = win.querySelector('.js-attach-btn');
+        const fileInput = win.querySelector('.js-file-input');
+        const attachPrv = win.querySelector('.js-attach-preview');
+        const thumbEl   = win.querySelector('.js-attach-thumb');
+        const attachRm  = win.querySelector('.js-attach-rm');
+        const moreBtn   = win.querySelector('.js-more');
+        const menu      = win.querySelector('.js-menu');
+        let pendingFile = null;
+  
+        /* Apply msgs pane styles (not in CSS block above) */
+        msgsEl.style.cssText = 'flex:1;overflow-y:auto;padding:8px 8px 4px;display:flex;flex-direction:column;gap:2px;background:var(--green-pale);';
+        msgsEl.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:.75rem;padding:20px;">Loading…</div>';
+  
         moreBtn.addEventListener('click', e => {
           e.stopPropagation();
-          const isOpen = menu.classList.contains('open');
+          const open = menu.classList.contains('open');
           document.querySelectorAll('.gm-win__menu.open').forEach(m => m.classList.remove('open'));
-          if (!isOpen) menu.classList.add('open');
+          if (!open) menu.classList.add('open');
         });
-        /* Close menu when clicking anywhere outside */
         document.addEventListener('click', () => menu.classList.remove('open'));
         menu.addEventListener('click', e => e.stopPropagation());
-
-        /* ── Mute / Unmute ── */
+  
         win.querySelector('.js-mute-btn').addEventListener('click', () => {
           menu.classList.remove('open');
           const conv = allConvs.find(c => String(c.id) === convId);
           if (conv && conv.is_muted) {
-            fetch(`/messenger/conversations/${convId}/unmute/`, {
-              method: 'POST', headers: { 'X-CSRFToken': getCsrf() }
-            }).then(r => r.json()).then(data => {
-              if (data.success) {
-                conv.is_muted = false; conv.muted_until = null;
-                updateWinMuteLabel(convId);
-                loadConvs();
-              }
-            });
-          } else {
-            openGmMuteModal(convId);
-          }
+            fetch(`/messenger/conversations/${convId}/unmute/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} })
+              .then(r => r.json()).then(d => { if (d.success) { conv.is_muted = false; loadConvs(); } });
+          } else openGmMuteModal(convId);
         });
-
-        /* ── Archive ── */
         win.querySelector('.js-archive-btn').addEventListener('click', () => {
           menu.classList.remove('open');
-          fetch(`/messenger/conversations/${convId}/archive/`, {
-            method: 'POST', headers: { 'X-CSRFToken': getCsrf() }
-          }).then(r => r.json()).then(data => {
-            if (data.success) {
-              closeWindow(convId);
+          fetch(`/messenger/conversations/${convId}/archive/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} })
+            .then(r => r.json()).then(d => { if (d.success) { closeWindow(convId); loadConvs(); } });
+        });
+        win.querySelector('.js-open-full').addEventListener('click', () => { window.location.href = `/messenger/?conv=${convId}`; });
+  
+        attachBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+          const file = fileInput.files[0]; if (!file) return;
+          const isImg = file.type.startsWith('image/');
+          pendingFile = { file, isImage: isImg, localUrl: isImg ? URL.createObjectURL(file) : null };
+          thumbEl.innerHTML = '';
+          if (isImg) { const img = document.createElement('img'); img.className = 'gm-win__attach-thumb'; img.src = pendingFile.localUrl; thumbEl.appendChild(img); }
+          else thumbEl.innerHTML = `<div class="gm-win__attach-file-icon"><i class="fa-solid ${fileIcon(file.name)}"></i></div>`;
+          win.querySelector('.js-attach-name').textContent = file.name;
+          attachPrv.classList.add('visible');
+          fileInput.value = '';
+        });
+        attachRm.addEventListener('click', () => { pendingFile = null; attachPrv.classList.remove('visible'); thumbEl.innerHTML = ''; });
+  
+        inputEl.addEventListener('input', () => {
+          inputEl.style.height = 'auto';
+          inputEl.style.height = Math.min(inputEl.scrollHeight, 72) + 'px';
+          if (openWins[convId]?.ws?.readyState === WebSocket.OPEN) {
+            openWins[convId].ws.send(JSON.stringify({ type:'typing' }));
+            clearTimeout(openWins[convId]._typingTimer);
+            openWins[convId]._typingTimer = setTimeout(() => {
+              if (openWins[convId]?.ws?.readyState === WebSocket.OPEN)
+                openWins[convId].ws.send(JSON.stringify({ type:'stop_typing' }));
+            }, 1500);
+          }
+        });
+  
+        const doSend = () => {
+          const body = inputEl.value.trim();
+          if (!body && !pendingFile) return;
+          const conv = allConvs.find(c => String(c.id) === convId);
+          if (conv && (conv.blocked_by_me || conv.blocked_by_them)) return;
+          const fd = new FormData();
+          if (body) fd.append('body', body);
+          if (pendingFile) fd.append('attachment', pendingFile.file);
+          inputEl.value = ''; inputEl.style.height = 'auto';
+          const fc = pendingFile; pendingFile = null;
+          attachPrv.classList.remove('visible'); thumbEl.innerHTML = '';
+          const opt = { id:'tmp_'+Date.now(), sender_id: ME_ID, body, created_at: new Date().toISOString(),
+                        attachment_url: fc?.localUrl||null, attachment_name: fc?.file.name||null, is_image: fc?.isImage||false };
+          appendWinMsg(msgsEl, opt, convId);
+          fetch(`/messenger/conversations/${convId}/send/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()}, body: fd })
+            .then(r => { if (r.status === 403) { loadConvs(); return null; } return r.json(); })
+            .then(data => {
+              if (!data || !data.success) return;
+              const tmpEl = msgsEl.querySelector(`[data-id="${opt.id}"]`);
+              if (tmpEl) tmpEl.replaceWith(buildWinMsg(data.message, convId));
               loadConvs();
-            }
-          });
-        });
-
-        /* ── Open full Messenger ── */
-        win.querySelector('.js-open-full').addEventListener('click', () => {
-          window.location.href = `/messenger/?conv=${convId}`;
-        });
-
-        /* ── File attachment ── */
-        attachBtn.addEventListener('click', ()=>fileInput.click());
-        fileInput.addEventListener('change', ()=>{
-          const file=fileInput.files[0]; if(!file) return;
-          const isImg=file.type.startsWith('image/');
-          pendingFile={file,isImage:isImg};
-          attachName.textContent=file.name; thumbEl.innerHTML='';
-          if (isImg) {
-            const url=URL.createObjectURL(file); pendingFile.localUrl=url;
-            const img=document.createElement('img'); img.className='gm-win__attach-thumb'; img.src=url; thumbEl.appendChild(img);
-          } else {
-            thumbEl.innerHTML=`<div class="gm-win__attach-file-icon"><i class="fa-solid ${fileIcon(file.name)}"></i></div>`;
-          }
-          attachPrev.classList.add('visible'); fileInput.value='';
-        });
-        attachRm.addEventListener('click', ()=>{ pendingFile=null; attachPrev.classList.remove('visible'); thumbEl.innerHTML=''; });
-
-        /* ── Typing indicator ── */
-        inputEl.addEventListener('input', ()=>{
-          inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,72)+'px';
-          const state=openWins[convId];
-          if (state?.ws?.readyState===WebSocket.OPEN) {
-            state.ws.send(JSON.stringify({type:'typing'}));
-            clearTimeout(state._typingTimer);
-            state._typingTimer=setTimeout(()=>{ if(state.ws?.readyState===WebSocket.OPEN) state.ws.send(JSON.stringify({type:'stop_typing'})); },1500);
-          }
-        });
-
-        /* ── Send message ── */
-        const doSend=()=>{
-          const body=inputEl.value.trim(); if(!body&&!pendingFile) return;
-          /* Block guard */
-          const convState=allConvs.find(c=>String(c.id)===convId);
-          if (convState&&(convState.blocked_by_me||convState.blocked_by_them)) return;
-
-          const fd=new FormData(); if(body) fd.append('body',body); if(pendingFile) fd.append('attachment',pendingFile.file);
-          inputEl.value=''; inputEl.style.height='auto';
-          const fileCopy=pendingFile; pendingFile=null; attachPrev.classList.remove('visible'); thumbEl.innerHTML='';
-          const opt={id:'tmp_'+Date.now(),sender_id:ME_ID,body,created_at:new Date().toISOString(),
-            attachment_url:fileCopy?fileCopy.localUrl||null:null,
-            attachment_name:fileCopy?fileCopy.file.name:null,
-            is_image:fileCopy?fileCopy.isImage:false};
-          appendWinMsg(msgsEl,opt,convId);
-          fetch(`/messenger/conversations/${convId}/send/`,{method:'POST',headers:{'X-CSRFToken':getCsrf()},body:fd})
-            .then(r=>{
-              if(r.status===403){ loadConvs(); return null; }
-              return r.json();
-            })
-            .then(data=>{ if(!data) return; if(data.success){ const tmpEl=msgsEl.querySelector(`[data-id="${opt.id}"]`); if(tmpEl) tmpEl.replaceWith(buildWinMsg(data.message)); loadConvs(); } });
+            });
         };
         sendEl.addEventListener('click', doSend);
-        inputEl.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();} });
-
-        /* ── Register window state ── */
-        openWins[convId]={el:win,msgsEl,recipient,ws:null};
-
-        /* ── Initial states ── */
-        updateWinMuteLabel(convId);
-        setWinBlockedState(convId);
-
-        loadWinMsgs(convId,msgsEl);
-        connectWinWS(convId,msgsEl,recipient);
-        fetch(`/messenger/conversations/${convId}/read/`,{method:'POST',headers:{'X-CSRFToken':getCsrf()}}).catch(()=>{});
+        inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
+  
+        return msgsEl;
       }
-
-      /* ── MINIMIZE → bubble ── */
-      function minimizeWindow(convId) {
-        convId=String(convId);
-        const state=openWins[convId]; if(!state) return;
-        state.el.remove();
-        const ws=state.ws, recipient=state.recipient;
-        delete openWins[convId];
-
-        const bubble=document.createElement('div'); bubble.className='gm-bubble'; bubble.dataset.convId=convId; bubble.title=recipient.name;
-        bubble.innerHTML=`
-          <div class="gm-bubble__inner">${avHTML(recipient.avatar,recipient.initials,48)}</div>
-          ${recipient.is_online?'<span class="gm-bubble__online"></span>':''}
-          <span class="gm-bubble__badge" id="gmBubBadge_${convId}"></span>`;
-        bubble.addEventListener('click',()=>restoreFromBubble(convId));
-        bubblesCol.appendChild(bubble);
-        miniWins[convId]={bubbleEl:bubble,recipient,ws,unread:0};
-
-        if (ws) {
-          ws.onmessage=e=>{
-            const data=JSON.parse(e.data);
-            if(data.type==='chat_message'&&data.message.sender_id!==ME_ID){
-              const mini=miniWins[convId]; if(!mini) return;
-              mini.unread++;
-              const badge=document.getElementById(`gmBubBadge_${convId}`);
-              if(badge){badge.textContent=mini.unread;badge.classList.add('show');}
-              showBubblePreview(convId,mini.recipient.name,data.message.body,data.message.created_at);
-            }
-          };
-        }
-      }
-
-      /* ── RESTORE from bubble ── */
-      function restoreFromBubble(convId) {
-        convId=String(convId);
-        const mini=miniWins[convId]; if(!mini) return;
-        mini.bubbleEl.querySelector('.gm-bubble__preview')?.classList.remove('visible');
-        clearTimeout(bubblePreviewTimers[convId]);
-        mini.unread=0;
-        const badge=document.getElementById(`gmBubBadge_${convId}`);
-        if(badge){badge.textContent='';badge.classList.remove('show');}
-        mini.bubbleEl.remove();
-        delete miniWins[convId];
-        if(Object.keys(openWins).length>=MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
-        openChat(convId,mini.recipient);
-      }
-
-      /* ── CLOSE window ── */
-      function closeWindow(convId) {
-        convId=String(convId);
-        const state=openWins[convId]; if(state){if(state.ws)state.ws.close();state.el.remove();delete openWins[convId];}
-        const mini=miniWins[convId];  if(mini){if(mini.ws)mini.ws.close();mini.bubbleEl.remove();delete miniWins[convId];}
-      }
-
-      function loadWinMsgs(convId,msgsEl) {
-        fetch(`/messenger/conversations/${convId}/messages/`).then(r=>r.json()).then(data=>{
-          msgsEl.innerHTML='';
-          const msgs=data.messages||[];
-          if(!msgs.length){
-            msgsEl.innerHTML='<div style="text-align:center;padding:18px;color:var(--text-muted);font-size:.74rem;">No messages yet. Say hello! 👋</div>';
-            setWinBlockedState(convId);
+  
+      /* ════════════════════════════════════════════════════════════
+        LOAD MESSAGES — FIX #3: group consecutive images from same sender
+      ════════════════════════════════════════════════════════════ */
+      function loadWinMsgs(convId, msgsEl) {
+        fetch(`/messenger/conversations/${convId}/messages/`).then(r => r.json()).then(data => {
+          msgsEl.innerHTML = '';
+          const msgs = data.messages || [];
+          if (!msgs.length) {
+            msgsEl.innerHTML = '<div style="text-align:center;padding:18px;color:var(--text-muted);font-size:.74rem;">No messages yet. Say hello! 👋</div>';
             return;
           }
-          let lastDate=null, i=0;
-          while(i<msgs.length){
-            const msg=msgs[i];
-            const d=new Date(msg.created_at).toDateString();
-            if(d!==lastDate){
-              const div=document.createElement('div'); div.className='gm-win__date';
-              const now=new Date(),diff=Math.floor((now-new Date(msg.created_at))/86400000);
-              div.textContent=diff===0?'Today':diff===1?'Yesterday':new Date(msg.created_at).toLocaleDateString([],{month:'short',day:'numeric'});
-              msgsEl.appendChild(div); lastDate=d;
+          let lastDate = null, i = 0;
+          while (i < msgs.length) {
+            const msg = msgs[i];
+            const d   = new Date(msg.created_at).toDateString();
+            if (d !== lastDate) {
+              const div = document.createElement('div'); div.className = 'gm-win__date';
+              const diff = Math.floor((new Date() - new Date(msg.created_at)) / 86400000);
+              div.textContent = diff === 0 ? 'Today' : diff === 1 ? 'Yesterday'
+                : new Date(msg.created_at).toLocaleDateString([], { month:'short', day:'numeric' });
+              msgsEl.appendChild(div); lastDate = d;
             }
-            // Group consecutive images from same sender on same day
-            if((msg.is_image||isImage(msg.attachment_url))&&!msg.body){
-              const group=[msg];
-              while(
-                i+group.length<msgs.length &&
-                (msgs[i+group.length].is_image||isImage(msgs[i+group.length].attachment_url)) &&
+            /* Try to group consecutive image-only messages from same sender */
+            if ((msg.is_image || isImageUrl(msg.attachment_url)) && !msg.body) {
+              const group = [msg];
+              while (
+                i + group.length < msgs.length &&
+                (msgs[i+group.length].is_image || isImageUrl(msgs[i+group.length].attachment_url)) &&
                 !msgs[i+group.length].body &&
-                msgs[i+group.length].sender_id===msg.sender_id &&
-                new Date(msgs[i+group.length].created_at).toDateString()===d
-              ){
-                group.push(msgs[i+group.length]);
-              }
-              if(group.length>1){
-                msgsEl.appendChild(buildWinImgGroup(group,convId));
-                i+=group.length; continue;
-              }
+                msgs[i+group.length].sender_id === msg.sender_id &&
+                new Date(msgs[i+group.length].created_at).toDateString() === d
+              ) { group.push(msgs[i+group.length]); }
+              if (group.length > 1) { msgsEl.appendChild(buildImgGroupMsg(group)); i += group.length; continue; }
             }
-            msgsEl.appendChild(buildWinMsg(msg,convId));
+            if (msg.is_system) {
+              const el = document.createElement('div');
+              el.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 4px;';
+              el.innerHTML = `
+                <div style="flex:1;height:1px;background:var(--border);"></div>
+                <span style="font-size:.62rem;color:var(--text-muted);white-space:nowrap;
+                            background:var(--green-pale);border:1px solid var(--border);
+                            border-radius:10px;padding:2px 8px;">${msg.body || ''}</span>
+                <div style="flex:1;height:1px;background:var(--border);"></div>`;
+              msgsEl.appendChild(el);
+            } else {
+              msgsEl.appendChild(buildWinMsg(msg, convId));
+            }
             i++;
           }
-          msgsEl.scrollTop=msgsEl.scrollHeight;
-          setWinBlockedState(convId);
+          msgsEl.scrollTop = msgsEl.scrollHeight;
         });
       }
-
-      /* ── WebSocket per window ── */
-      function connectWinWS(convId,msgsEl,recipient) {
-        const proto=location.protocol==='https:'?'wss':'ws';
-        const ws=new WebSocket(`${proto}://${location.host}/ws/chat/${convId}/`);
-        ws.onmessage=e=>{
-          const data=JSON.parse(e.data);
-          if(data.type==='chat_message'&&data.message.sender_id!==ME_ID){
-            appendWinMsg(msgsEl,data.message,convId);
-            fetch(`/messenger/conversations/${convId}/read/`,{method:'POST',headers:{'X-CSRFToken':getCsrf()}}).catch(()=>{});
-          } else if(data.type==='messages_seen'){
-            (data.message_ids||[]).forEach(id=>{
-              const row=msgsEl.querySelector(`[data-id="${id}"]`);
-              if(row){ const tick=row.querySelector('.gm-win__status'); if(tick) tick.dataset.status='seen'; }
-            });
-          } else if(data.type==='typing'&&data.user_id!==ME_ID){
-            showWinTyping(msgsEl);
-          } else if(data.type==='stop_typing'){
-            hideWinTyping(msgsEl);
-          }
-        };
-        ws.onclose=()=>{ setTimeout(()=>{ if(openWins[convId]) connectWinWS(convId,msgsEl,recipient); },3000); };
-        if(openWins[convId]) openWins[convId].ws=ws;
-      }
-
-      let typingTimers={};
-      function showWinTyping(msgsEl){if(msgsEl.querySelector('.gm-win__typing'))return;const el=document.createElement('div');el.className='gm-win__typing';el.innerHTML='<div class="gm-win__tdot"></div><div class="gm-win__tdot"></div><div class="gm-win__tdot"></div>';msgsEl.appendChild(el);msgsEl.scrollTop=msgsEl.scrollHeight;clearTimeout(typingTimers[msgsEl]);typingTimers[msgsEl]=setTimeout(()=>hideWinTyping(msgsEl),4000);}
-      function hideWinTyping(msgsEl){msgsEl.querySelector('.gm-win__typing')?.remove();}
-
-      /* ── Picker toggle ── */
-      function closePicker(){picker.classList.remove('open');pickerOpen=false;}
-      fab.addEventListener('click',e=>{e.stopPropagation();pickerOpen=!pickerOpen;picker.classList.toggle('open',pickerOpen);if(pickerOpen){pickerSearch.value='';renderPicker('');pickerSearch.focus();}});
-      pickerClose.addEventListener('click',closePicker);
-      document.addEventListener('click',e=>{if(!picker.contains(e.target)&&e.target!==fab)closePicker();});
-      pickerSearch.addEventListener('input',()=>renderPicker(pickerSearch.value));
-
-      /* ── Persist windows across page navigation ── */
-      function saveWinState() {
-        const state={
-          open:Object.keys(openWins).map(id=>({convId:id,recipient:openWins[id].recipient})),
-          mini:Object.keys(miniWins).map(id=>({convId:id,recipient:miniWins[id].recipient,unread:miniWins[id].unread})),
-        };
-        try{sessionStorage.setItem('gmWinState',JSON.stringify(state));}catch(e){}
-      }
-      function restoreWinState() {
-        let state;
-        try { state = JSON.parse(sessionStorage.getItem('gmWinState') || 'null'); } catch(e) {}
-        if (!state) return;
-        (state.mini || []).forEach(s => {
-          if (miniWins[s.convId] || openWins[s.convId]) return;
-          const bubble = document.createElement('div');
-          bubble.className = 'gm-bubble';
-          bubble.dataset.convId = s.convId;
-          bubble.title = s.recipient.name || '';
-          bubble.innerHTML = `
-            <div class="gm-bubble__inner">${avHTML(s.recipient.avatar, s.recipient.initials, 48)}</div>
-            ${s.recipient.is_online ? '<span class="gm-bubble__online"></span>' : ''}
-            <span class="gm-bubble__badge${s.unread > 0 ? ' show' : ''}" id="gmBubBadge_${s.convId}">${s.unread > 0 ? s.unread : ''}</span>`;
-          bubble.addEventListener('click', () => restoreFromBubble(s.convId));
-          bubblesCol.appendChild(bubble);
-          miniWins[s.convId] = { bubbleEl: bubble, recipient: s.recipient, ws: null, unread: s.unread || 0 };
-        });
-        (state.open || []).forEach(s => {
-          if (openWins[s.convId] || miniWins[s.convId]) return;
-          openChat(s.convId, s.recipient);
-        });
-      }
-      window.addEventListener('beforeunload', saveWinState);
-
-      /* ══════════════════════════════════════════════════════
-         BLOCKED STATE HELPERS
-      ══════════════════════════════════════════════════════ */
-      function setWinBlockedState(convId) {
-        const state = openWins[String(convId)];
-        if (!state) return;
-        const conv = allConvs.find(c => String(c.id) === String(convId));
-        const blockedByMe   = conv && conv.blocked_by_me;
-        const blockedByThem = conv && conv.blocked_by_them;
-        const isBlocked     = blockedByMe || blockedByThem;
-
-        const blockedBar = state.el.querySelector('.js-blocked');
-        const foot       = state.el.querySelector('.js-foot');
-        const attachPrev = state.el.querySelector('.js-attach-preview');
-        const blockedTxt = state.el.querySelector('.js-blocked-txt');
-        if (!blockedBar || !foot) return;
-
-        if (isBlocked) {
-          blockedBar.classList.add('visible');
-          foot.style.display = 'none';
-          attachPrev.classList.remove('visible');
-          blockedTxt.textContent = blockedByMe
-            ? "You've blocked this person. Unblock them to send messages."
-            : "You can't reply to this conversation.";
-        } else {
-          blockedBar.classList.remove('visible');
-          foot.style.display = 'flex';
-        }
-      }
-
-      /* ══════════════════════════════════════════════════════
-         MUTE HELPERS
-      ══════════════════════════════════════════════════════ */
-      function updateWinMuteLabel(convId) {
-        const state = openWins[String(convId)];
-        if (!state) return;
-        const btn  = state.el.querySelector('.js-mute-btn');
-        if (!btn) return;
-        const conv    = allConvs.find(c => String(c.id) === String(convId));
-        const isMuted = conv && conv.is_muted;
-        btn.innerHTML = isMuted
-          ? '<i class="fa-solid fa-bell"></i> Unmute'
-          : '<i class="fa-solid fa-bell-slash"></i> Mute Notifications';
-      }
-
-      /* ── Global mute modal ── */
-      let gmMutePendingConvId = null;
-
-      function openGmMuteModal(convId) {
-        gmMutePendingConvId = convId;
-        document.querySelectorAll('.gm-mute-opt').forEach(o => o.classList.remove('selected'));
-        document.querySelector('.gm-mute-opt').classList.add('selected');
-        document.querySelector('input[name="gmMuteDur"][value="indefinite"]').checked = true;
-        document.getElementById('gmMuteModal').classList.add('open');
-      }
-
-      document.querySelectorAll('.gm-mute-opt').forEach(opt => {
-        opt.addEventListener('click', () => {
-          document.querySelectorAll('.gm-mute-opt').forEach(o => o.classList.remove('selected'));
-          opt.classList.add('selected');
-        });
-      });
-      document.getElementById('gmMuteCancel').addEventListener('click', () => {
-        document.getElementById('gmMuteModal').classList.remove('open');
-      });
-      document.getElementById('gmMuteModal').addEventListener('click', e => {
-        if (e.target === document.getElementById('gmMuteModal'))
-          document.getElementById('gmMuteModal').classList.remove('open');
-      });
-      document.getElementById('gmMuteConfirm').addEventListener('click', () => {
-        const duration = document.querySelector('input[name="gmMuteDur"]:checked')?.value || 'indefinite';
-        if (!gmMutePendingConvId) return;
-        fetch(`/messenger/conversations/${gmMutePendingConvId}/mute/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-          body: JSON.stringify({ duration }),
-        }).then(r => r.json()).then(data => {
-          if (data.success) {
-            document.getElementById('gmMuteModal').classList.remove('open');
-            const conv = allConvs.find(c => String(c.id) === String(gmMutePendingConvId));
-            if (conv) { conv.is_muted = true; conv.muted_until = data.muted_until; }
-            updateWinMuteLabel(gmMutePendingConvId);
-            loadConvs();
-          }
-        });
-      });
-
-      /* ── Handle incoming messages from Notification WS ── */
-      window.gmHandleIncoming = function(data) {
-        const convId=String(data.conv_id);
-
-        if (openWins[convId]) {
-          fetch(`/messenger/conversations/${convId}/read/`,{method:'POST',headers:{'X-CSRFToken':getCsrf()}}).catch(()=>{});
-          return;
-        }
-
-        if (miniWins[convId]) {
-          miniWins[convId].unread++;
-          const badge=document.getElementById(`gmBubBadge_${convId}`);
-          if(badge){badge.textContent=miniWins[convId].unread;badge.classList.add('show');}
-          showBubblePreview(convId,data.sender_name,data.body,data.created_at);
-          return;
-        }
-
-        const recipient={id:data.sender_id,name:data.sender_name,avatar:data.sender_avatar,initials:data.sender_initials,is_online:true};
-        const conv=allConvs.find(c=>c.recipient.id===data.sender_id);
-        const realConvId=conv?String(conv.id):convId;
-
-        openChat(realConvId,recipient);
-        minimizeWindow(realConvId);
-
-        const mini=miniWins[realConvId];
-        if(mini){
-          mini.unread=1;
-          const badge=document.getElementById(`gmBubBadge_${realConvId}`);
-          if(badge){badge.textContent='1';badge.classList.add('show');}
-          showBubblePreview(realConvId,data.sender_name,data.body,data.created_at);
-        }
-      };
-
-      /* ── Handle presence updates ── */
-      window.gmHandlePresence = function(data) {
-        const uid=data.user_id, online=data.is_online;
-        Object.keys(openWins).forEach(cid=>{
-          const state=openWins[cid]; if(state.recipient.id!==uid) return;
-          state.recipient.is_online=online;
-          const dot=state.el.querySelector('.gm-win__hav-dot');
-          const status=state.el.querySelector('.gm-win__hstatus');
-          if(online&&!dot){const d=document.createElement('span');d.className='gm-win__hav-dot';state.el.querySelector('.gm-win__hav').appendChild(d);}
-          else if(!online&&dot) dot.remove();
-          if(status) status.textContent=online?'Active now':'Offline';
-        });
-        Object.keys(miniWins).forEach(cid=>{
-          const mini=miniWins[cid]; if(mini.recipient.id!==uid) return;
-          mini.recipient.is_online=online;
-          const dot=mini.bubbleEl.querySelector('.gm-bubble__online');
-          if(online&&!dot){const d=document.createElement('span');d.className='gm-bubble__online';mini.bubbleEl.appendChild(d);}
-          else if(!online&&dot) dot.remove();
-        });
-      };
-
-
-      function openGmForwardModal(msg, allMsgs, fromConvId) {
-        // Reuse the messenger page's forward modal if available
-        if (document.getElementById('forwardModal') && window.openForwardModal) {
-          window.openForwardModal(msg, allMsgs); return;
-        }
-        // Otherwise build a simple inline forward using existing conversations
-        const existingModal = document.getElementById('gmFwdModal');
-        if (existingModal) existingModal.remove();
-
-        const modal = document.createElement('div');
-        modal.id = 'gmFwdModal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;';
-
-        const box = document.createElement('div');
-        box.style.cssText = 'background:var(--white);border-radius:14px;width:360px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.22);';
-        box.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);">
-            <strong style="font-family:'EB Garamond',serif;font-size:1rem;">Forward Message</strong>
-            <button id="gmFwdClose" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--green-pale);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.8rem;"><i class="fa-solid fa-xmark"></i></button>
-          </div>
-          <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
-            <input id="gmFwdSearch" type="text" placeholder="Search people…" autocomplete="off"
-              style="width:100%;padding:7px 12px;border:1px solid var(--border);border-radius:16px;background:var(--green-pale);font-size:.82rem;color:var(--text-primary);outline:none;">
-          </div>
-          <div id="gmFwdList" style="flex:1;overflow-y:auto;padding:4px 0;"></div>
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--green-pale);">
-            <span id="gmFwdCountTxt" style="flex:1;font-size:.78rem;color:var(--text-muted);">Select recipients</span>
-            <button id="gmFwdSend" disabled style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:16px;background:var(--green-mid);color:#fff;font-size:.82rem;font-weight:600;cursor:pointer;">
-              <i class="fa-solid fa-paper-plane"></i> Send
-            </button>
-          </div>`;
-        modal.appendChild(box);
-        document.body.appendChild(modal);
-
-        const selectedIds = new Set();
-
-        function renderList(filter) {
-          const lo = (filter||'').toLowerCase();
-          const list = document.getElementById('gmFwdList');
-          const convs = allConvs.filter(c => !c.is_archived && (!lo || c.recipient.name.toLowerCase().includes(lo)));
-          list.innerHTML = '';
-          convs.forEach(c => {
-            const u = c.recipient;
-            const sel = selectedIds.has(c.id);
-            const div = document.createElement('div');
-            div.style.cssText = `display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;background:${sel?'var(--green-pale)':'transparent'};transition:background .12s;`;
-            div.innerHTML = `
-              <div style="width:36px;height:36px;border-radius:50%;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:600;color:#fff;flex-shrink:0;overflow:hidden;">
-                ${u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`<span>${u.initials||'?'}</span>`}
-              </div>
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:.83rem;font-weight:600;color:var(--text-primary);">${esc(u.name)}</div>
-                <div style="font-size:.71rem;color:var(--text-muted);">${esc(u.position||u.department||'')}</div>
-              </div>
-              <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${sel?'var(--green-mid)':'var(--border)'};background:${sel?'var(--green-mid)':'var(--white)'};display:flex;align-items:center;justify-content:center;font-size:.65rem;color:${sel?'#fff':'transparent'};">
-                <i class="fa-solid fa-check"></i>
-              </div>`;
-            div.addEventListener('click', () => {
-              if (selectedIds.has(c.id)) selectedIds.delete(c.id);
-              else selectedIds.add(c.id);
-              const sendBtn = document.getElementById('gmFwdSend');
-              const countTxt = document.getElementById('gmFwdCountTxt');
-              sendBtn.disabled = selectedIds.size === 0;
-              countTxt.textContent = selectedIds.size === 0 ? 'Select recipients'
-                : [...selectedIds].map(id=>{ const cv=allConvs.find(cv=>cv.id==id); return cv?cv.recipient.name.split(' ')[0]:''; }).filter(Boolean).join(', ');
-              renderList(document.getElementById('gmFwdSearch').value);
-            });
-            list.appendChild(div);
-          });
-          if (!list.children.length) list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:.78rem;">No conversations found</div>';
-        }
-
-        renderList('');
-        document.getElementById('gmFwdSearch').addEventListener('input', e => renderList(e.target.value));
-
-        const closeModal = () => modal.remove();
-        document.getElementById('gmFwdClose').addEventListener('click', closeModal);
-        modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-
-        document.getElementById('gmFwdSend').addEventListener('click', async () => {
-          if (!selectedIds.size) return;
-          const btn = document.getElementById('gmFwdSend');
-          btn.disabled = true;
-          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
-          const msgsToFwd = allMsgs || [msg];
-          const sends = [...selectedIds].flatMap(cid =>
-            msgsToFwd.map(async m => {
-              const fd = new FormData();
-              if (m.body) fd.append('body', m.body);
-              if (m.attachment_url) {
-                try { const res=await fetch(m.attachment_url); fd.append('attachment',await res.blob(),m.attachment_name||'file'); }
-                catch(e) { if(!m.body) fd.append('body',`[Forwarded: ${m.attachment_name||'file'}]`); }
+  
+      /* ════════════════════════════════════════════════════════════
+        WEBSOCKET PER WINDOW
+      ════════════════════════════════════════════════════════════ */
+      const _typingTimers = {};
+      function connectWinWS(convId, msgsEl) {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${proto}://${location.host}/ws/chat/${convId}/`);
+        ws.onmessage = e => {
+          const data  = JSON.parse(e.data);
+          const state = openWins[convId];
+          if (data.type === 'chat_message') {
+            if (data.message.is_system) {
+              // Render system messages as subtle centered labels, not bubbles
+              if (state) {
+                const el = document.createElement('div');
+                el.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 4px;';
+                el.innerHTML = `
+                  <div style="flex:1;height:1px;background:var(--border);"></div>
+                  <span style="font-size:.62rem;color:var(--text-muted);white-space:nowrap;
+                              background:var(--green-pale);border:1px solid var(--border);
+                              border-radius:10px;padding:2px 8px;">${data.message.body}</span>
+                  <div style="flex:1;height:1px;background:var(--border);"></div>`;
+                msgsEl.querySelector('.gm-win__typing')?.remove();
+                msgsEl.appendChild(el);
+                msgsEl.scrollTop = msgsEl.scrollHeight;
               }
-              return fetch(`/messenger/conversations/${cid}/send/`,{method:'POST',headers:{'X-CSRFToken':getCsrf()},body:fd}).then(r=>r.json());
-            })
-          );
-          await Promise.all(sends);
-          closeModal();
-          loadConvs();
-          // Toast
-          const toast=document.createElement('div');
-          toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green-dark);color:#fff;padding:10px 20px;border-radius:20px;font-size:.82rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:99999;display:flex;align-items:center;gap:8px;';
-          toast.innerHTML=`<i class="fa-solid fa-paper-plane"></i> Forwarded to ${selectedIds.size} conversation${selectedIds.size>1?'s':''}`;
-          document.body.appendChild(toast);
-          setTimeout(()=>{toast.style.opacity='0';toast.style.transition='opacity .3s';setTimeout(()=>toast.remove(),300);},2500);
-        });
+            } else if (data.message.sender_id !== ME_ID) {
+              if (state) {
+                msgsEl.querySelector('.gm-win__typing')?.remove();
+                msgsEl.appendChild(buildWinMsg(data.message, convId));
+                msgsEl.scrollTop = msgsEl.scrollHeight;
+                fetch(`/messenger/conversations/${convId}/read/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} }).catch(()=>{});
+              }
+            }
+          } else if (data.type === 'messages_seen') {
+            (data.message_ids||[]).forEach(id => {
+              const row = msgsEl.querySelector(`[data-id="${id}"]`);
+              if (row) { const t = row.querySelector('.gm-win__status'); if (t) t.dataset.status = 'seen'; }
+            });
+          } else if (data.type === 'typing' && data.user_id !== ME_ID) {
+            if (!msgsEl.querySelector('.gm-win__typing')) {
+              const el = document.createElement('div'); el.className = 'gm-win__typing';
+              el.innerHTML = '<div class="gm-win__tdot"></div><div class="gm-win__tdot"></div><div class="gm-win__tdot"></div>';
+              msgsEl.appendChild(el); msgsEl.scrollTop = msgsEl.scrollHeight;
+            }
+            clearTimeout(_typingTimers[convId]);
+            _typingTimers[convId] = setTimeout(() => msgsEl.querySelector('.gm-win__typing')?.remove(), 4000);
+          } else if (data.type === 'stop_typing') {
+            msgsEl.querySelector('.gm-win__typing')?.remove();
+          } else if (data.type === 'kicked_from_group') {
+            // Only handle if the current user was the one kicked
+            if (data.kicked_user_id === ME_ID) {
+              closeWindow(convId);
+            }
+          }
+        };
+        ws.onclose = () => setTimeout(() => { if (openWins[convId]) connectWinWS(convId, msgsEl); }, 3000);
+        if (openWins[convId]) openWins[convId].ws = ws;
       }
-
-      /* ── Expose for envelope dropdown ── */
-      window.gmOpenChat=function(convId,recipient){openChat(String(convId),recipient);};
-
-      /* ── Init ── */
-      loadConvs(restoreWinState);
-      loadUsers();
-      setInterval(loadConvs,60000);
+  
+      /* ════════════════════════════════════════════════════════════
+        OPEN DM / GROUP WINDOWS
+      ════════════════════════════════════════════════════════════ */
+      function openChat(convId, recipient) {
+        convId = String(convId);
+        if (miniWins[convId])  { _restoreDmBubble(convId); return; }
+        if (openWins[convId])  { openWins[convId].el.querySelector('.js-input').focus(); return; }
+        if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
+  
+        const win = buildWinShell(
+          recipient.name,
+          recipient.is_online ? 'Active now' : 'Offline',
+          avHTML(recipient.avatar, recipient.initials, 28) + (recipient.is_online ? '<span class="gm-win__hav-dot"></span>' : '')
+        );
+        win.dataset.convId = convId;
+        winsRow.appendChild(win);
+  
+        const state = { el: win, msgsEl: null, recipient, convData: null, isGroup: false, ws: null };
+        openWins[convId] = state;
+        const msgsEl = wireWin(win, convId, state);
+        state.msgsEl = msgsEl;
+  
+        win.querySelector('.gm-win__head').addEventListener('click', e => {
+          if (e.target.closest('.gm-win__hbtns') || e.target.closest('.gm-win__menu')) return;
+          minimizeWindow(convId);
+        });
+        win.querySelector('.js-min').addEventListener('click',   e => { e.stopPropagation(); minimizeWindow(convId); });
+        win.querySelector('.js-close').addEventListener('click', e => { e.stopPropagation(); closeWindow(convId); });
+  
+        const convData = allConvs.find(c => String(c.id) === convId);
+        if (convData) {
+          const blocked = convData.blocked_by_me || convData.blocked_by_them;
+          win.querySelector('.js-blocked').classList.toggle('visible', !!blocked);
+          win.querySelector('.js-foot').style.display = blocked ? 'none' : '';
+        }
+  
+        loadWinMsgs(convId, msgsEl);
+        connectWinWS(convId, msgsEl);
+        fetch(`/messenger/conversations/${convId}/read/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} }).catch(()=>{});
+        saveState();
+      }
+  
+      function openGroupChat(convId, convData) {
+        convId = String(convId);
+        if (miniWins[convId])  { _restoreGroupBubble(convId, convData); return; }
+        if (openWins[convId])  { openWins[convId].el.querySelector('.js-input').focus(); return; }
+        if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
+  
+        const mc = convData?.members?.length || 0;
+        const avH = convData?.avatar
+          ? `<img src="${convData.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+          : `<span style="font-size:10px;">${convData?.initials||'GC'}</span>`;
+  
+        const win = buildWinShell(convData?.name||'Group Chat', `${mc} member${mc!==1?'s':''}`, avH);
+        win.dataset.convId = convId;
+        winsRow.appendChild(win);
+  
+        const state = { el: win, msgsEl: null, recipient: null, convData, isGroup: true, ws: null };
+        openWins[convId] = state;
+        const msgsEl = wireWin(win, convId, state);
+        state.msgsEl = msgsEl;
+  
+        win.querySelector('.gm-win__head').addEventListener('click', e => {
+          if (e.target.closest('.gm-win__hbtns') || e.target.closest('.gm-win__menu')) return;
+          minimizeWindow(convId);
+        });
+        win.querySelector('.js-min').addEventListener('click',   e => { e.stopPropagation(); minimizeWindow(convId); });
+        win.querySelector('.js-close').addEventListener('click', e => { e.stopPropagation(); closeWindow(convId); });
+  
+        loadWinMsgs(convId, msgsEl);
+        connectWinWS(convId, msgsEl);
+        fetch(`/messenger/conversations/${convId}/read/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} }).catch(()=>{});
+        saveState();
+      }
+  
+      /* ════════════════════════════════════════════════════════════
+        FIX #1 cont — gmHandleIncoming now spawns a bubble for
+        conversations that aren't open yet (not just minimised ones)
+      ════════════════════════════════════════════════════════════ */
+      window.gmHandleIncoming = function(data) {
+        const convId = String(data.conv_id);
+        if (openWins[convId]) return;  /* per-window WS handles it */
+  
+        if (miniWins[convId]) {
+          /* Already a bubble — just bump it */
+          const mini = miniWins[convId];
+          mini.unread++;
+          const b = document.getElementById(`gmBubBadge_${convId}`);
+          if (b) { b.textContent = mini.unread; b.classList.add('show'); }
+          showBubblePreview(convId, data.sender_name, data.body, data.created_at);
+          saveState();
+        } else {
+          /* No bubble yet — create one from conv data */
+          loadConvs(() => {
+            const conv = allConvs.find(c => String(c.id) === convId);
+            if (!conv) return;
+            if (openWins[convId] || miniWins[convId]) return;  /* opened in the meantime */
+  
+            const isGroup   = !!conv.is_group;
+            const recipient = isGroup ? null : conv.recipient;
+            const convData  = isGroup ? conv  : null;
+  
+            _spawnBubble(convId, recipient, convData, isGroup, 1);
+            showBubblePreview(convId, data.sender_name, data.body, data.created_at);
+          });
+        }
+      };
+  
+      window.gmHandlePresence = function(data) {
+        Object.values(openWins).forEach(state => {
+          if (!state.isGroup && state.recipient && state.recipient.id === data.user_id) {
+            state.recipient.is_online = data.is_online;
+            const dot    = state.el.querySelector('.gm-win__hav-dot');
+            const status = state.el.querySelector('.gm-win__hstatus');
+            if (data.is_online) {
+              if (!dot) { const d = document.createElement('span'); d.className = 'gm-win__hav-dot'; state.el.querySelector('.gm-win__hav').appendChild(d); }
+              if (status) status.textContent = 'Active now';
+            } else { dot?.remove(); if (status) status.textContent = 'Offline'; }
+          }
+        });
+      };
+  
+      /* ════════════════════════════════════════════════════════════
+        EXPOSE GLOBALS
+      ════════════════════════════════════════════════════════════ */
+      window.gmOpenChat      = (convId, recipient) => openChat(String(convId), recipient);
+      window.gmOpenGroupChat = (convId, convData)  => openGroupChat(String(convId), convData);
+  
+      /* ════════════════════════════════════════════════════════════
+        PICKER TOGGLE
+      ════════════════════════════════════════════════════════════ */
+      function closePicker() {
+        picker.classList.remove('open'); pickerOpen = false;
+        pickerTab = 'dm'; groupSelectedIds.clear();
+        window._gmGroupNameDraft = '';
+      }
+  
+      fab.addEventListener('click', e => {
+        e.stopPropagation();
+        pickerOpen = !pickerOpen;
+        picker.classList.toggle('open', pickerOpen);
+        if (pickerOpen) {
+          pickerSearch.value = ''; pickerTab = 'dm'; groupSelectedIds.clear();
+          if (!allUsers.length) loadUsers(() => renderPicker(''));
+          else renderPicker('');
+          pickerSearch.focus();
+        }
+      });
+      pickerClose.addEventListener('click', closePicker);
+      document.addEventListener('click', e => { if (!picker.contains(e.target) && e.target !== fab) closePicker(); });
+      pickerSearch.addEventListener('input', () => renderPicker(pickerSearch.value));
+  
+      /* ════════════════════════════════════════════════════════════
+        INIT
+      ════════════════════════════════════════════════════════════ */
+      loadConvs(() => { loadUsers(); loadSavedState(); });
+      setInterval(loadConvs, 60000);
+  
     })();
   </script>
 

@@ -41,6 +41,45 @@ def notifications_list(request):
     return JsonResponse({'notifications': data})
 
 
+def _send_group_system_message(conv, text):
+    """
+    Creates a system Message and broadcasts it via WebSocket.
+    Call after any group membership change.
+    """
+    from .models import Message, Conversation
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+
+    msg = Message.objects.create(
+        conversation=conv,
+        sender=None,          # system message — no sender
+        body=text,
+        is_system=True,
+    )
+    conv.updated_at = msg.created_at
+    conv.save()
+
+    msg_data = {
+        'id':              msg.pk,
+        'body':            msg.body,
+        'sender_id':       None,
+        'created_at':      msg.created_at.isoformat(),
+        'attachment_url':  None,
+        'attachment_name': None,
+        'is_image':        False,
+        'is_system':       True,
+        'status':          'sent',
+        'reply_to':        None,
+    }
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'chat_{conv.pk}',
+        {'type': 'chat_message', 'message': msg_data}
+    )
+    return msg
+
+
 @login_required
 def notifications_mark_all_read(request):
     if request.method == 'POST':
@@ -3357,73 +3396,120 @@ def messenger_conversations(request):
     result = []
  
     for c in convs:
-        other = c.participants.exclude(pk=request.user.pk).first()
-        if not other:
-            continue
- 
-        profile  = getattr(other, 'profile', None)
-        last_msg = c.messages.last()
-        unread   = c.messages.filter(is_read=False).exclude(sender=request.user).count()
- 
-        last_preview = last_msg.body[:60] if last_msg and last_msg.body else ''
-        if not last_preview and last_msg and last_msg.attachment:
-            last_preview = 'Sent an attachment'
- 
-        mute_obj       = mute_map.get(c.pk)
-        is_muted       = mute_obj is not None
-        muted_until    = mute_obj.muted_until.isoformat() if (mute_obj and mute_obj.muted_until) else None
-        is_archived    = c.pk in archived_ids
-        blocked_by_me  = other.pk in i_blocked_ids
-        blocked_by_them = other.pk in blocked_me_ids
- 
-        result.append({
-            'id': c.pk,
-            'recipient': {
-                'id':         other.pk,
-                'username':   other.username,
-                'name':       other.get_full_name() or other.username,
-                'initials':   other.first_name[:1].upper() + other.last_name[:1].upper(),
-                'avatar':     profile.avatar.url if profile and profile.avatar else None,
-                'position':   profile.position if profile else '',
-                'department': profile.department if profile else '',
-                'bio':        profile.bio if profile else '',
-                'mobile':     profile.mobile_number if profile else '',
-                'is_online':  getattr(profile, 'is_online', False),
-            },
-            'last_message':       last_preview,
-            'last_message_time':  last_msg.created_at.isoformat() if last_msg else None,
-            'unread_count':       unread,
-            # new flags
-            'is_muted':           is_muted,
-            'muted_until':        muted_until,
-            'is_archived':        is_archived,
-            'blocked_by_me':      blocked_by_me,
-            'blocked_by_them':    blocked_by_them,
-        })
- 
+        if c.is_group:
+            # ── Group conversation ─────────────────────────────────────────
+            members = list(c.participants.select_related('profile').all())
+            member_list = [{
+                'id':       m.pk,
+                'name':     m.get_full_name() or m.username,
+                'initials': m.first_name[:1].upper() + m.last_name[:1].upper(),
+                'avatar':   m.profile.avatar.url if hasattr(m, 'profile') and m.profile.avatar else None,
+                'is_online': getattr(getattr(m, 'profile', None), 'is_online', False),
+            } for m in members]
+
+            last_msg   = c.messages.last()
+            unread     = c.messages.filter(is_read=False).exclude(sender=request.user).count()
+            mute_obj   = mute_map.get(c.pk)
+            is_muted   = mute_obj is not None
+            is_archived = c.pk in archived_ids
+
+            last_preview = ''
+            if last_msg:
+                if last_msg.is_system:
+                    last_preview = last_msg.body[:60] if last_msg.body else ''
+                elif last_msg.sender:
+                    sender_first = last_msg.sender.first_name or last_msg.sender.username
+                    last_preview = f'{sender_first}: {last_msg.body[:50]}' if last_msg.body else f'{sender_first}: Attachment'
+
+            result.append({
+                'id': c.pk,
+                'is_group':    True,
+                'name':        c.name or 'Group Chat',
+                'initials':    c.get_initials(),
+                'avatar':      c.avatar.url if c.avatar else None,
+                'created_by':  c.created_by_id,
+                'members':     member_list,
+                'recipient':   None,      # null for groups — frontend checks is_group
+                'last_message':      last_preview,
+                'last_message_time': last_msg.created_at.isoformat() if last_msg else None,
+                'unread_count':      unread,
+                'is_muted':          is_muted,
+                'muted_until':       mute_obj.muted_until.isoformat() if (mute_obj and mute_obj.muted_until) else None,
+                'is_archived':       is_archived,
+                'blocked_by_me':     False,
+                'blocked_by_them':   False,
+            })
+        else:
+            # ── DM conversation ────────────────────────────────────────────
+            other = c.participants.exclude(pk=request.user.pk).first()
+            if not other:
+                continue
+
+            profile  = getattr(other, 'profile', None)
+            last_msg = c.messages.last()
+            unread   = c.messages.filter(is_read=False).exclude(sender=request.user).count()
+
+            last_preview = last_msg.body[:60] if last_msg and last_msg.body else ''
+            if not last_preview and last_msg and last_msg.attachment:
+                last_preview = 'Sent an attachment'
+
+            mute_obj        = mute_map.get(c.pk)
+            is_muted        = mute_obj is not None
+            muted_until     = mute_obj.muted_until.isoformat() if (mute_obj and mute_obj.muted_until) else None
+            is_archived     = c.pk in archived_ids
+            blocked_by_me   = other.pk in i_blocked_ids
+            blocked_by_them = other.pk in blocked_me_ids
+
+            result.append({
+                'id': c.pk,
+                'is_group':    False,
+                'recipient': {
+                    'id':         other.pk,
+                    'username':   other.username,
+                    'name':       other.get_full_name() or other.username,
+                    'initials':   other.first_name[:1].upper() + other.last_name[:1].upper(),
+                    'avatar':     profile.avatar.url if profile and profile.avatar else None,
+                    'position':   profile.position if profile else '',
+                    'department': profile.department if profile else '',
+                    'bio':        profile.bio if profile else '',
+                    'mobile':     profile.mobile_number if profile else '',
+                    'is_online':  getattr(profile, 'is_online', False),
+                },
+                'last_message':      last_preview,
+                'last_message_time': last_msg.created_at.isoformat() if last_msg else None,
+                'unread_count':      unread,
+                'is_muted':          is_muted,
+                'muted_until':       muted_until,
+                'is_archived':       is_archived,
+                'blocked_by_me':     blocked_by_me,
+                'blocked_by_them':   blocked_by_them,
+            })
+
     return JsonResponse({'conversations': result})
 
 @login_required
 def messenger_messages(request, conv_id):
     from .models import Conversation, Message
     conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
-    msgs = conv.messages.select_related('sender', 'reply_to', 'reply_to__sender').all()
+    msgs = conv.messages.select_related('sender', 'reply_to', 'reply_to__sender').order_by('created_at')
     return JsonResponse({'messages': [{
-        'id':         m.pk,
-        'body':       m.body,
-        'sender_id':  m.sender.pk,
-        'created_at': m.created_at.isoformat(),
-        'attachment_url': m.attachment.url if m.attachment else None,
+        'id':              m.pk,
+        'body':            m.body,
+        'sender_id':       m.sender.pk if m.sender else None,
+        'created_at':      m.created_at.isoformat(),
+        'attachment_url':  m.attachment.url if m.attachment else None,
         'attachment_name': m.attachment_name,
-        'is_image': m.is_image,
-        'status': m.status,
+        'is_image':        m.is_image,
+        'is_system':       m.is_system,
+        'status':          m.status,
         'reply_to': {
-            'id':          m.reply_to.pk,
-            'body':        m.reply_to.body,
-            'is_image':    m.reply_to.is_image,
+            'id':              m.reply_to.pk,
+            'body':            m.reply_to.body,
+            'is_image':        m.reply_to.is_image,
             'attachment_name': m.reply_to.attachment_name,
             'sender_name': (
                 m.reply_to.sender.get_full_name() or m.reply_to.sender.username
+                if m.reply_to.sender else 'System'
             ),
         } if m.reply_to_id else None,
     } for m in msgs]})
@@ -3440,17 +3526,14 @@ def messenger_send(request, conv_id):
         recipient = conv.participants.exclude(pk=request.user.pk).first()
  
         # ── Block check: sender blocked by recipient, or sender blocked recipient ──
-        if recipient:
+        if not conv.is_group and recipient:
             is_blocked = BlockedUser.objects.filter(
                 blocker=recipient, blocked=request.user
             ).exists() or BlockedUser.objects.filter(
                 blocker=request.user, blocked=recipient
             ).exists()
             if is_blocked:
-                return JsonResponse(
-                    {'success': False, 'error': 'blocked'},
-                    status=403
-                )
+                return JsonResponse({'success': False, 'error': 'blocked'}, status=403)
  
         body       = request.POST.get('body', '').strip()
         attachment = request.FILES.get('attachment')
@@ -3473,28 +3556,32 @@ def messenger_send(request, conv_id):
  
         channel_layer = get_channel_layer()
  
-        if recipient:
-            # Only push real-time notification if recipient has NOT muted this conv
-            from .models import ConversationMute
-            from django.utils import timezone
-            mute = ConversationMute.objects.filter(
-                user=recipient, conversation=conv
-            ).first()
+        from .models import ConversationMute
+        from django.utils import timezone
+
+        sender_profile   = request.user.profile
+        sender_avatar    = sender_profile.avatar.url if sender_profile.avatar else ''
+        first = request.user.first_name[:1].upper()
+        last  = request.user.last_name[:1].upper()
+
+        recipients_to_notify = (
+            conv.participants.exclude(pk=request.user.pk)
+            if conv.is_group
+            else ([recipient] if recipient else [])
+        )
+
+        for r in recipients_to_notify:
+            mute = ConversationMute.objects.filter(user=r, conversation=conv).first()
             should_notify = not mute or (mute.muted_until and timezone.now() > mute.muted_until)
- 
+
             if should_notify:
                 unread_count = Message.objects.filter(
-                    conversation__participants=recipient,
+                    conversation__participants=r,
                     is_read=False,
-                ).exclude(sender=recipient).count()
- 
-                sender_profile   = request.user.profile
-                sender_avatar    = sender_profile.avatar.url if sender_profile.avatar else ''
-                first = request.user.first_name[:1].upper()
-                last  = request.user.last_name[:1].upper()
- 
+                ).exclude(sender=r).count()
+
                 async_to_sync(channel_layer.group_send)(
-                    f'notif_user_{recipient.pk}',
+                    f'notif_user_{r.pk}',
                     {
                         'type':            'new_chat_message',
                         'conv_id':         conv.pk,
@@ -3592,7 +3679,7 @@ def messenger_start(request):
         other   = get_object_or_404(User, pk=data['user_id'])
         # Find existing or create new
         existing = Conversation.objects.filter(
-            participants=request.user
+            participants=request.user, is_group=False
         ).filter(participants=other).first()
         if existing:
             return JsonResponse({'conversation_id': existing.pk})
@@ -3600,6 +3687,150 @@ def messenger_start(request):
         conv.participants.add(request.user, other)
         return JsonResponse({'conversation_id': conv.pk})
     return JsonResponse({'success': False}, status=405)
+
+@login_required
+def messenger_create_group(request):
+    """POST: Create a group conversation."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False}, status=405)
+
+    import json as _json
+    from .models import Conversation
+
+    name        = request.POST.get('name', '').strip()
+    member_ids  = request.POST.getlist('member_ids')  # list of user PKs
+    avatar      = request.FILES.get('avatar')
+
+    if not name:
+        return JsonResponse({'success': False, 'error': 'Group name is required.'}, status=400)
+    if len(member_ids) < 2:
+        return JsonResponse({'success': False, 'error': 'Select at least 2 members.'}, status=400)
+
+    conv = Conversation.objects.create(
+        is_group=True,
+        name=name,
+        created_by=request.user,
+    )
+    if avatar:
+        conv.avatar = avatar
+        conv.save()
+
+    # Add creator + selected members
+    members = list(User.objects.filter(pk__in=member_ids, is_active=True))
+    conv.participants.add(request.user, *members)
+
+    return JsonResponse({'success': True, 'conversation_id': conv.pk})
+
+
+@login_required
+def messenger_group_add_members(request, conv_id):
+    from .models import Conversation
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user, is_group=True)
+
+    member_ids  = request.POST.getlist('member_ids')
+    new_members = list(User.objects.filter(pk__in=member_ids, is_active=True))
+    conv.participants.add(*new_members)
+
+    # System message
+    adder_name = request.user.get_full_name() or request.user.username
+    for member in new_members:
+        member_name = member.get_full_name() or member.username
+        _send_group_system_message(conv, f'{adder_name} added {member_name} to the group.')
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+def messenger_group_remove_member(request, conv_id):
+    import json as _json
+    from .models import Conversation
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user, is_group=True)
+
+    data      = _json.loads(request.body or '{}')
+    target_id = data.get('member_id') or data.get('user_id')
+    target    = get_object_or_404(User, pk=target_id)
+
+    if target != request.user and conv.created_by != request.user:
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    conv.participants.remove(target)
+
+    # System message
+    target_name = target.get_full_name() or target.username
+    _send_group_system_message(conv, f'{target_name} was removed from the group.')
+
+    # Notify the kicked user via their notification channel
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'notif_user_{target.pk}',
+        {
+            'type':      'kicked_from_group',
+            'conv_id':   conv.pk,
+            'conv_name': conv.name or 'Group Chat',
+            'kicked_user_id': target.pk,
+        }
+    )
+    conv.participants.remove(target)
+
+    # System message
+    target_name = target.get_full_name() or target.username
+    _send_group_system_message(conv, f'{target_name} was removed from the group.')
+
+    # Notify the kicked user via their notification channel
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'notif_user_{target.pk}',
+        {
+            'type':           'kicked_from_group',
+            'conv_id':        conv.pk,
+            'conv_name':      conv.name or 'Group Chat',
+            'kicked_user_id': target.pk,
+        }
+    )
+
+    return JsonResponse({'success': True})
+
+@login_required
+def messenger_leave_group(request, conv_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    from .models import Conversation
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    conv.participants.remove(request.user)
+
+    # System message
+    full_name = request.user.get_full_name() or request.user.username
+    _send_group_system_message(conv, f'{full_name} left the group.')
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+def messenger_group_update(request, conv_id):
+    """POST: Update group name/avatar."""
+    from .models import Conversation
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user, is_group=True)
+
+    if conv.created_by != request.user:
+        return JsonResponse({'success': False, 'error': 'Only the creator can edit this group.'}, status=403)
+
+    name   = request.POST.get('name', '').strip()
+    avatar = request.FILES.get('avatar')
+
+    if name:
+        conv.name = name
+    if avatar:
+        if conv.avatar:
+            conv.avatar.delete(save=False)
+        conv.avatar = avatar
+    conv.save()
+
+    return JsonResponse({'success': True})
 
 
 

@@ -12,12 +12,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        # Each user gets their own group: "notif_user_<pk>"
         self.group_name = f'notif_user_{user.pk}'
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
-        # Send unread count immediately on connect
         count = await self.get_unread_count(user)
         await self.send(text_data=json.dumps({
             'type':         'unread_count',
@@ -28,7 +26,6 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         if hasattr(self, 'group_name'):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
-    # Receive message from WebSocket (e.g. mark-as-read ping from frontend)
     async def receive(self, text_data):
         data = json.loads(text_data)
         user = self.scope['user']
@@ -49,9 +46,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 'notifications': notifications,
             }))
 
-    # ── Called by channel layer when someone pushes to this user's group ──
     async def send_notification(self, event):
-        """Handler for group messages of type 'send_notification'."""
         await self.send(text_data=json.dumps({
             'type':          'new_notification',
             'id':            event['id'],
@@ -64,12 +59,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'unread_count':  event['unread_count'],
         }))
 
-
     async def new_chat_message(self, event):
-        """
-        Fired when someone sends the logged-in user a chat message.
-        Pushes a real-time envelope notification to base.html.
-        """
         await self.send(text_data=json.dumps({
             'type':             'new_chat_message',
             'conv_id':          event['conv_id'],
@@ -82,7 +72,19 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'unread_count':     event['unread_count'],
         }))
 
-    # ── DB helpers ──────────────────────────────────────────────────────────
+    # ── ADD THIS ──────────────────────────────────────────────────────────────
+    async def kicked_from_group(self, event):
+        """
+        Sent to a specific user when they are removed from a group by the creator.
+        Forwards the event to their browser so the frontend can show the kicked modal.
+        """
+        await self.send(text_data=json.dumps({
+            'type':      'kicked_from_group',
+            'conv_id':   event['conv_id'],
+            'conv_name': event['conv_name'],
+        }))
+    # ─────────────────────────────────────────────────────────────────────────
+
     @database_sync_to_async
     def get_unread_count(self, user):
         return Notification.objects.filter(recipient=user, is_read=False).count()
@@ -111,8 +113,6 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             }
             for n in qs
         ]
-    
-
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -120,7 +120,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         user = self.scope['user']
         if not user.is_authenticated:
             await self.close(); return
-        self.conv_id   = self.scope['url_route']['kwargs']['conv_id']
+        self.conv_id    = self.scope['url_route']['kwargs']['conv_id']
         self.group_name = f'chat_{self.conv_id}'
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
@@ -144,7 +144,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             })
 
     async def chat_message(self, event):
-        await self.send(text_data=json.dumps({'type': 'chat_message', 'message': event['message']}))
+        # ── CHANGED: pass is_system through so the frontend can render
+        #    system messages (leave / kick / add) differently.
+        #    event['message'] already contains is_system from _send_group_system_message.
+        #    No other change needed here — just forward the whole dict as-is.
+        await self.send(text_data=json.dumps({
+            'type':    'chat_message',
+            'message': event['message'],
+        }))
 
     async def typing(self, event):
         await self.send(text_data=json.dumps({'type': 'typing', 'user_id': event['user_id']}))
@@ -174,9 +181,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'attachment_url':  None,
             'attachment_name': '',
             'is_image':        False,
+            'is_system':       False,   # ── ADD THIS FIELD
             'status':          msg.status,
+            'reply_to':        None,
         }
-    
+
+
 class PresenceConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.user = self.scope['user']
@@ -188,7 +198,6 @@ class PresenceConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.room, self.channel_name)
         await self.accept()
 
-        # Mark user online and broadcast
         await self.set_online(True)
         await self.channel_layer.group_send(self.room, {
             'type': 'presence_update',

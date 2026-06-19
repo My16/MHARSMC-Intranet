@@ -1146,9 +1146,30 @@ class Conversation(models.Model):
     participants = models.ManyToManyField(User, related_name='conversations')
     created_at   = models.DateTimeField(auto_now_add=True)
     updated_at   = models.DateTimeField(auto_now=True)
+    
+    # ── Group chat additions ───────────────────────────────────────────────
+    is_group     = models.BooleanField(default=False)
+    name         = models.CharField(max_length=200, blank=True, default='')
+    avatar       = models.ImageField(upload_to='group_avatars/', blank=True, null=True)
+    created_by   = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_conversations'
+    )
 
     class Meta:
         ordering = ['-updated_at']
+
+    def get_display_name(self, for_user):
+        """Returns group name, or the other person's name for DMs."""
+        if self.is_group:
+            return self.name or 'Group Chat'
+        other = self.participants.exclude(pk=for_user.pk).first()
+        return other.get_full_name() or other.username if other else 'Unknown'
+    
+    def get_initials(self):
+        """For group avatar placeholder."""
+        return self.name[:2].upper() if self.name else 'GC'
 
 class Message(models.Model):
     STATUS_SENT      = 'sent'
@@ -1161,13 +1182,14 @@ class Message(models.Model):
     ]
 
     conversation    = models.ForeignKey('Conversation', on_delete=models.CASCADE, related_name='messages')
-    sender          = models.ForeignKey(User, on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='sent_messages')
     body            = models.TextField(blank=True)
     attachment      = models.FileField(upload_to='messenger/', blank=True, null=True)
     attachment_name = models.CharField(max_length=255, blank=True)
     is_read         = models.BooleanField(default=False)
     status          = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_SENT)
     created_at      = models.DateTimeField(auto_now_add=True)
+    is_system = models.BooleanField(default=False)
     reply_to        = models.ForeignKey(
         'self',
         null=True,
