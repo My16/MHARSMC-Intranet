@@ -1567,7 +1567,7 @@
   <script>
     (function () {
       'use strict';
-  
+    
       /* ── On messenger page: wire FAB to new-message modal only ── */
       if (document.getElementById('msng')) {
         const fab = document.getElementById('gmFab');
@@ -1584,21 +1584,14 @@
         }
         return;
       }
-  
-      /* ════════════════════════════════════════════════════════════
-        FIX #1 — ME_ID must come from the Django-rendered template,
-        NOT from data attributes (body tag has none).
-        These three consts are rendered inline by Django above this
-        script block — they are already in scope.  We just reference
-        them.  If they are somehow 0/empty we fall back gracefully.
-      ════════════════════════════════════════════════════════════ */
+    
       const ME_ID       = {{ request.user.pk }};
       const ME_INITIALS = "{{ request.user.first_name|slice:':1'|upper }}{{ request.user.last_name|slice:':1'|upper }}";
       const ME_AVATAR   = "{% if request.user.profile.avatar %}{{ request.user.profile.avatar.url }}{% endif %}";
-  
+    
       const MAX_OPEN = 3;
       const SS_KEY   = 'gm_state_v2';
-  
+    
       let allConvs   = [];
       let allUsers   = [];
       let openWins   = {};
@@ -1606,7 +1599,7 @@
       let pickerOpen = false;
       let pickerTab  = 'dm';
       let groupSelectedIds = new Set();
-  
+    
       /* ── Helpers ── */
       const getCsrf = () => { const v = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; };
       const esc     = s  => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
@@ -1624,7 +1617,7 @@
                 zip:'fa-file-zipper',rar:'fa-file-zipper',txt:'fa-file-lines',
                 mp4:'fa-file-video',mov:'fa-file-video',mp3:'fa-file-audio',wav:'fa-file-audio'})[ext] || 'fa-file';
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
         SESSION PERSISTENCE
       ════════════════════════════════════════════════════════════ */
@@ -1645,7 +1638,7 @@
           }));
         } catch(_) {}
       }
-  
+    
       function loadSavedState() {
         try {
           const raw = sessionStorage.getItem(SS_KEY);
@@ -1663,9 +1656,9 @@
           });
         } catch(_) {}
       }
-  
+    
       window.addEventListener('beforeunload', saveState);
-  
+    
       /* ── DOM refs ── */
       const fab          = document.getElementById('gmFab');
       const fabBadge     = document.getElementById('gmFabBadge');
@@ -1675,12 +1668,12 @@
       const pickerList   = document.getElementById('gmPickerList');
       const winsRow      = document.getElementById('gmWinsRow');
       const bubblesCol   = document.getElementById('gmBubblesCol');
-  
+    
       function setFabBadge(n) {
         fabBadge.textContent = n > 99 ? '99+' : n;
         fabBadge.classList.toggle('show', n > 0);
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
         DATA
       ════════════════════════════════════════════════════════════ */
@@ -1693,20 +1686,17 @@
           if (cb) cb();
         }).catch(() => {});
       }
-  
+    
       function loadUsers(cb) {
         fetch('/messenger/users/').then(r => r.json()).then(data => {
           allUsers = data.users || [];
           if (cb) cb();
         }).catch(() => {});
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
         PICKER TABS
-        FIX #4 — use a dedicated class instead of fragile cssText regex
       ════════════════════════════════════════════════════════════ */
-  
-      /* Add this CSS once */
       (function() {
         const s = document.createElement('style');
         s.textContent = `
@@ -1717,7 +1707,7 @@
         `;
         document.head.appendChild(s);
       })();
-  
+    
       function _ensurePickerTabs() {
         if (document.getElementById('gmPickerTabBar')) return;
         const tabBar = document.createElement('div');
@@ -1731,7 +1721,7 @@
             <i class="fa-solid fa-users" style="margin-right:4px;"></i>New Group
           </div>`;
         picker.querySelector('.gm-picker__srch').insertAdjacentElement('afterend', tabBar);
-  
+    
         document.getElementById('gmPTabDm').addEventListener('click', () => {
           pickerTab = 'dm'; groupSelectedIds.clear(); _syncTabUI(); renderPicker(pickerSearch.value);
         });
@@ -1741,7 +1731,7 @@
           else renderPicker(pickerSearch.value);
         });
       }
-  
+    
       function _syncTabUI() {
         const dm  = document.getElementById('gmPTabDm');
         const grp = document.getElementById('gmPTabGroup');
@@ -1749,7 +1739,7 @@
         dm.classList.toggle('active',  pickerTab === 'dm');
         grp.classList.toggle('active', pickerTab === 'group');
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
         PICKER RENDER
       ════════════════════════════════════════════════════════════ */
@@ -1757,19 +1747,19 @@
         if (pickerTab === 'group') { renderGroupPane(filter); return; }
         renderDmPane(filter);
       }
-  
+    
       function renderDmPane(filter) {
         const lo = (filter || '').toLowerCase();
         pickerList.innerHTML = '';
         _ensurePickerTabs();
         _syncTabUI();
-  
+    
         const convs = allConvs.filter(c => {
           if (c.is_archived) return false;
           const n = c.is_group ? (c.name || 'Group Chat') : (c.recipient ? c.recipient.name : '');
           return !lo || n.toLowerCase().includes(lo);
         });
-  
+    
         if (convs.length) {
           if (!lo) {
             const s = document.createElement('div');
@@ -1778,7 +1768,7 @@
           }
           convs.forEach(c => pickerList.appendChild(c.is_group ? _mkGroupItem(c) : _mkDmItem(c, null)));
         }
-  
+    
         if (lo) {
           const ids = new Set(allConvs.filter(c => !c.is_group && c.recipient).map(c => c.recipient.id));
           const others = allUsers.filter(u => u.name.toLowerCase().includes(lo) && !ids.has(u.id));
@@ -1789,19 +1779,18 @@
             others.forEach(u => pickerList.appendChild(_mkDmItem(null, u)));
           }
         }
-  
+    
         if (!pickerList.children.length)
           pickerList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.8rem;">No conversations yet</div>';
       }
-  
+    
       function renderGroupPane(filter) {
         document.getElementById('gmGroupFooter')?.remove();
         const lo = (filter || '').toLowerCase();
         pickerList.innerHTML = '';
         _ensurePickerTabs();
         _syncTabUI();
-  
-        /* Chips */
+    
         if (groupSelectedIds.size) {
           const wrap = document.createElement('div');
           wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:6px 12px;border-bottom:1px solid var(--border);';
@@ -1818,8 +1807,7 @@
           });
           pickerList.appendChild(wrap);
         }
-  
-        /* Group name */
+    
         const nw = document.createElement('div');
         nw.style.cssText = 'padding:7px 12px;border-bottom:1px solid var(--border);';
         nw.innerHTML = `<input id="gmPickerGroupName" type="text" placeholder="Group name…" autocomplete="off"
@@ -1830,8 +1818,7 @@
         document.getElementById('gmPickerGroupName').addEventListener('input', (e) => {
           window._gmGroupNameDraft = e.target.value;
         });
-  
-        /* User list */
+    
         const filtered = allUsers.filter(u => !lo || u.name.toLowerCase().includes(lo));
         if (!filtered.length) {
           const e = document.createElement('div');
@@ -1867,10 +1854,9 @@
             pickerList.appendChild(div);
           });
         }
-  
-        /* Footer */
+    
         const footer = document.createElement('div');
-        footer.id = 'gmGroupFooter'
+        footer.id = 'gmGroupFooter';
         footer.style.cssText = 'padding:8px 12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
         const cnt = document.createElement('span');
         cnt.style.cssText = 'font-size:.75rem;color:var(--text-muted);';
@@ -1905,7 +1891,7 @@
         footer.appendChild(cnt); footer.appendChild(btn);
         picker.appendChild(footer);
       }
-  
+    
       function _mkDmItem(conv, user) {
         const r = conv ? conv.recipient : user;
         const convId  = conv ? conv.id : null;
@@ -1933,7 +1919,7 @@
         });
         return div;
       }
-  
+    
       function _mkGroupItem(conv) {
         const div = document.createElement('div');
         div.className = 'gm-picker__item';
@@ -1949,13 +1935,12 @@
         div.addEventListener('click', () => { closePicker(); openGroupChat(String(conv.id), conv); });
         return div;
       }
-  
-      
+    
       /* ════════════════════════════════════════════════════════════
         LIGHTBOX
       ════════════════════════════════════════════════════════════ */
       let lbItems = [], lbIdx = 0;
-
+    
       function openLightbox(url, name, allItems) {
         if (allItems && allItems.length) {
           lbItems = allItems;
@@ -1968,7 +1953,7 @@
         _renderLb();
         document.getElementById('gmLightbox').classList.add('open');
       }
-
+    
       function _renderLb() {
         const item    = lbItems[lbIdx]; if (!item) return;
         const content = document.getElementById('gmLightboxContent');
@@ -1978,24 +1963,19 @@
         const nextBtn = document.getElementById('gmLightboxNext');
         const strip   = document.getElementById('gmLightboxStrip');
         const bg      = document.getElementById('gmLightboxBg');
-
+    
         dlBtn.href = item.url; dlBtn.download = item.name || 'file';
         caption.textContent = item.name || '';
-
         prevBtn.classList.toggle('hidden', lbIdx === 0);
         nextBtn.classList.toggle('hidden', lbIdx === lbItems.length - 1);
-
-        if (item.isImage) {
-          bg.style.backgroundImage = `url('${item.url}')`;
-          bg.style.display = 'block';
-        } else {
-          bg.style.display = 'none';
-        }
-
+    
+        if (item.isImage) { bg.style.backgroundImage = `url('${item.url}')`; bg.style.display = 'block'; }
+        else { bg.style.display = 'none'; }
+    
         content.style.animation = 'none';
         requestAnimationFrame(() => { content.style.animation = 'gmLightboxFade .18s ease'; });
         content.innerHTML = '';
-
+    
         if (item.isImage) {
           const img = document.createElement('img');
           img.src = item.url; img.className = 'gm-lightbox__img'; img.alt = item.name || '';
@@ -2013,8 +1993,7 @@
               <i class="fa-solid fa-download"></i> Download
             </a></div>`;
         }
-
-        /* Thumbnail strip */
+    
         strip.innerHTML = '';
         if (lbItems.length > 1) {
           lbItems.forEach((it, idx) => {
@@ -2037,7 +2016,7 @@
           }, 50);
         }
       }
-
+    
       document.getElementById('gmLightboxPrev').addEventListener('click', (e) => {
         e.stopPropagation();
         if (lbIdx > 0) { lbIdx--; _renderLb(); }
@@ -2058,8 +2037,7 @@
         if (e.key === 'ArrowRight' && lbIdx < lbItems.length - 1) { lbIdx++; _renderLb(); }
         if (e.key === 'Escape') lb.classList.remove('open');
       });
-
-
+    
       /* ════════════════════════════════════════════════════════════
         MUTE MODAL
       ════════════════════════════════════════════════════════════ */
@@ -2082,25 +2060,66 @@
         fetch(`/messenger/conversations/${mutePendingId}/mute/`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify({ duration: dur }) })
           .then(r => r.json()).then(d => { if (d.success) { document.getElementById('gmMuteModal').classList.remove('open'); loadConvs(); } });
       });
-  
-      /* ════════════════════════════════════════════════════════════
-        FIX #2 — MESSAGE BUILDER
-        mine detection uses ME_ID (now correctly set from Django template)
-        FIX #3 — IMAGE GROUPING in load
-      ════════════════════════════════════════════════════════════ */
-      function buildWinMsg(msg, convId) {
-        const mine = (msg.sender_id === ME_ID);   /* ← this now works correctly */
-        const row  = document.createElement('div');
+    
+      function _getSenderInfo(senderId, convData) {
+        /* Returns { name, avatar, initials } for a sender in a group conversation */
+        if (!convData || !convData.members) return null;
+        const m = convData.members.find(m => m.id === senderId);
+        if (!m) return null;
+        return { name: m.name, avatar: m.avatar, initials: m.initials };
+      }
+    
+      function buildWinMsg(msg, convId, convData) {
+        const mine    = (msg.sender_id === ME_ID);
+        const isGroup = !!(convData && convData.is_group);
+    
+        const row = document.createElement('div');
         row.className = 'gm-win__row' + (mine ? ' mine' : '');
         row.dataset.id = msg.id;
-  
+    
+        /* ── FIX #2: group sender avatar + name (only for others' messages) ── */
+        if (isGroup && !mine && msg.sender_id) {
+          const info = _getSenderInfo(msg.sender_id, convData);
+          if (info) {
+            /* Small avatar beside bubble */
+            const av = document.createElement('div');
+            av.style.cssText = 'width:24px;height:24px;min-width:24px;border-radius:50%;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:600;color:#fff;overflow:hidden;align-self:flex-end;margin-bottom:2px;flex-shrink:0;';
+            av.innerHTML = avHTML(info.avatar, info.initials, 24);
+            row.appendChild(av);
+    
+            /* Wrap bubble+name in a column */
+            const col = document.createElement('div');
+            col.style.cssText = 'display:flex;flex-direction:column;max-width:78%;';
+    
+            /* Sender name label */
+            const nameLabel = document.createElement('div');
+            nameLabel.style.cssText = 'font-size:.62rem;font-weight:600;color:var(--green-mid);margin-bottom:2px;padding-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            nameLabel.textContent = info.name;
+            col.appendChild(nameLabel);
+    
+            const bubble = _buildBubbleContent(msg, convId, false);
+            col.appendChild(bubble);
+            row.appendChild(col);
+            return row;
+          }
+        }
+    
+        /* DM or mine — original layout */
+        const bubble = _buildBubbleContent(msg, convId, mine);
+        row.appendChild(bubble);
+        return row;
+      }
+    
+      function _buildBubbleContent(msg, convId, mine) {
         const hasAtt  = msg.attachment_url;
         const hasBody = msg.body && msg.body.trim();
         const bubble  = document.createElement('div');
-        let content   = '';
-  
+    
+        let content = '';
+    
         if (hasAtt) {
           if (msg.is_image || isImageUrl(msg.attachment_url)) {
+            /* FIX #4: if there's also a body, keep normal bubble class so both render together */
             bubble.className = hasBody ? 'gm-win__bubble' : 'gm-win__bubble img-only';
             content += `<img class="gm-win__bubble-img" src="${msg.attachment_url}" alt=""
               data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Image'}"
@@ -2123,120 +2142,181 @@
         } else {
           bubble.className = 'gm-win__bubble';
         }
-  
+    
         if (hasBody) content += `<span>${esc(msg.body)}</span>`;
         const tick = mine ? `<span class="gm-win__status" data-status="${msg.status||'sent'}"></span>` : '';
         content += `<span class="gm-win__btime">${fmtT(msg.created_at)}${tick}</span>`;
         bubble.innerHTML = content;
-  
+    
         bubble.querySelector('.gm-win__bubble-img')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
         bubble.querySelector('.gm-win__vid-preview')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
         bubble.querySelector('.gm-win__bubble-file')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
-  
-        row.appendChild(bubble);
-        return row;
+    
+        return bubble;
       }
-  
-      /* FIX #3 — grouped image bubble (multiple images sent together) */
-      function buildImgGroupMsg(msgs) {
+    
+      /* FIX #3: grouped image bubble (used by both loadWinMsgs and real-time) */
+      function buildImgGroupMsg(msgs, convData) {
         const mine = (msgs[0].sender_id === ME_ID);
-        const row  = document.createElement('div');
+        const isGroup = !!(convData && convData.is_group);
+    
+        const row = document.createElement('div');
         row.className = 'gm-win__row' + (mine ? ' mine' : '');
         row.dataset.id = msgs[msgs.length - 1].id;
-  
-        const bubble = document.createElement('div');
-        bubble.className = 'gm-win__bubble img-only';
-  
-        const cols = Math.min(msgs.length, 2);
-        const grid = document.createElement('div');
-        grid.style.cssText = `display:grid;grid-template-columns:repeat(${cols},1fr);gap:2px;border-radius:10px;overflow:hidden;max-width:204px;`;
-  
+    
         const allImgItems = msgs.map(m => ({ url: m.attachment_url, name: m.attachment_name||'Image', isImage: true, isVideo: false }));
-        msgs.forEach(msg => {
-          const img = document.createElement('img');
-          img.src = msg.attachment_url;
-          img.style.cssText = 'width:100%;height:90px;object-fit:cover;cursor:pointer;display:block;';
-          img.addEventListener('click', () => openLightbox(msg.attachment_url, msg.attachment_name, allImgItems));
-          grid.appendChild(img);
-        });
-  
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'gm-win__btime';
-        timeSpan.textContent = fmtT(msgs[msgs.length - 1].created_at);
-  
-        bubble.appendChild(grid);
-        bubble.appendChild(timeSpan);
-        row.appendChild(bubble);
+    
+        const makeBubble = () => {
+          const bubble = document.createElement('div');
+          bubble.className = 'gm-win__bubble img-only';
+          const cols = Math.min(msgs.length, 2);
+          const grid = document.createElement('div');
+          grid.style.cssText = `display:grid;grid-template-columns:repeat(${cols},1fr);gap:2px;border-radius:10px;overflow:hidden;max-width:204px;`;
+          msgs.forEach(msg => {
+            const img = document.createElement('img');
+            img.src = msg.attachment_url;
+            img.style.cssText = 'width:100%;height:90px;object-fit:cover;cursor:pointer;display:block;';
+            img.addEventListener('click', () => openLightbox(msg.attachment_url, msg.attachment_name, allImgItems));
+            grid.appendChild(img);
+          });
+          const timeSpan = document.createElement('span');
+          timeSpan.className = 'gm-win__btime';
+          timeSpan.textContent = fmtT(msgs[msgs.length - 1].created_at);
+          bubble.appendChild(grid);
+          bubble.appendChild(timeSpan);
+          return bubble;
+        };
+    
+        /* Group sender info */
+        if (isGroup && !mine && msgs[0].sender_id) {
+          const info = _getSenderInfo(msgs[0].sender_id, convData);
+          if (info) {
+            const av = document.createElement('div');
+            av.style.cssText = 'width:24px;height:24px;min-width:24px;border-radius:50%;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:600;color:#fff;overflow:hidden;align-self:flex-end;margin-bottom:2px;flex-shrink:0;';
+            av.innerHTML = avHTML(info.avatar, info.initials, 24);
+            row.appendChild(av);
+    
+            const col = document.createElement('div');
+            col.style.cssText = 'display:flex;flex-direction:column;';
+            const nameLabel = document.createElement('div');
+            nameLabel.style.cssText = 'font-size:.62rem;font-weight:600;color:var(--green-mid);margin-bottom:2px;padding-left:4px;';
+            nameLabel.textContent = info.name;
+            col.appendChild(nameLabel);
+            col.appendChild(makeBubble());
+            row.appendChild(col);
+            return row;
+          }
+        }
+    
+        row.appendChild(makeBubble());
         return row;
       }
-  
-      function appendWinMsg(msgsEl, msg, convId) {
+    
+      const _imgBuffer   = {};   /* key: `${convId}_${senderId}` → { msgs, timer } */
+    
+      function _flushImgBuffer(key, msgsEl, convId, convData) {
+        const buf = _imgBuffer[key];
+        if (!buf || !buf.msgs.length) return;
+        const msgs = buf.msgs.slice();
+        delete _imgBuffer[key];
+    
         msgsEl.querySelector('.gm-win__typing')?.remove();
-        msgsEl.appendChild(buildWinMsg(msg, convId));
+    
+        if (msgs.length === 1) {
+          msgsEl.appendChild(buildWinMsg(msgs[0], convId, convData));
+        } else {
+          msgsEl.appendChild(buildImgGroupMsg(msgs, convData));
+        }
         msgsEl.scrollTop = msgsEl.scrollHeight;
       }
-  
+    
+      function appendWinMsg(msgsEl, msg, convId, convData) {
+        /* For image-only messages: buffer and debounce */
+        if ((msg.is_image || isImageUrl(msg.attachment_url)) && !msg.body) {
+          const key = `${convId}_${msg.sender_id}`;
+          if (!_imgBuffer[key]) _imgBuffer[key] = { msgs: [], timer: null };
+          _imgBuffer[key].msgs.push(msg);
+          clearTimeout(_imgBuffer[key].timer);
+          _imgBuffer[key].timer = setTimeout(() => _flushImgBuffer(key, msgsEl, convId, convData), 600);
+          return;
+        }
+    
+        /* Flush any pending images from this sender before appending a non-image msg */
+        const key = `${convId}_${msg.sender_id}`;
+        if (_imgBuffer[key]) {
+          clearTimeout(_imgBuffer[key].timer);
+          _flushImgBuffer(key, msgsEl, convId, convData);
+        }
+    
+        msgsEl.querySelector('.gm-win__typing')?.remove();
+        msgsEl.appendChild(buildWinMsg(msg, convId, convData));
+        msgsEl.scrollTop = msgsEl.scrollHeight;
+      }
+    
       /* ════════════════════════════════════════════════════════════
-        FIX #1 — FLOATING BUBBLE spawned on any new incoming message,
-        even when no window is currently open/minimised for that conv.
-        _spawnBubble is also reused by minimizeWindow + loadSavedState.
+        FLOATING BUBBLE
       ════════════════════════════════════════════════════════════ */
       let bubbleTimers = {};
-  
+    
       function _spawnBubble(convId, recipient, convData, isGroup, initialUnread) {
         convId = String(convId);
         if (miniWins[convId]) return;
-  
+    
         const bubble = document.createElement('div');
         bubble.className = 'gm-bubble';
         bubble.dataset.convId = convId;
         bubble.title = isGroup ? (convData?.name||'Group Chat') : (recipient?.name||'');
-  
+    
         const inner = document.createElement('div');
         inner.className = 'gm-bubble__inner';
         inner.innerHTML = avHTML(isGroup ? convData?.avatar : recipient?.avatar,
                                 isGroup ? (convData?.initials||'GC') : (recipient?.initials||'?'), 48);
         bubble.appendChild(inner);
-  
+    
         if (!isGroup && recipient?.is_online) {
           const dot = document.createElement('span'); dot.className = 'gm-bubble__online'; bubble.appendChild(dot);
         }
-  
+    
         const badge = document.createElement('span');
         badge.className = 'gm-bubble__badge' + (initialUnread > 0 ? ' show' : '');
         badge.id = `gmBubBadge_${convId}`;
         badge.textContent = initialUnread > 0 ? initialUnread : '';
         bubble.appendChild(badge);
-  
+    
         const closeBtn = document.createElement('button');
         closeBtn.style.cssText = 'position:absolute;top:-3px;right:-3px;width:17px;height:17px;border-radius:50%;border:none;background:rgba(0,0,0,.35);color:rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.5rem;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.2);';
         closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
         closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeWindow(convId); });
         bubble.appendChild(closeBtn);
-  
+    
+        /* Message preview popup */
+        const pv = document.createElement('div');
+        pv.className = 'gm-bubble__preview';
+        pv.innerHTML = `<div class="gm-bubble__preview-name"></div><div class="gm-bubble__preview-msg"></div><div class="gm-bubble__preview-time"></div>`;
+        bubble.appendChild(pv);
+    
         bubble.addEventListener('click', () => {
           if (isGroup) _restoreGroupBubble(convId, convData);
           else         _restoreDmBubble(convId);
         });
-  
+    
         bubblesCol.appendChild(bubble);
         miniWins[convId] = { bubbleEl: bubble, recipient, convData, isGroup, ws: null, unread: initialUnread || 0 };
         saveState();
       }
-  
+    
       function showBubblePreview(convId, senderName, body, createdAt) {
         const mini = miniWins[convId]; if (!mini) return;
         const pv = mini.bubbleEl.querySelector('.gm-bubble__preview'); if (!pv) return;
         const t = new Date(createdAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-        pv.innerHTML = `
-          <div class="gm-bubble__preview-name">${esc(senderName)}</div>
-          <div class="gm-bubble__preview-msg">${esc(body||'Sent an attachment')}</div>
-          <div class="gm-bubble__preview-time">${t}</div>`;
+        pv.querySelector('.gm-bubble__preview-name').textContent = senderName;
+        pv.querySelector('.gm-bubble__preview-msg').textContent  = body || 'Sent an attachment';
+        pv.querySelector('.gm-bubble__preview-time').textContent = t;
         requestAnimationFrame(() => requestAnimationFrame(() => pv.classList.add('visible')));
         clearTimeout(bubbleTimers[convId]);
         bubbleTimers[convId] = setTimeout(() => pv.classList.remove('visible'), 4000);
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
         MINIMISE / RESTORE / CLOSE
       ════════════════════════════════════════════════════════════ */
@@ -2246,9 +2326,9 @@
         const { ws, recipient, convData, isGroup } = state;
         state.el.remove();
         delete openWins[convId];
-  
+    
         _spawnBubble(convId, recipient, convData, isGroup, 0);
-  
+    
         const mini = miniWins[convId];
         if (ws) {
           mini.ws = ws;
@@ -2266,7 +2346,7 @@
         }
         saveState();
       }
-  
+    
       function _restoreDmBubble(convId) {
         convId = String(convId);
         const mini = miniWins[convId]; if (!mini) return;
@@ -2280,7 +2360,7 @@
         if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
         openChat(convId, recipient);
       }
-  
+    
       function _restoreGroupBubble(convId, convData) {
         convId = String(convId);
         const mini = miniWins[convId]; if (!mini) return;
@@ -2293,16 +2373,17 @@
         if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
         openGroupChat(convId, convData || mini.convData);
       }
-  
+    
       function closeWindow(convId) {
         convId = String(convId);
         const s = openWins[convId]; if (s) { if (s.ws) s.ws.close(); s.el.remove(); delete openWins[convId]; }
         const m = miniWins[convId]; if (m) { if (m.ws) m.ws.close(); m.bubbleEl.remove(); delete miniWins[convId]; }
         saveState();
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
-        BUILD + WIRE WINDOW SHELL
+        BUILD WINDOW SHELL
+        FIX #1: file input now has `multiple` attribute
       ════════════════════════════════════════════════════════════ */
       function buildWinShell(title, subtitle, avatarHtml) {
         const win = document.createElement('div');
@@ -2328,8 +2409,7 @@
           </div>
           <div class="gm-win__msgs js-msgs"></div>
           <div class="gm-win__attach-preview js-attach-preview">
-            <div class="js-attach-thumb"></div>
-            <div class="gm-win__attach-name js-attach-name"></div>
+            <div class="js-attach-thumb" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex:1;min-width:0;"></div>
             <button class="gm-win__attach-rm js-attach-rm"><i class="fa-solid fa-xmark"></i></button>
           </div>
           <div class="gm-win__blocked js-blocked">
@@ -2337,15 +2417,24 @@
             <span class="js-blocked-txt">You can't send messages in this conversation.</span>
           </div>
           <div class="gm-win__foot js-foot">
-            <button class="gm-win__attach-btn js-attach-btn"><i class="fa-solid fa-paperclip"></i></button>
+            <button class="gm-win__attach-btn js-attach-btn" title="Attach files"><i class="fa-solid fa-paperclip"></i></button>
             <input type="file" class="js-file-input" style="display:none;"
+              multiple
               accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
             <textarea class="gm-win__input js-input" placeholder="Aa" rows="1"></textarea>
             <button class="gm-win__send js-send"><i class="fa-solid fa-paper-plane"></i></button>
           </div>`;
         return win;
       }
-  
+    
+      /* ════════════════════════════════════════════════════════════
+        WIRE WINDOW
+        FIX #1: support multiple pending files; send each as its own
+                message (with shared body only on the last one, or send
+                body as a separate message first, then images).
+        FIX #4: image + text body → body is included in the same FormData
+                as the first/only attachment so they arrive together.
+      ════════════════════════════════════════════════════════════ */
       function wireWin(win, convId, state) {
         const msgsEl    = win.querySelector('.js-msgs');
         const inputEl   = win.querySelector('.js-input');
@@ -2353,16 +2442,16 @@
         const attachBtn = win.querySelector('.js-attach-btn');
         const fileInput = win.querySelector('.js-file-input');
         const attachPrv = win.querySelector('.js-attach-preview');
-        const thumbEl   = win.querySelector('.js-attach-thumb');
+        const thumbWrap = win.querySelector('.js-attach-thumb');  /* now a flex container */
         const attachRm  = win.querySelector('.js-attach-rm');
         const moreBtn   = win.querySelector('.js-more');
         const menu      = win.querySelector('.js-menu');
-        let pendingFile = null;
-  
-        /* Apply msgs pane styles (not in CSS block above) */
+    
+        let pendingFiles = [];  /* FIX #1: array of File objects */
+    
         msgsEl.style.cssText = 'flex:1;overflow-y:auto;padding:8px 8px 4px;display:flex;flex-direction:column;gap:2px;background:var(--green-pale);';
         msgsEl.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:.75rem;padding:20px;">Loading…</div>';
-  
+    
         moreBtn.addEventListener('click', e => {
           e.stopPropagation();
           const open = menu.classList.contains('open');
@@ -2371,7 +2460,7 @@
         });
         document.addEventListener('click', () => menu.classList.remove('open'));
         menu.addEventListener('click', e => e.stopPropagation());
-  
+    
         win.querySelector('.js-mute-btn').addEventListener('click', () => {
           menu.classList.remove('open');
           const conv = allConvs.find(c => String(c.id) === convId);
@@ -2386,21 +2475,75 @@
             .then(r => r.json()).then(d => { if (d.success) { closeWindow(convId); loadConvs(); } });
         });
         win.querySelector('.js-open-full').addEventListener('click', () => { window.location.href = `/messenger/?conv=${convId}`; });
-  
+    
+        /* ── File picker ── */
         attachBtn.addEventListener('click', () => fileInput.click());
+    
+        function _renderThumbWrap() {
+          thumbWrap.innerHTML = '';
+          pendingFiles.forEach((file, idx) => {
+            const isImg = file.type.startsWith('image/');
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:relative;display:inline-flex;';
+    
+            if (isImg) {
+              const img = document.createElement('img');
+              img.className = 'gm-win__attach-thumb';
+              img.src = URL.createObjectURL(file);
+              img.style.cssText = 'width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);';
+              wrapper.appendChild(img);
+            } else {
+              const icon = document.createElement('div');
+              icon.className = 'gm-win__attach-file-icon';
+              icon.style.cssText = 'width:36px;height:36px;border-radius:6px;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:var(--green-mid);';
+              icon.innerHTML = `<i class="fa-solid ${fileIcon(file.name)}"></i>`;
+              wrapper.appendChild(icon);
+            }
+    
+            /* Per-file remove button */
+            const rm = document.createElement('button');
+            rm.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;border:none;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.45rem;line-height:1;padding:0;';
+            rm.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            rm.addEventListener('click', e => {
+              e.stopPropagation();
+              pendingFiles.splice(idx, 1);
+              if (!pendingFiles.length) {
+                attachPrv.classList.remove('visible');
+                thumbWrap.innerHTML = '';
+              } else {
+                _renderThumbWrap();
+              }
+            });
+            wrapper.appendChild(rm);
+            thumbWrap.appendChild(wrapper);
+          });
+    
+          /* File count label if >3 */
+          if (pendingFiles.length > 0) {
+            const label = document.createElement('span');
+            label.style.cssText = 'font-size:.72rem;color:var(--text-muted);align-self:center;margin-left:4px;';
+            label.textContent = pendingFiles.length === 1
+              ? pendingFiles[0].name.length > 20 ? pendingFiles[0].name.slice(0,18)+'…' : pendingFiles[0].name
+              : `${pendingFiles.length} files`;
+            thumbWrap.appendChild(label);
+          }
+        }
+    
         fileInput.addEventListener('change', () => {
-          const file = fileInput.files[0]; if (!file) return;
-          const isImg = file.type.startsWith('image/');
-          pendingFile = { file, isImage: isImg, localUrl: isImg ? URL.createObjectURL(file) : null };
-          thumbEl.innerHTML = '';
-          if (isImg) { const img = document.createElement('img'); img.className = 'gm-win__attach-thumb'; img.src = pendingFile.localUrl; thumbEl.appendChild(img); }
-          else thumbEl.innerHTML = `<div class="gm-win__attach-file-icon"><i class="fa-solid ${fileIcon(file.name)}"></i></div>`;
-          win.querySelector('.js-attach-name').textContent = file.name;
+          const newFiles = Array.from(fileInput.files || []);
+          if (!newFiles.length) return;
+          pendingFiles = pendingFiles.concat(newFiles);
+          _renderThumbWrap();
           attachPrv.classList.add('visible');
           fileInput.value = '';
         });
-        attachRm.addEventListener('click', () => { pendingFile = null; attachPrv.classList.remove('visible'); thumbEl.innerHTML = ''; });
-  
+    
+        attachRm.addEventListener('click', () => {
+          pendingFiles = [];
+          attachPrv.classList.remove('visible');
+          thumbWrap.innerHTML = '';
+        });
+    
         inputEl.addEventListener('input', () => {
           inputEl.style.height = 'auto';
           inputEl.style.height = Math.min(inputEl.scrollHeight, 72) + 'px';
@@ -2413,40 +2556,76 @@
             }, 1500);
           }
         });
-  
-        const doSend = () => {
+    
+        /* ── FIX #1 + #4: doSend sends files + body correctly ── */
+        const doSend = async () => {
           const body = inputEl.value.trim();
-          if (!body && !pendingFile) return;
+          if (!body && !pendingFiles.length) return;
+    
           const conv = allConvs.find(c => String(c.id) === convId);
           if (conv && (conv.blocked_by_me || conv.blocked_by_them)) return;
-          const fd = new FormData();
-          if (body) fd.append('body', body);
-          if (pendingFile) fd.append('attachment', pendingFile.file);
+    
+          /* Snapshot and clear */
+          const filesToSend = pendingFiles.slice();
+          const bodyToSend  = body;
           inputEl.value = ''; inputEl.style.height = 'auto';
-          const fc = pendingFile; pendingFile = null;
-          attachPrv.classList.remove('visible'); thumbEl.innerHTML = '';
-          const opt = { id:'tmp_'+Date.now(), sender_id: ME_ID, body, created_at: new Date().toISOString(),
-                        attachment_url: fc?.localUrl||null, attachment_name: fc?.file.name||null, is_image: fc?.isImage||false };
-          appendWinMsg(msgsEl, opt, convId);
-          fetch(`/messenger/conversations/${convId}/send/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()}, body: fd })
-            .then(r => { if (r.status === 403) { loadConvs(); return null; } return r.json(); })
-            .then(data => {
-              if (!data || !data.success) return;
-              const tmpEl = msgsEl.querySelector(`[data-id="${opt.id}"]`);
-              if (tmpEl) tmpEl.replaceWith(buildWinMsg(data.message, convId));
-              loadConvs();
+          pendingFiles = [];
+          attachPrv.classList.remove('visible');
+          thumbWrap.innerHTML = '';
+    
+          const sendOne = async (file, msgBody) => {
+            const fd = new FormData();
+            if (msgBody) fd.append('body', msgBody);
+            if (file)    fd.append('attachment', file);
+    
+            /* Optimistic bubble */
+            const opt = {
+              id: 'tmp_' + Date.now() + '_' + Math.random(),
+              sender_id: ME_ID,
+              body: msgBody,
+              created_at: new Date().toISOString(),
+              attachment_url:  file ? URL.createObjectURL(file) : null,
+              attachment_name: file ? file.name : null,
+              is_image:        file ? file.type.startsWith('image/') : false,
+            };
+            appendWinMsg(msgsEl, opt, convId, openWins[convId]?.convData);
+    
+            const res = await fetch(`/messenger/conversations/${convId}/send/`, {
+              method:'POST', headers:{'X-CSRFToken':getCsrf()}, body: fd,
             });
+            if (res.status === 403) { loadConvs(); return; }
+            const data = await res.json();
+            if (data && data.success) {
+              const tmpEl = msgsEl.querySelector(`[data-id="${opt.id}"]`);
+              if (tmpEl) tmpEl.replaceWith(buildWinMsg(data.message, convId, openWins[convId]?.convData));
+              loadConvs();
+            }
+          };
+    
+          if (!filesToSend.length) {
+            /* Text only */
+            await sendOne(null, bodyToSend);
+          } else if (filesToSend.length === 1) {
+            /* FIX #4: single file → send with body in same request */
+            await sendOne(filesToSend[0], bodyToSend);
+          } else {
+            /* Multiple files: first file carries the body, rest are bare */
+            for (let i = 0; i < filesToSend.length; i++) {
+              await sendOne(filesToSend[i], i === 0 ? bodyToSend : '');
+            }
+          }
         };
+    
         sendEl.addEventListener('click', doSend);
         inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
-  
+    
         return msgsEl;
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
-        LOAD MESSAGES — FIX #3: group consecutive images from same sender
+        LOAD MESSAGES (with group sender info passed through)
       ════════════════════════════════════════════════════════════ */
-      function loadWinMsgs(convId, msgsEl) {
+      function loadWinMsgs(convId, msgsEl, convData) {
         fetch(`/messenger/conversations/${convId}/messages/`).then(r => r.json()).then(data => {
           msgsEl.innerHTML = '';
           const msgs = data.messages || [];
@@ -2465,7 +2644,7 @@
                 : new Date(msg.created_at).toLocaleDateString([], { month:'short', day:'numeric' });
               msgsEl.appendChild(div); lastDate = d;
             }
-            /* Try to group consecutive image-only messages from same sender */
+            /* Group consecutive image-only messages from same sender */
             if ((msg.is_image || isImageUrl(msg.attachment_url)) && !msg.body) {
               const group = [msg];
               while (
@@ -2475,7 +2654,11 @@
                 msgs[i+group.length].sender_id === msg.sender_id &&
                 new Date(msgs[i+group.length].created_at).toDateString() === d
               ) { group.push(msgs[i+group.length]); }
-              if (group.length > 1) { msgsEl.appendChild(buildImgGroupMsg(group)); i += group.length; continue; }
+              if (group.length > 1) {
+                msgsEl.appendChild(buildImgGroupMsg(group, convData));
+                i += group.length;
+                continue;
+              }
             }
             if (msg.is_system) {
               const el = document.createElement('div');
@@ -2488,27 +2671,28 @@
                 <div style="flex:1;height:1px;background:var(--border);"></div>`;
               msgsEl.appendChild(el);
             } else {
-              msgsEl.appendChild(buildWinMsg(msg, convId));
+              msgsEl.appendChild(buildWinMsg(msg, convId, convData));
             }
             i++;
           }
           msgsEl.scrollTop = msgsEl.scrollHeight;
         });
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
         WEBSOCKET PER WINDOW
       ════════════════════════════════════════════════════════════ */
       const _typingTimers = {};
-      function connectWinWS(convId, msgsEl) {
+      function connectWinWS(convId, msgsEl, getConvData) {
         const proto = location.protocol === 'https:' ? 'wss' : 'ws';
         const ws = new WebSocket(`${proto}://${location.host}/ws/chat/${convId}/`);
         ws.onmessage = e => {
           const data  = JSON.parse(e.data);
           const state = openWins[convId];
+          const convData = getConvData ? getConvData() : null;
+    
           if (data.type === 'chat_message') {
             if (data.message.is_system) {
-              // Render system messages as subtle centered labels, not bubbles
               if (state) {
                 const el = document.createElement('div');
                 el.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 4px;';
@@ -2524,9 +2708,7 @@
               }
             } else if (data.message.sender_id !== ME_ID) {
               if (state) {
-                msgsEl.querySelector('.gm-win__typing')?.remove();
-                msgsEl.appendChild(buildWinMsg(data.message, convId));
-                msgsEl.scrollTop = msgsEl.scrollHeight;
+                appendWinMsg(msgsEl, data.message, convId, convData);
                 fetch(`/messenger/conversations/${convId}/read/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} }).catch(()=>{});
               }
             }
@@ -2546,16 +2728,13 @@
           } else if (data.type === 'stop_typing') {
             msgsEl.querySelector('.gm-win__typing')?.remove();
           } else if (data.type === 'kicked_from_group') {
-            // Only handle if the current user was the one kicked
-            if (data.kicked_user_id === ME_ID) {
-              closeWindow(convId);
-            }
+            if (data.kicked_user_id === ME_ID) closeWindow(convId);
           }
         };
-        ws.onclose = () => setTimeout(() => { if (openWins[convId]) connectWinWS(convId, msgsEl); }, 3000);
+        ws.onclose = () => setTimeout(() => { if (openWins[convId]) connectWinWS(convId, msgsEl, getConvData); }, 3000);
         if (openWins[convId]) openWins[convId].ws = ws;
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
         OPEN DM / GROUP WINDOWS
       ════════════════════════════════════════════════════════════ */
@@ -2564,7 +2743,7 @@
         if (miniWins[convId])  { _restoreDmBubble(convId); return; }
         if (openWins[convId])  { openWins[convId].el.querySelector('.js-input').focus(); return; }
         if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
-  
+    
         const win = buildWinShell(
           recipient.name,
           recipient.is_online ? 'Active now' : 'Offline',
@@ -2572,75 +2751,73 @@
         );
         win.dataset.convId = convId;
         winsRow.appendChild(win);
-  
+    
         const state = { el: win, msgsEl: null, recipient, convData: null, isGroup: false, ws: null };
         openWins[convId] = state;
         const msgsEl = wireWin(win, convId, state);
         state.msgsEl = msgsEl;
-  
+    
         win.querySelector('.gm-win__head').addEventListener('click', e => {
           if (e.target.closest('.gm-win__hbtns') || e.target.closest('.gm-win__menu')) return;
           minimizeWindow(convId);
         });
         win.querySelector('.js-min').addEventListener('click',   e => { e.stopPropagation(); minimizeWindow(convId); });
         win.querySelector('.js-close').addEventListener('click', e => { e.stopPropagation(); closeWindow(convId); });
-  
+    
         const convData = allConvs.find(c => String(c.id) === convId);
         if (convData) {
           const blocked = convData.blocked_by_me || convData.blocked_by_them;
           win.querySelector('.js-blocked').classList.toggle('visible', !!blocked);
           win.querySelector('.js-foot').style.display = blocked ? 'none' : '';
         }
-  
-        loadWinMsgs(convId, msgsEl);
-        connectWinWS(convId, msgsEl);
+    
+        loadWinMsgs(convId, msgsEl, null);
+        connectWinWS(convId, msgsEl, () => null);
         fetch(`/messenger/conversations/${convId}/read/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} }).catch(()=>{});
         saveState();
       }
-  
+    
       function openGroupChat(convId, convData) {
         convId = String(convId);
         if (miniWins[convId])  { _restoreGroupBubble(convId, convData); return; }
         if (openWins[convId])  { openWins[convId].el.querySelector('.js-input').focus(); return; }
         if (Object.keys(openWins).length >= MAX_OPEN) minimizeWindow(Object.keys(openWins)[0]);
-  
+    
         const mc = convData?.members?.length || 0;
         const avH = convData?.avatar
           ? `<img src="${convData.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
           : `<span style="font-size:10px;">${convData?.initials||'GC'}</span>`;
-  
+    
         const win = buildWinShell(convData?.name||'Group Chat', `${mc} member${mc!==1?'s':''}`, avH);
         win.dataset.convId = convId;
         winsRow.appendChild(win);
-  
+    
         const state = { el: win, msgsEl: null, recipient: null, convData, isGroup: true, ws: null };
         openWins[convId] = state;
         const msgsEl = wireWin(win, convId, state);
         state.msgsEl = msgsEl;
-  
+    
         win.querySelector('.gm-win__head').addEventListener('click', e => {
           if (e.target.closest('.gm-win__hbtns') || e.target.closest('.gm-win__menu')) return;
           minimizeWindow(convId);
         });
         win.querySelector('.js-min').addEventListener('click',   e => { e.stopPropagation(); minimizeWindow(convId); });
         win.querySelector('.js-close').addEventListener('click', e => { e.stopPropagation(); closeWindow(convId); });
-  
-        loadWinMsgs(convId, msgsEl);
-        connectWinWS(convId, msgsEl);
+    
+        loadWinMsgs(convId, msgsEl, convData);
+        connectWinWS(convId, msgsEl, () => openWins[convId]?.convData);
         fetch(`/messenger/conversations/${convId}/read/`, { method:'POST', headers:{'X-CSRFToken':getCsrf()} }).catch(()=>{});
         saveState();
       }
-  
+    
       /* ════════════════════════════════════════════════════════════
-        FIX #1 cont — gmHandleIncoming now spawns a bubble for
-        conversations that aren't open yet (not just minimised ones)
+        INCOMING MESSAGES FROM NOTIFICATION WS
       ════════════════════════════════════════════════════════════ */
       window.gmHandleIncoming = function(data) {
         const convId = String(data.conv_id);
-        if (openWins[convId]) return;  /* per-window WS handles it */
-  
+        if (openWins[convId]) return;
+    
         if (miniWins[convId]) {
-          /* Already a bubble — just bump it */
           const mini = miniWins[convId];
           mini.unread++;
           const b = document.getElementById(`gmBubBadge_${convId}`);
@@ -2648,22 +2825,19 @@
           showBubblePreview(convId, data.sender_name, data.body, data.created_at);
           saveState();
         } else {
-          /* No bubble yet — create one from conv data */
           loadConvs(() => {
             const conv = allConvs.find(c => String(c.id) === convId);
             if (!conv) return;
-            if (openWins[convId] || miniWins[convId]) return;  /* opened in the meantime */
-  
+            if (openWins[convId] || miniWins[convId]) return;
             const isGroup   = !!conv.is_group;
             const recipient = isGroup ? null : conv.recipient;
-            const convData  = isGroup ? conv  : null;
-  
-            _spawnBubble(convId, recipient, convData, isGroup, 1);
+            const cData     = isGroup ? conv  : null;
+            _spawnBubble(convId, recipient, cData, isGroup, 1);
             showBubblePreview(convId, data.sender_name, data.body, data.created_at);
           });
         }
       };
-  
+    
       window.gmHandlePresence = function(data) {
         Object.values(openWins).forEach(state => {
           if (!state.isGroup && state.recipient && state.recipient.id === data.user_id) {
@@ -2677,13 +2851,13 @@
           }
         });
       };
-  
+    
       /* ════════════════════════════════════════════════════════════
         EXPOSE GLOBALS
       ════════════════════════════════════════════════════════════ */
       window.gmOpenChat      = (convId, recipient) => openChat(String(convId), recipient);
       window.gmOpenGroupChat = (convId, convData)  => openGroupChat(String(convId), convData);
-  
+    
       /* ════════════════════════════════════════════════════════════
         PICKER TOGGLE
       ════════════════════════════════════════════════════════════ */
@@ -2692,7 +2866,7 @@
         pickerTab = 'dm'; groupSelectedIds.clear();
         window._gmGroupNameDraft = '';
       }
-  
+    
       fab.addEventListener('click', e => {
         e.stopPropagation();
         pickerOpen = !pickerOpen;
@@ -2707,7 +2881,7 @@
       pickerClose.addEventListener('click', closePicker);
       document.addEventListener('click', e => { if (!picker.contains(e.target) && e.target !== fab) closePicker(); });
       pickerSearch.addEventListener('input', () => renderPicker(pickerSearch.value));
-  
+    
       /* ════════════════════════════════════════════════════════════
         INIT
       ════════════════════════════════════════════════════════════ */
