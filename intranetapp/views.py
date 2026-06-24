@@ -3491,7 +3491,7 @@ def messenger_conversations(request):
 def messenger_messages(request, conv_id):
     from .models import Conversation, Message
     conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
-    msgs = conv.messages.select_related('sender', 'reply_to', 'reply_to__sender').order_by('created_at')
+    msgs = conv.messages.select_related('sender', 'reply_to', 'reply_to__sender').order_by('created_at').exclude(unsent_for=request.user)
     return JsonResponse({'messages': [{
         'id':              m.pk,
         'body':            m.body,
@@ -3501,6 +3501,7 @@ def messenger_messages(request, conv_id):
         'attachment_name': m.attachment_name,
         'is_image':        m.is_image,
         'is_system':       m.is_system,
+        'is_unsent':       m.is_unsent,
         'status':          m.status,
         'reply_to': {
             'id':              m.reply_to.pk,
@@ -3755,30 +3756,9 @@ def messenger_group_remove_member(request, conv_id):
 
     conv.participants.remove(target)
 
-    # System message
     target_name = target.get_full_name() or target.username
     _send_group_system_message(conv, f'{target_name} was removed from the group.')
 
-    # Notify the kicked user via their notification channel
-    from channels.layers import get_channel_layer
-    from asgiref.sync import async_to_sync
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f'notif_user_{target.pk}',
-        {
-            'type':      'kicked_from_group',
-            'conv_id':   conv.pk,
-            'conv_name': conv.name or 'Group Chat',
-            'kicked_user_id': target.pk,
-        }
-    )
-    conv.participants.remove(target)
-
-    # System message
-    target_name = target.get_full_name() or target.username
-    _send_group_system_message(conv, f'{target_name} was removed from the group.')
-
-    # Notify the kicked user via their notification channel
     from channels.layers import get_channel_layer
     from asgiref.sync import async_to_sync
     channel_layer = get_channel_layer()
@@ -3949,3 +3929,55 @@ def messenger_unblock(request, user_id):
     target = get_object_or_404(User, pk=user_id)
     BlockedUser.objects.filter(blocker=request.user, blocked=target).delete()
     return JsonResponse({'success': True})
+
+
+@login_required
+def messenger_unsend(request, conv_id, msg_id):
+    """POST {scope: 'everyone'|'you'} → unsend a message."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    import json as _json
+    from .models import Conversation, Message
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+
+    data  = _json.loads(request.body or '{}')
+    scope = data.get('scope', 'everyone')
+
+    if scope == 'everyone':
+        # Only the sender can unsend for everyone
+        try:
+            msg = Message.objects.get(pk=msg_id, conversation=conv, sender=request.user)
+        except Message.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Message not found.'}, status=404)
+
+        msg.is_unsent = True
+        msg.body = ''
+        if msg.attachment:
+            msg.attachment.delete(save=False)
+            msg.attachment = None
+            msg.attachment_name = ''
+        msg.save()
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'chat_{conv_id}',
+            {
+                'type':       'message_unsent',
+                'message_id': msg.pk,
+                'sender_id':  request.user.pk,
+            }
+        )
+    else:
+        # "remove for you" — any participant can hide any message from their own view
+        try:
+            msg = Message.objects.get(pk=msg_id, conversation=conv)
+        except Message.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Message not found.'}, status=404)
+
+        msg.unsent_for.add(request.user)
+
+    return JsonResponse({'success': True, 'scope': scope})

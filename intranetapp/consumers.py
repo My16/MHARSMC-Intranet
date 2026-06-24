@@ -166,6 +166,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'seen_by':     event['seen_by'],
         }))
 
+    async def message_unsent(self, event):
+        await self.send(text_data=json.dumps({
+            'type':       'message_unsent',
+            'message_id': event['message_id'],
+            'sender_id':  event['sender_id'],
+        }))
+
     @database_sync_to_async
     def save_message(self, user, body):
         from .models import Conversation, Message

@@ -1579,6 +1579,110 @@
     cancelBtn.addEventListener('click', doCancel);
   }
 
+  /* ─── UNSEND ─── */
+  function openUnsendModal(msgId) {
+    document.getElementById('unsendModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'unsendModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:var(--white);border-radius:16px;width:420px;max-width:92vw;padding:26px 26px 20px;box-shadow:0 24px 60px rgba(0,0,0,.22);animation:modalIn .18s ease;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+          <strong style="font-family:'EB Garamond',serif;font-size:1rem;color:var(--text-primary);line-height:1.3;">Who do you want to unsend<br>this message for?</strong>
+          <button id="unsendModalClose" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--green-pale);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;margin-left:12px;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <label id="unsendOptEveryone" style="display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:12px;border:2px solid var(--green-mid);background:var(--green-pale);cursor:pointer;margin-bottom:10px;user-select:none;">
+          <input type="radio" name="unsendScope" value="everyone" checked style="accent-color:var(--green-mid);width:17px;height:17px;flex-shrink:0;margin-top:2px;">
+          <div>
+            <div style="font-size:.88rem;font-weight:600;color:var(--text-primary);margin-bottom:3px;">Unsend for everyone</div>
+            <div style="font-size:.76rem;color:var(--text-muted);line-height:1.5;">This message will be unsent for everyone in the chat. Others may have already seen or forwarded it.</div>
+          </div>
+        </label>
+        <label id="unsendOptYou" style="display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:12px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;margin-bottom:20px;user-select:none;">
+          <input type="radio" name="unsendScope" value="you" style="accent-color:var(--green-mid);width:17px;height:17px;flex-shrink:0;margin-top:2px;">
+          <div>
+            <div style="font-size:.88rem;font-weight:600;color:var(--text-primary);margin-bottom:3px;">Remove for you</div>
+            <div style="font-size:.76rem;color:var(--text-muted);line-height:1.5;">This message will be removed for you. Others in the chat will still be able to see it.</div>
+          </div>
+        </label>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <button id="unsendCancelBtn" style="padding:9px 20px;border:1px solid var(--border);background:var(--white);border-radius:10px;font-size:.87rem;font-weight:600;color:var(--text-primary);cursor:pointer;">Cancel</button>
+          <button id="unsendConfirmBtn" style="padding:9px 20px;border:none;border-radius:10px;background:#dc2626;color:#fff;font-size:.87rem;font-weight:600;cursor:pointer;">Remove</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    // Highlight selected option
+    modal.querySelectorAll('input[name="unsendScope"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        document.getElementById('unsendOptEveryone').style.cssText = radio.value === 'everyone'
+          ? 'display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:12px;border:2px solid var(--green-mid);background:var(--green-pale);cursor:pointer;margin-bottom:10px;user-select:none;'
+          : 'display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:12px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;margin-bottom:10px;user-select:none;';
+        document.getElementById('unsendOptYou').style.cssText = radio.value === 'you'
+          ? 'display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:12px;border:2px solid var(--green-mid);background:var(--green-pale);cursor:pointer;margin-bottom:20px;user-select:none;'
+          : 'display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:12px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;margin-bottom:20px;user-select:none;';
+      });
+    });
+
+    document.getElementById('unsendModalClose').addEventListener('click', () => modal.remove());
+    document.getElementById('unsendCancelBtn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    document.getElementById('unsendConfirmBtn').addEventListener('click', () => {
+      const scope = document.querySelector('input[name="unsendScope"]:checked')?.value || 'everyone';
+      modal.remove();
+      if (scope === 'you') {
+        showConfirm({
+          title: 'Remove for you',
+          message: 'This message will be removed for you. Other chat members will still be able to see it.',
+          type: 'danger', okText: 'Remove',
+          onOk: () => doUnsend(msgId, 'you'),
+        });
+      } else {
+        doUnsend(msgId, 'everyone');
+      }
+    });
+  }
+
+  function doUnsend(msgId, scope) {
+    if (!activeConvId) return;
+    fetch(`/messenger/conversations/${activeConvId}/messages/${msgId}/unsend/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ scope }),
+    }).then(r => r.json()).then(data => {
+      if (!data.success) return;
+      if (scope === 'everyone') {
+        applyUnsendUI(msgId, true);
+      } else {
+        // Just remove the row entirely from your own view
+        msngMessages.querySelector(`[data-id="${msgId}"]`)?.remove();
+        const cached = convCache[activeConvId];
+        if (cached) cached.messages = cached.messages.filter(m => m.id != msgId);
+      }
+    });
+  }
+
+  function applyUnsendUI(msgId, isMine) {
+    const row = msngMessages.querySelector(`[data-id="${msgId}"]`);
+    if (!row) return;
+    const bubble = row.querySelector('.msng__bubble');
+    if (bubble) {
+      bubble.className = 'msng__bubble';
+      bubble.removeAttribute('style');
+      bubble.style.cssText = 'background:transparent!important;border:1.5px dashed var(--border)!important;box-shadow:none!important;padding:8px 14px;';
+      bubble.innerHTML = `<span style="font-style:italic;font-size:.82rem;color:var(--text-muted);display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-ban" style="opacity:.45;"></i>${isMine ? 'You unsent a message.' : 'This message was unsent.'}</span>`;
+    }
+    row.querySelector('.msng__msg-actions')?.remove();
+    const cached = convCache[activeConvId];
+    if (cached) {
+      const m = cached.messages.find(m => m.id == msgId);
+      if (m) { m.is_unsent = true; m.body = ''; m.attachment_url = null; }
+    }
+  }
+
   /* ─── LIGHTBOX ─── */
   let lightboxItems = [];
   let lightboxIndex = 0;
@@ -2656,6 +2760,9 @@
 
   function buildMessageEl(msg) {
 
+    const isMine   = msg.sender_id === ME.id;
+    const isGroup  = activeConvData && activeConvData.is_group;
+
     if (msg.is_system) {
         const el = document.createElement('div');
         el.dataset.id = msg.id;
@@ -2672,8 +2779,25 @@
         return el;
     }
 
-    const isMine   = msg.sender_id === ME.id;
-    const isGroup  = activeConvData && activeConvData.is_group;
+    if (msg.is_unsent) {
+      const row = document.createElement('div');
+      row.className = 'msng__msg-row' + (isMine ? ' mine' : '');
+      row.dataset.id = msg.id;
+      const av = document.createElement('div');
+      av.className = 'msng__msg-avatar';
+      const src2 = isMine ? ME.avatar : (activeRecipient ? activeRecipient.avatar : '');
+      const ini2 = isMine ? ME.initials : (activeRecipient ? activeRecipient.initials : '?');
+      av.innerHTML = src2 ? `<img src="${src2}" alt="">` : `<span style="font-size:.6rem;">${ini2}</span>`;
+      const bubble = document.createElement('div');
+      bubble.className = 'msng__bubble';
+      bubble.style.cssText = 'background:transparent!important;border:1.5px dashed var(--border)!important;box-shadow:none!important;padding:8px 14px;';
+      bubble.innerHTML = `<span style="font-style:italic;font-size:.82rem;color:var(--text-muted);display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-ban" style="opacity:.45;"></i>${isMine ? 'You unsent a message.' : 'This message was unsent.'}</span>`;
+      row.appendChild(av);
+      row.appendChild(bubble);
+      return row;
+    }
+
+    
     const row = document.createElement('div');
     row.className = 'msng__msg-row' + (isMine ? ' mine' : '');
     row.dataset.id = msg.id;
@@ -2760,13 +2884,40 @@
     if (fileDiv) fileDiv.addEventListener('click', () => openLightbox(fileDiv.dataset.url, fileDiv.dataset.name));
 
     const actions = document.createElement('div');
-    actions.className = 'msng__msg-actions';
-    actions.innerHTML = `
-      <button class="msng__msg-action-btn" title="Reply" data-action="reply"><i class="fa-solid fa-reply"></i></button>
-      <button class="msng__msg-action-btn" title="Forward" data-action="forward"><i class="fa-solid fa-share"></i></button>
-    `;
-    actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => { e.stopPropagation(); startReply(msg); });
-    actions.querySelector('[data-action="forward"]').addEventListener('click', (e) => { e.stopPropagation(); openForwardModal(msg, null); });
+      actions.className = 'msng__msg-actions';
+
+      actions.innerHTML = `
+        <button class="msng__msg-action-btn" title="Reply" data-action="reply"><i class="fa-solid fa-reply"></i></button>
+        <button class="msng__msg-action-btn" title="Forward" data-action="forward"><i class="fa-solid fa-share"></i></button>
+        ${isMine ? `<button class="msng__msg-action-btn" title="Remove" data-action="unsend" style="color:#dc2626;"><i class="fa-solid fa-trash-can"></i></button>` : `<button class="msng__msg-action-btn" title="Remove for you" data-action="remove-for-you"><i class="fa-solid fa-trash-can"></i></button>`}
+      `;
+
+      actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => { e.stopPropagation(); startReply(msg); });
+      actions.querySelector('[data-action="forward"]').addEventListener('click', (e) => { e.stopPropagation(); openForwardModal(msg, null); });
+      actions.querySelector('[data-action="unsend"]')?.addEventListener('click', (e) => { e.stopPropagation(); openUnsendModal(msg.id); });
+      actions.querySelector('[data-action="remove-for-you"]')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const currentRow = actions.closest('.msng__msg-row');
+        showConfirm({
+          title: 'Remove for you',
+          message: 'This message will be removed for you. Other chat members will still be able to see it.',
+          type: 'danger', okText: 'Remove',
+          onOk: () => {
+            const rowId = currentRow?.dataset?.id;
+            if (!activeConvId) return;
+            fetch(`/messenger/conversations/${activeConvId}/messages/${rowId}/unsend/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+              body: JSON.stringify({ scope: 'you' }),
+            }).then(r => r.json()).then(data => {
+              if (!data.success) return;
+              currentRow?.remove();
+              const cached = convCache[activeConvId];
+              if (cached) cached.messages = cached.messages.filter(m => String(m.id) !== String(rowId));
+            });
+          },
+        });
+      });
 
     // Wrap bubble + sender label in a column div
     const bubbleWrap = document.createElement('div');
@@ -2821,17 +2972,14 @@
     bubble.appendChild(grid);
     bubble.appendChild(timeSpan);
     
-    // Add forward action to image groups too
     const actions = document.createElement('div');
     actions.className = 'msng__msg-actions';
     actions.innerHTML = `
-      <button class="msng__msg-action-btn" title="Reply" data-action="reply">
-        <i class="fa-solid fa-reply"></i>
-      </button>
-      <button class="msng__msg-action-btn" title="Forward" data-action="forward">
-        <i class="fa-solid fa-share"></i>
-      </button>
+      <button class="msng__msg-action-btn" title="Reply" data-action="reply"><i class="fa-solid fa-reply"></i></button>
+      <button class="msng__msg-action-btn" title="Forward" data-action="forward"><i class="fa-solid fa-share"></i></button>
+      ${isMine ? `<button class="msng__msg-action-btn" title="Remove" data-action="unsend" style="color:#dc2626;"><i class="fa-solid fa-trash-can"></i></button>` : ''}
     `;
+    actions.querySelector('[data-action="unsend"]')?.addEventListener('click', (e) => { e.stopPropagation(); openUnsendModal(msgs[msgs.length - 1].id); });
     actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => {
       e.stopPropagation();
       startReply(msgs[0]);
@@ -2922,6 +3070,8 @@
         showTyping();
       } else if (data.type === 'stop_typing') {
         hideTyping();
+      } else if (data.type === 'message_unsent') {
+        applyUnsendUI(data.message_id, data.sender_id === ME.id);
       } else if (data.type === 'kicked_from_group') {
           allConvs = allConvs.filter(c => c.id != data.conv_id);
           showKickedModal(data.conv_name, data.conv_id);  // pass convId so it can close the pane
@@ -3431,6 +3581,7 @@
       });
   }
   window.showKickedModal = showKickedModal;  // expose for base.html notif WS
+  window.openForwardModal = openForwardModal;
 
 })();
 

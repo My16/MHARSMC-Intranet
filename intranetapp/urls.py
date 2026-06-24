@@ -137,6 +137,7 @@ urlpatterns = [
     # Block
     path('messenger/users/<int:user_id>/block/',   views.messenger_block,   name='messenger_block'),
     path('messenger/users/<int:user_id>/unblock/', views.messenger_unblock, name='messenger_unblock'),
+    path('messenger/conversations/<int:conv_id>/messages/<int:msg_id>/unsend/', views.messenger_unsend, name='messenger_unsend'),
 
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -885,6 +885,82 @@
       .gm-fab { bottom:18px; right:18px; }
       .gm-picker { right:10px; bottom:76px; width:calc(100vw - 20px); max-width:340px; }
     }
+
+    /* Message row — overflow visible so actions can escape */
+    .gm-win__row {
+      position: relative;
+    }
+
+    .gm-win__msg-actions {
+      display: none;
+      align-items: center;
+      gap: 2px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2px 5px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.1);
+      z-index: 5;
+      white-space: nowrap;
+      position: absolute;
+      bottom: 4px;
+      /* Default: right side (for incoming/white bubbles) */
+      left: 100%;
+      margin-left: 6px;
+    }
+
+    /* Mine (green): flip to left side */
+    .gm-win__row.mine .gm-win__msg-actions {
+      left: auto;
+      right: 100%;
+      margin-left: 0;
+      margin-right: 6px;
+    }
+
+    /* Show on row hover — target bubble's parent row */
+    .gm-win__row:hover .gm-win__bubble .gm-win__msg-actions,
+    .gm-win__row:hover .gm-win__bubble.img-only .gm-win__msg-actions {
+      display: flex;
+    }
+
+    .gm-win__msg-action-btn {
+      width: 22px; height: 22px; border-radius: 50%; border: none;
+      background: transparent; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: .65rem;
+      transition: background .12s, color .12s;
+    }
+    .gm-win__msg-action-btn:hover { background: var(--green-pale); color: var(--green-dark); }
+    .gm-win__msg-action-btn.danger:hover { background: #fee2e2; color: #dc2626; }
+
+    /* ── Win reply bar (above input) ── */
+    .gm-win__reply-bar {
+      display: none; align-items: center; gap: 8px;
+      padding: 6px 8px; border-top: 1px solid var(--border);
+      background: var(--green-pale); flex-shrink: 0;
+    }
+    .gm-win__reply-bar.visible { display: flex; }
+    .gm-win__reply-accent {
+      width: 3px; min-height: 28px; border-radius: 3px;
+      background: var(--green-accent); flex-shrink: 0;
+    }
+    .gm-win__reply-content { flex: 1; min-width: 0; }
+    .gm-win__reply-name {
+      font-size: .62rem; font-weight: 700; color: var(--green-mid); margin-bottom: 1px;
+    }
+    .gm-win__reply-text {
+      font-size: .68rem; color: var(--text-muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .gm-win__reply-cancel {
+      width: 20px; height: 20px; border-radius: 50%; border: none;
+      background: var(--border); color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: .6rem; flex-shrink: 0;
+      transition: background .15s;
+    }
+    .gm-win__reply-cancel:hover { background: #fca5a5; color: #dc2626; }
+
   </style>
 
   {% block extra_css %}{% endblock %}
@@ -1215,6 +1291,30 @@
       <div class="gm-mute-actions">
         <button class="gm-mute-cancel" id="gmMuteCancel">Cancel</button>
         <button class="gm-mute-confirm" id="gmMuteConfirm">Mute</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ GLOBAL FORWARD MODAL (for floating chat windows) ════════════════════ -->
+  <div id="gmForwardModal" style="display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.5);align-items:center;justify-content:center;">
+    <div style="background:var(--white);border-radius:16px;width:420px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.22);animation:gmModalIn .2s ease;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <strong style="font-family:'EB Garamond',serif;font-size:1.1rem;color:var(--text-primary);">Forward Message</strong>
+        <button id="gmForwardClose" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--green-pale);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="gmForwardPreview" style="margin:10px 16px;padding:9px 13px;background:var(--green-pale);border-left:3px solid var(--green-accent);border-radius:0 8px 8px 0;font-size:.82rem;color:var(--text-primary);flex-shrink:0;display:flex;align-items:center;gap:9px;overflow:hidden;"></div>
+      <div style="position:relative;padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:28px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:.8rem;pointer-events:none;"></i>
+        <input id="gmForwardSearch" type="text" placeholder="Search conversations…" autocomplete="off"
+          style="width:100%;padding:7px 12px 7px 32px;border:1px solid var(--border);border-radius:20px;background:var(--green-pale);font-size:.83rem;color:var(--text-primary);outline:none;">
+      </div>
+      <div id="gmForwardList" style="flex:1;overflow-y:auto;"></div>
+      <div style="padding:11px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--green-pale);flex-shrink:0;">
+        <span id="gmForwardSelectedTxt" style="flex:1;font-size:.8rem;color:var(--text-muted);">Select recipients</span>
+        <button id="gmForwardSendBtn" disabled
+          style="padding:8px 18px;border:none;border-radius:20px;background:var(--green-mid);color:#fff;font-size:.84rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;opacity:.5;">
+          <i class="fa-solid fa-paper-plane"></i> Send
+        </button>
       </div>
     </div>
   </div>
@@ -2068,6 +2168,231 @@
         if (!m) return null;
         return { name: m.name, avatar: m.avatar, initials: m.initials };
       }
+
+      /* ── Message hover actions (reply / forward / remove) ── */
+      function _attachWinMsgActions(row, bubble, msg, convId, isMine) {
+        const actions = document.createElement('div');
+        actions.className = 'gm-win__msg-actions';
+        actions.innerHTML = `
+          <button class="gm-win__msg-action-btn" title="Reply" data-action="reply">
+            <i class="fa-solid fa-reply"></i>
+          </button>
+          <button class="gm-win__msg-action-btn" title="Forward" data-action="forward">
+            <i class="fa-solid fa-share"></i>
+          </button>
+          ${isMine
+            ? `<button class="gm-win__msg-action-btn danger" title="Remove" data-action="unsend">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>`
+            : `<button class="gm-win__msg-action-btn" title="Remove for you" data-action="remove-for-you">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>`
+          }`;
+
+        /* Reply */
+        actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          /* Find the win and its reply bar */
+          const win       = row.closest('.gm-win');
+          const rBar      = win?.querySelector('.js-reply-bar');
+          const rName     = win?.querySelector('.js-reply-name');
+          const rText     = win?.querySelector('.js-reply-text');
+          const rCancel   = win?.querySelector('.js-reply-cancel');
+          const inputEl   = win?.querySelector('.js-input');
+          if (!rBar) return;
+
+          /* Store replyingTo on the win element so doSend can read it */
+          win._replyingTo = msg;
+
+          rName.textContent = isMine ? 'You' : (msg.sender_name || 'Them');
+          rText.textContent = msg.body
+            ? msg.body
+            : msg.is_image ? '📷 Photo'
+            : msg.attachment_name ? `📎 ${msg.attachment_name}`
+            : 'Message';
+          rBar.classList.add('visible');
+          inputEl?.focus();
+
+          /* Cancel wires once */
+          if (!rCancel.dataset.wired) {
+            rCancel.dataset.wired = '1';
+            rCancel.addEventListener('click', () => {
+              win._replyingTo = null;
+              rBar.classList.remove('visible');
+            });
+          }
+        });
+
+        /* Forward — reuse messenger page forward modal if available, else open full messenger */
+        actions.querySelector('[data-action="forward"]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (window.openForwardModal) {
+            window.openForwardModal(msg, null);
+          } else {
+            window.location.href = `/messenger/?conv=${convId}`;
+          }
+        });
+
+        /* Unsend / Remove */
+        const unsendBtn = actions.querySelector('[data-action="unsend"]');
+        const removeBtn = actions.querySelector('[data-action="remove-for-you"]');
+
+        if (unsendBtn) {
+          unsendBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _openWinUnsendModal(msg.id, convId, row);
+          });
+        }
+
+        if (removeBtn) {
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _winConfirm(
+              'Remove for you',
+              'This message will be removed for you. Other chat members will still be able to see it.',
+              'Remove',
+              () => _doWinUnsend(msg.id, convId, 'you', row)
+            );
+          });
+        }
+
+        bubble.style.position = 'relative';
+        bubble.appendChild(actions);
+      }
+
+      /* ── Unsend modal for floating windows ── */
+      function _openWinUnsendModal(msgId, convId, row) {
+        document.getElementById('winUnsendModal')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'winUnsendModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+          <div style="background:var(--white);border-radius:16px;width:400px;max-width:92vw;padding:24px 24px 18px;
+                      box-shadow:0 24px 60px rgba(0,0,0,.22);animation:gmModalIn .18s ease;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+              <strong style="font-family:'EB Garamond',serif;font-size:.98rem;color:var(--text-primary);line-height:1.3;">
+                Who do you want to unsend<br>this message for?
+              </strong>
+              <button id="winUnsendClose" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--green-pale);
+                color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;
+                font-size:.82rem;flex-shrink:0;margin-left:10px;">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <label id="winUnsendOptEv" style="display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-radius:11px;
+              border:2px solid var(--green-mid);background:var(--green-pale);cursor:pointer;margin-bottom:9px;user-select:none;">
+              <input type="radio" name="winUnsendScope" value="everyone" checked style="accent-color:var(--green-mid);width:16px;height:16px;flex-shrink:0;margin-top:2px;">
+              <div>
+                <div style="font-size:.85rem;font-weight:600;color:var(--text-primary);margin-bottom:2px;">Unsend for everyone</div>
+                <div style="font-size:.73rem;color:var(--text-muted);line-height:1.45;">
+                  This message will be unsent for everyone in the chat.
+                </div>
+              </div>
+            </label>
+            <label id="winUnsendOptYou" style="display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-radius:11px;
+              border:1.5px solid var(--border);background:var(--white);cursor:pointer;margin-bottom:18px;user-select:none;">
+              <input type="radio" name="winUnsendScope" value="you" style="accent-color:var(--green-mid);width:16px;height:16px;flex-shrink:0;margin-top:2px;">
+              <div>
+                <div style="font-size:.85rem;font-weight:600;color:var(--text-primary);margin-bottom:2px;">Remove for you</div>
+                <div style="font-size:.73rem;color:var(--text-muted);line-height:1.45;">
+                  This message will be removed for you. Others will still see it.
+                </div>
+              </div>
+            </label>
+            <div style="display:flex;justify-content:flex-end;gap:9px;">
+              <button id="winUnsendCancel" style="padding:8px 18px;border:1px solid var(--border);background:var(--white);
+                border-radius:9px;font-size:.85rem;font-weight:600;color:var(--text-primary);cursor:pointer;">Cancel</button>
+              <button id="winUnsendConfirm" style="padding:8px 18px;border:none;border-radius:9px;
+                background:#dc2626;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;">Remove</button>
+            </div>
+          </div>`;
+        document.body.appendChild(modal);
+
+        /* Radio highlight */
+        modal.querySelectorAll('input[name="winUnsendScope"]').forEach(r => {
+          r.addEventListener('change', () => {
+            document.getElementById('winUnsendOptEv').style.cssText  = r.value === 'everyone'
+              ? 'display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-radius:11px;border:2px solid var(--green-mid);background:var(--green-pale);cursor:pointer;margin-bottom:9px;user-select:none;'
+              : 'display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-radius:11px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;margin-bottom:9px;user-select:none;';
+            document.getElementById('winUnsendOptYou').style.cssText = r.value === 'you'
+              ? 'display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-radius:11px;border:2px solid var(--green-mid);background:var(--green-pale);cursor:pointer;margin-bottom:18px;user-select:none;'
+              : 'display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-radius:11px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;margin-bottom:18px;user-select:none;';
+          });
+        });
+
+        const close = () => modal.remove();
+        document.getElementById('winUnsendClose').addEventListener('click', close);
+        document.getElementById('winUnsendCancel').addEventListener('click', close);
+        modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+        document.getElementById('winUnsendConfirm').addEventListener('click', () => {
+          const scope = document.querySelector('input[name="winUnsendScope"]:checked')?.value || 'everyone';
+          close();
+          if (scope === 'you') {
+            _winConfirm(
+              'Remove for you',
+              'This message will be removed for you. Other chat members will still be able to see it.',
+              'Remove',
+              () => _doWinUnsend(msgId, convId, 'you', row)
+            );
+          } else {
+            _doWinUnsend(msgId, convId, 'everyone', row);
+          }
+        });
+      }
+
+      function _doWinUnsend(msgId, convId, scope, row) {
+        fetch(`/messenger/conversations/${convId}/messages/${msgId}/unsend/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({ scope }),
+        }).then(r => r.json()).then(data => {
+          if (!data.success) return;
+          if (scope === 'everyone') {
+            /* Replace with dashed unsent pill */
+            const bubble = row.querySelector('.gm-win__bubble') || row.querySelector('[class^="gm-win__bubble"]');
+            if (bubble) {
+              bubble.className = 'gm-win__bubble';
+              bubble.removeAttribute('style');
+              bubble.style.cssText = 'background:transparent!important;border:1.5px dashed var(--border)!important;box-shadow:none!important;padding:6px 10px;';
+              bubble.innerHTML = `<span style="font-style:italic;font-size:.74rem;color:var(--text-muted);display:flex;align-items:center;gap:5px;">
+                <i class="fa-solid fa-ban" style="opacity:.4;font-size:.68rem;"></i>You unsent a message.</span>`;
+            }
+            row.querySelector('.gm-win__msg-actions')?.remove();
+          } else {
+            row.remove();
+          }
+        });
+      }
+
+      function _winConfirm(title, message, okText, onOk) {
+        document.getElementById('winConfirmModal')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'winConfirmModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:10600;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+          <div style="background:var(--white);border-radius:14px;width:340px;max-width:92vw;
+                      padding:24px 22px 18px;box-shadow:0 24px 60px rgba(0,0,0,.22);
+                      animation:gmModalIn .18s ease;text-align:center;">
+            <div style="width:48px;height:48px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;
+                        justify-content:center;font-size:1.2rem;color:#dc2626;margin:0 auto 14px;">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div style="font-family:'EB Garamond',serif;font-size:1.05rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">${title}</div>
+            <div style="font-size:.8rem;color:var(--text-muted);line-height:1.5;margin-bottom:18px;">${message}</div>
+            <div style="display:flex;gap:8px;">
+              <button id="winConfirmCancel" style="flex:1;padding:9px;border:1px solid var(--border);background:var(--white);
+                border-radius:9px;font-size:.84rem;font-weight:600;color:var(--text-primary);cursor:pointer;">Cancel</button>
+              <button id="winConfirmOk" style="flex:1;padding:9px;border:none;border-radius:9px;
+                background:#dc2626;color:#fff;font-size:.84rem;font-weight:600;cursor:pointer;">${okText}</button>
+            </div>
+          </div>`;
+        document.body.appendChild(modal);
+        document.getElementById('winConfirmCancel').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.getElementById('winConfirmOk').addEventListener('click', () => { modal.remove(); onOk(); });
+      }
+
     
       function buildWinMsg(msg, convId, convData) {
         const mine    = (msg.sender_id === ME_ID);
@@ -2098,6 +2423,7 @@
             col.appendChild(nameLabel);
     
             const bubble = _buildBubbleContent(msg, convId, false);
+            _attachWinMsgActions(row, bubble, msg, convId, false);
             col.appendChild(bubble);
             row.appendChild(col);
             return row;
@@ -2107,6 +2433,7 @@
         /* DM or mine — original layout */
         const bubble = _buildBubbleContent(msg, convId, mine);
         row.appendChild(bubble);
+        _attachWinMsgActions(row, bubble, msg, convId, mine);
         return row;
       }
     
@@ -2151,7 +2478,9 @@
         bubble.querySelector('.gm-win__bubble-img')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
         bubble.querySelector('.gm-win__vid-preview')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
         bubble.querySelector('.gm-win__bubble-file')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
-    
+
+        /* ── Hover action bar (reply / forward / remove) ── */
+        bubble._msgRef = null; // will be set by buildWinMsg
         return bubble;
       }
     
@@ -2412,6 +2741,14 @@
             <div class="js-attach-thumb" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex:1;min-width:0;"></div>
             <button class="gm-win__attach-rm js-attach-rm"><i class="fa-solid fa-xmark"></i></button>
           </div>
+          <div class="gm-win__reply-bar js-reply-bar">
+            <div class="gm-win__reply-accent"></div>
+            <div class="gm-win__reply-content">
+              <div class="gm-win__reply-name js-reply-name"></div>
+              <div class="gm-win__reply-text js-reply-text"></div>
+            </div>
+            <button class="gm-win__reply-cancel js-reply-cancel"><i class="fa-solid fa-xmark"></i></button>
+          </div>
           <div class="gm-win__blocked js-blocked">
             <i class="fa-solid fa-ban"></i>
             <span class="js-blocked-txt">You can't send messages in this conversation.</span>
@@ -2426,15 +2763,8 @@
           </div>`;
         return win;
       }
-    
-      /* ════════════════════════════════════════════════════════════
-        WIRE WINDOW
-        FIX #1: support multiple pending files; send each as its own
-                message (with shared body only on the last one, or send
-                body as a separate message first, then images).
-        FIX #4: image + text body → body is included in the same FormData
-                as the first/only attachment so they arrive together.
-      ════════════════════════════════════════════════════════════ */
+
+
       function wireWin(win, convId, state) {
         const msgsEl    = win.querySelector('.js-msgs');
         const inputEl   = win.querySelector('.js-input');
@@ -2444,6 +2774,16 @@
         const attachPrv = win.querySelector('.js-attach-preview');
         const thumbWrap = win.querySelector('.js-attach-thumb');  /* now a flex container */
         const attachRm  = win.querySelector('.js-attach-rm');
+        const replyBar    = win.querySelector('.js-reply-bar');
+        const replyName   = win.querySelector('.js-reply-name');
+        const replyText   = win.querySelector('.js-reply-text');
+        const replyCancel = win.querySelector('.js-reply-cancel');
+        let replyingTo    = null;
+
+        replyCancel.addEventListener('click', () => {
+          replyingTo = null;
+          replyBar.classList.remove('visible');
+        });
         const moreBtn   = win.querySelector('.js-more');
         const menu      = win.querySelector('.js-menu');
     
@@ -2573,10 +2913,15 @@
           attachPrv.classList.remove('visible');
           thumbWrap.innerHTML = '';
     
-          const sendOne = async (file, msgBody) => {
+          const capturedReply = win._replyingTo || null;
+          win._replyingTo = null;
+          replyBar.classList.remove('visible');
+
+          const sendOne = async (file, msgBody, includeReply) => {
             const fd = new FormData();
-            if (msgBody) fd.append('body', msgBody);
-            if (file)    fd.append('attachment', file);
+            if (msgBody)                    fd.append('body', msgBody);
+            if (file)                       fd.append('attachment', file);
+            if (includeReply && capturedReply) fd.append('reply_to_id', capturedReply.id);
     
             /* Optimistic bubble */
             const opt = {
@@ -2603,16 +2948,13 @@
           };
     
           if (!filesToSend.length) {
-            /* Text only */
-            await sendOne(null, bodyToSend);
-          } else if (filesToSend.length === 1) {
-            /* FIX #4: single file → send with body in same request */
-            await sendOne(filesToSend[0], bodyToSend);
-          } else {
-            /* Multiple files: first file carries the body, rest are bare */
-            for (let i = 0; i < filesToSend.length; i++) {
-              await sendOne(filesToSend[i], i === 0 ? bodyToSend : '');
-            }
+              await sendOne(null, bodyToSend, true);
+            } else if (filesToSend.length === 1) {
+              await sendOne(filesToSend[0], bodyToSend, true);
+            } else {
+              for (let i = 0; i < filesToSend.length; i++) {
+                await sendOne(filesToSend[i], i === 0 ? bodyToSend : '', i === 0);
+              }
           }
         };
     
@@ -2660,7 +3002,19 @@
                 continue;
               }
             }
-            if (msg.is_system) {
+            if (msg.is_unsent) {
+              const el = document.createElement('div');
+              el.className = 'gm-win__row' + (msg.sender_id === ME_ID ? ' mine' : '');
+              el.dataset.id = msg.id;
+              const bubble = document.createElement('div');
+              bubble.className = 'gm-win__bubble';
+              bubble.style.cssText = 'background:transparent!important;border:1.5px dashed var(--border)!important;box-shadow:none!important;padding:6px 10px;';
+              bubble.innerHTML = `<span style="font-style:italic;font-size:.74rem;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-ban" style="opacity:.4;font-size:.68rem;"></i>${msg.sender_id === ME_ID ? 'You unsent a message.' : 'This message was unsent.'}</span>`;
+              el.appendChild(bubble);
+              msgsEl.appendChild(el);
+              i++;
+              continue;
+            }else if (msg.is_system) {
               const el = document.createElement('div');
               el.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 4px;';
               el.innerHTML = `
@@ -2727,6 +3081,21 @@
             _typingTimers[convId] = setTimeout(() => msgsEl.querySelector('.gm-win__typing')?.remove(), 4000);
           } else if (data.type === 'stop_typing') {
             msgsEl.querySelector('.gm-win__typing')?.remove();
+          } else if (data.type === 'message_unsent') {
+            if (data.scope === 'everyone') {
+              const targetRow = msgsEl.querySelector(`[data-id="${data.message_id}"]`);
+              if (targetRow) {
+                const bubble = targetRow.querySelector('.gm-win__bubble') || targetRow.querySelector('[class^="gm-win__bubble"]');
+                if (bubble) {
+                  bubble.className = 'gm-win__bubble';
+                  bubble.removeAttribute('style');
+                  bubble.style.cssText = 'background:transparent!important;border:1.5px dashed var(--border)!important;box-shadow:none!important;padding:6px 10px;';
+                  const isMine = data.sender_id === ME_ID;
+                  bubble.innerHTML = `<span style="font-style:italic;font-size:.74rem;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-ban" style="opacity:.4;font-size:.68rem;"></i>${isMine ? 'You unsent a message.' : 'This message was unsent.'}</span>`;
+                }
+                targetRow.querySelector('.gm-win__msg-actions')?.remove();
+              }
+            }
           } else if (data.type === 'kicked_from_group') {
             if (data.kicked_user_id === ME_ID) closeWindow(convId);
           }
@@ -2889,6 +3258,151 @@
       setInterval(loadConvs, 60000);
   
     })();
+  </script>
+
+  <script>
+  (function () {
+    /* Only active outside the full messenger page */
+    if (document.getElementById('msng')) return;
+
+    const modal      = document.getElementById('gmForwardModal');
+    const closeBtn   = document.getElementById('gmForwardClose');
+    const searchEl   = document.getElementById('gmForwardSearch');
+    const listEl     = document.getElementById('gmForwardList');
+    const previewEl  = document.getElementById('gmForwardPreview');
+    const selectedTxt= document.getElementById('gmForwardSelectedTxt');
+    const sendBtn    = document.getElementById('gmForwardSendBtn');
+
+    let fwdMsg = null, fwdSelectedIds = new Set(), fwdConvs = [];
+
+    const getCsrf = () => { const v = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; };
+    const esc     = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    function fileIcon(name) {
+      if (!name) return 'fa-file';
+      const ext = name.split('.').pop().toLowerCase();
+      return ({pdf:'fa-file-pdf',doc:'fa-file-word',docx:'fa-file-word',xls:'fa-file-excel',xlsx:'fa-file-excel',ppt:'fa-file-powerpoint',pptx:'fa-file-powerpoint',zip:'fa-file-zipper',rar:'fa-file-zipper',txt:'fa-file-lines',mp4:'fa-file-video',mov:'fa-file-video',mp3:'fa-file-audio',wav:'fa-file-audio'})[ext]||'fa-file';
+    }
+    function isImageUrl(url) { return url && /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url); }
+
+    function renderList(filter) {
+      const lo = (filter||'').toLowerCase();
+      const filtered = fwdConvs.filter(c => {
+        if (c.is_archived) return false;
+        const name = c.is_group ? (c.name||'Group Chat') : (c.recipient ? c.recipient.name : '');
+        return !lo || name.toLowerCase().includes(lo);
+      });
+      listEl.innerHTML = '';
+      if (!filtered.length) {
+        listEl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">No conversations found</div>';
+        return;
+      }
+      filtered.forEach(c => {
+        const isGroup  = c.is_group;
+        const name     = isGroup ? (c.name||'Group Chat') : (c.recipient ? c.recipient.name : '?');
+        const initials = isGroup ? (c.initials||'GC')     : (c.recipient ? c.recipient.initials : '?');
+        const avatar   = isGroup ? c.avatar               : (c.recipient ? c.recipient.avatar : null);
+        const sub      = isGroup ? `${c.members ? c.members.length : 0} members` : (c.recipient ? (c.recipient.position||'') : '');
+        const sel      = fwdSelectedIds.has(c.id);
+
+        const div = document.createElement('div');
+        div.style.cssText = `display:flex;align-items:center;gap:11px;padding:9px 16px;cursor:pointer;transition:background .12s;background:${sel ? 'var(--green-pale)' : ''};`;
+        div.innerHTML = `
+          <div style="width:38px;height:38px;border-radius:50%;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:600;color:#fff;flex-shrink:0;overflow:hidden;">
+            ${avatar ? `<img src="${avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : `<span>${initials}</span>`}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.875rem;font-weight:600;color:var(--text-primary);">${esc(name)}${isGroup ? ' <i class="fa-solid fa-users" style="font-size:.6rem;color:var(--green-mid);margin-left:4px;"></i>' : ''}</div>
+            <div style="font-size:.73rem;color:var(--text-muted);">${esc(sub)}</div>
+          </div>
+          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${sel ? 'var(--green-mid)' : 'var(--border)'};background:${sel ? 'var(--green-mid)' : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;flex-shrink:0;">
+            ${sel ? '<i class="fa-solid fa-check"></i>' : ''}
+          </div>`;
+        div.addEventListener('click', () => {
+          if (fwdSelectedIds.has(c.id)) fwdSelectedIds.delete(c.id);
+          else fwdSelectedIds.add(c.id);
+          updateFooter();
+          renderList(searchEl.value);
+        });
+        listEl.appendChild(div);
+      });
+    }
+
+    function updateFooter() {
+      const n = fwdSelectedIds.size;
+      sendBtn.disabled = n === 0;
+      sendBtn.style.opacity = n === 0 ? '.5' : '1';
+      selectedTxt.textContent = n === 0 ? 'Select recipients' : `${n} conversation${n !== 1 ? 's' : ''} selected`;
+    }
+
+    function openModal(msg) {
+      fwdMsg = msg; fwdSelectedIds = new Set();
+      searchEl.value = ''; updateFooter();
+
+      // Preview
+      if (msg.is_image || isImageUrl(msg.attachment_url)) {
+        previewEl.innerHTML = `<i class="fa-solid fa-image" style="color:var(--green-mid);flex-shrink:0;"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(msg.attachment_name||'Photo')}</span>${msg.attachment_url ? `<img src="${msg.attachment_url}" style="width:34px;height:34px;object-fit:cover;border-radius:6px;flex-shrink:0;">` : ''}`;
+      } else if (msg.attachment_url) {
+        previewEl.innerHTML = `<i class="fa-solid ${fileIcon(msg.attachment_name)}" style="color:var(--green-mid);flex-shrink:0;"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(msg.attachment_name||'File')}</span>`;
+      } else {
+        previewEl.innerHTML = `<i class="fa-solid fa-quote-left" style="color:var(--green-mid);flex-shrink:0;"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(msg.body||'')}</span>`;
+      }
+
+      // Load conversations fresh
+      fetch('/messenger/conversations/').then(r => r.json()).then(data => {
+        fwdConvs = (data.conversations||[]);
+        renderList('');
+      });
+
+      modal.style.display = 'flex';
+      setTimeout(() => searchEl.focus(), 60);
+    }
+
+    function closeModal() {
+      modal.style.display = 'none';
+      sendBtn.disabled = true; sendBtn.style.opacity = '.5';
+      sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    searchEl.addEventListener('input', () => renderList(searchEl.value));
+
+    sendBtn.addEventListener('click', async () => {
+      if (!fwdMsg || !fwdSelectedIds.size) return;
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+
+      const sends = [...fwdSelectedIds].map(async convId => {
+        const fd = new FormData();
+        if (fwdMsg.body) fd.append('body', fwdMsg.body);
+        if (fwdMsg.attachment_url) {
+          try {
+            const res  = await fetch(fwdMsg.attachment_url);
+            const blob = await res.blob();
+            fd.append('attachment', blob, fwdMsg.attachment_name || 'file');
+          } catch (_) {
+            if (!fwdMsg.body) fd.append('body', `[Forwarded: ${fwdMsg.attachment_name||'file'}]`);
+          }
+        }
+        return fetch(`/messenger/conversations/${convId}/send/`, {
+          method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, body: fd,
+        });
+      });
+
+      await Promise.all(sends);
+      closeModal();
+
+      // Brief toast
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green-dark);color:#fff;padding:9px 20px;border-radius:20px;font-size:.83rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:99999;display:flex;align-items:center;gap:8px;';
+      toast.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Forwarded to ${fwdSelectedIds.size} conversation${fwdSelectedIds.size > 1 ? 's' : ''}`;
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .3s'; setTimeout(() => toast.remove(), 300); }, 2500);
+    });
+
+    /* Expose globally so floating window forward buttons can call it */
+    window.openForwardModal = openModal;
+  })();
   </script>
 
   {% block extra_js %}{% endblock %}

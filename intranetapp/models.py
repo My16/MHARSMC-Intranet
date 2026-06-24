@@ -1198,6 +1198,13 @@ class Message(models.Model):
         related_name='replies',
     )
 
+    is_unsent = models.BooleanField(default=False)
+    unsent_for = models.ManyToManyField(
+        'auth.User',
+        related_name='hidden_messages',
+        blank=True
+    )
+
     @property
     def is_image(self):
         if not self.attachment:
