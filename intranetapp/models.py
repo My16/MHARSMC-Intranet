@@ -188,6 +188,13 @@ class UserProfile(models.Model):
         verbose_name='Bio',
     )
 
+    access_reason = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Reason for Access',
+        help_text='Filled in during registration; reviewed by IT before activation.',
+    )
+
     is_online = models.BooleanField(default=False)
 
     def __str__(self):
@@ -219,6 +226,11 @@ class UserProfile(models.Model):
     # Keep get_role_display compatible with templates that used the old CharField
     def get_role_display(self):
         return self.role.name if self.role else '—'
+    
+    @property
+    def is_pending_registration(self):
+        """True if the account was created via self-registration (has access_reason and is inactive)."""
+        return not self.user.is_active and bool(self.access_reason)
     
 
 class PressRelease(models.Model):

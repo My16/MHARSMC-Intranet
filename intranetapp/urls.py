@@ -7,6 +7,7 @@ urlpatterns = [
     # Auth
     path('login/',  views.login,        name='login'),
     path('logout/', views.logout_view,  name='logout'),
+    path('register/', views.register,     name='register'),
     path('',        views.home,         name='home'),
 
     # User Management
@@ -15,6 +16,7 @@ urlpatterns = [
     path('users/<int:pk>/edit/',    views.user_edit,       name='user_edit'),
     path('users/<int:pk>/toggle/',  views.user_toggle,     name='user_toggle'),
     path('users/<int:pk>/delete/',  views.user_delete,     name='user_delete'),
+    path('users/<int:pk>/approve/', views.user_approve, name='user_approve'),
 
     # Role Management
     path('roles/',                  views.role_management, name='role_management'),

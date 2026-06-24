@@ -13,7 +13,7 @@
   ═══════════════════════════════════════════════════ */
   .um-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
     margin-bottom: 24px;
   }
@@ -496,6 +496,16 @@
       <div class="um-stat-label">Inactive Users</div>
     </div>
   </div>
+
+  <div class="um-stat-card">
+    <div class="um-stat-icon" style="background:#fff8e1; color:#f59e0b;">
+      <i class="fa-solid fa-clock"></i>
+    </div>
+    <div>
+      <div class="um-stat-num">{{ pending_users }}</div>
+      <div class="um-stat-label">Pending Approval</div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ Users Table ═════════════════════════════════════════════ -->
@@ -615,10 +625,19 @@
 
           <!-- Status -->
           <td>
-            <span class="status-badge {% if profile.user.is_active %}active{% else %}inactive{% endif %}">
-              <span class="status-dot"></span>
-              {% if profile.user.is_active %}Active{% else %}Inactive{% endif %}
-            </span>
+            {% if profile.user.is_active %}
+              <span class="status-badge active">
+                <span class="status-dot"></span> Active
+              </span>
+            {% elif profile.is_pending_registration %}
+              <span class="status-badge" style="color:#b45309;">
+                <span class="status-dot" style="background:#f59e0b;"></span> Pending
+              </span>
+            {% else %}
+              <span class="status-badge inactive">
+                <span class="status-dot"></span> Inactive
+              </span>
+            {% endif %}
           </td>
 
           <!-- Date Joined -->
@@ -643,12 +662,30 @@
                 data-gender="{{ profile.gender|default:''|escape }}"
                 data-gender-self-describe="{{ profile.gender_self_describe|default:''|escape }}"
                 data-bio="{{ profile.bio|default:''|escape }}"
+                data-access-reason="{{ profile.access_reason|default:''|escape }}"
                 data-role-pk="{{ profile.role.pk|default:'' }}"
                 data-is-active="{{ profile.user.is_active|yesno:'true,false' }}"
                 onclick="openEditModal(this)"
               >
                 <i class="fa-solid fa-pen-to-square"></i>
               </button>
+
+              {% if profile.is_pending_registration %}
+                <button
+                  type="button"
+                  class="um-action-btn"
+                  style="color:#b45309;"
+                  title="Approve registration"
+                  data-pk="{{ profile.user.pk }}"
+                  data-name="{{ profile.get_full_name_with_middle|escape }}"
+                  data-access-reason="{{ profile.access_reason|escape }}"
+                  data-department="{{ profile.department|escape }}"
+                  data-position="{{ profile.position|escape }}"
+                  onclick="openApproveModal(this)"
+                >
+                  <i class="fa-solid fa-user-check"></i>
+                </button>
+              {% endif %}
 
               {% if profile.user != request.user %}
                 <button
@@ -870,6 +907,17 @@
           <textarea name="bio" class="form-control" rows="2"
                     placeholder="A short description about this user…"
                     style="resize:vertical;"></textarea>
+        </div>
+
+        {% comment %}Only shown for pending registration accounts{% endcomment %}
+        <div id="edit_access_reason_section" style="display:none;">
+          <div class="modal-section-label">Registration Request</div>
+          <div class="form-group">
+            <label class="form-label">Reason for Access</label>
+            <textarea class="form-control" rows="3" disabled id="edit_access_reason_display"
+                      style="background:#f9fafb; color:var(--text-muted); resize:none;"></textarea>
+            <span class="form-hint">Submitted by the user during registration. Read-only.</span>
+          </div>
         </div>
 
         <!-- Avatar -->
@@ -1135,6 +1183,50 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════
+     APPROVE USER MODAL
+══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="approveModal">
+  <div class="modal-box modal-md">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-user-check"></i> Approve Registration</div>
+      <button class="modal-close" onclick="closeModal('approveModal')" type="button">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form method="POST" id="approveForm" action="">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div style="background:var(--green-pale); border:1px solid var(--green-light); border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:.83rem;">
+          <div style="font-weight:600; color:var(--text-primary); margin-bottom:2px;" id="approveUserName"></div>
+          <div style="color:var(--text-muted);" id="approveUserMeta"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reason for Access</label>
+          <textarea id="approveAccessReason" class="form-control" rows="4" disabled
+                    style="background:#f9fafb; color:var(--text-primary); resize:none;"></textarea>
+          <span class="form-hint">Submitted by the user during registration.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assign Role <span class="opt">(optional)</span></label>
+          <select name="role" id="approve_role" class="form-control">
+            <option value="">— No Role —</option>
+            {% for role in roles %}
+              <option value="{{ role.pk }}">{{ role.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-cancel" onclick="closeModal('approveModal')">Cancel</button>
+        <button type="submit" class="btn-modal-submit">
+          <i class="fa-solid fa-user-check"></i> Approve &amp; Activate
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="um-toast" id="umToast">
   <i class="fa-solid fa-circle-check" id="umToastIcon"></i>
@@ -1154,6 +1246,7 @@
     user_edit:   pk => "{% url 'user_edit'   pk=0 %}".replace('/0/', '/' + pk + '/'),
     user_delete: pk => "{% url 'user_delete' pk=0 %}".replace('/0/', '/' + pk + '/'),
     user_toggle: pk => "{% url 'user_toggle' pk=0 %}".replace('/0/', '/' + pk + '/'),
+    user_approve: pk => "{% url 'user_approve' pk=0 %}".replace('/0/', '/' + pk + '/'),
   };
 
   /* ── Modal helpers ───────────────────────────────────────── */
@@ -1284,6 +1377,19 @@
       selfInput.value = '';
     }
 
+    const accessReason = btn.dataset.accessReason || '';
+    const reasonSection = document.getElementById('edit_access_reason_section');
+    const reasonDisplay = document.getElementById('edit_access_reason_display');
+
+    if (accessReason && btn.dataset.isActive === 'false') {
+      reasonSection.style.display = 'block';
+      reasonDisplay.value = accessReason;
+    } else {
+      reasonSection.style.display = 'none';
+      reasonDisplay.value = '';
+    }
+
+
     handleRoleInfoNote('edit', rolePk);
     openModal('editModal');
   }
@@ -1395,6 +1501,16 @@
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => this.closest('form').submit(), 500);
     });
+  }
+
+  /* ── Approve Modal ───────────────────────────────────────────── */
+  function openApproveModal(btn) {
+    document.getElementById('approveForm').action           = URLS.user_approve(btn.dataset.pk);
+    document.getElementById('approveUserName').textContent  = btn.dataset.name;
+    document.getElementById('approveUserMeta').textContent  = [btn.dataset.position, btn.dataset.department].filter(Boolean).join(' — ');
+    document.getElementById('approveAccessReason').value    = btn.dataset.accessReason || '(No reason provided)';
+    document.getElementById('approve_role').value           = '';
+    openModal('approveModal');
   }
 </script>
 {% endblock %}

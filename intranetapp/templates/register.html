@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHARSMC Intranet — Request Access</title>
+    <link rel="icon" href="{% static 'img/mharsmc.png' %}" type="image/x-icon" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        *, *::before, *::after {
+            margin: 0; padding: 0; box-sizing: border-box;
+        }
+
+        :root {
+            --teal:       #00ADB5;
+            --teal-dark:  #007F87;
+            --teal-light: #E6F7F8;
+            --teal-glow:  rgba(0, 173, 181, 0.18);
+            --green-dark: #00574A;
+            --text:       #1a2332;
+            --muted:      #6b7a8d;
+            --border:     #dce3ec;
+            --white:      #ffffff;
+            --bg:         #f0f4f8;
+            --error:      #c0392b;
+            --error-bg:   #fff1f1;
+            --error-bdr:  #f5b7b1;
+            --success:    #1a7f64;
+            --success-bg: #edfaf5;
+            --success-bdr:#a7e4d1;
+        }
+
+        body {
+            font-family: 'Inter', 'Poppins', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 32px 20px;
+        }
+
+        /* ── Card ─────────────────────────────── */
+        .card {
+            display: flex;
+            width: 960px;
+            max-width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow:
+                0 8px 32px rgba(0, 0, 0, 0.12),
+                0 0 0 1px rgba(0, 173, 181, 0.08);
+        }
+
+        /* ── Side panel ───────────────────────── */
+        .panel-side {
+            width: 300px;
+            min-width: 220px;
+            background-image: url("/static/img/MHARSMC_photo.png");
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 36px 24px;
+        }
+
+        .panel-side::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                160deg,
+                rgba(0, 87, 74, 0.55) 0%,
+                rgba(0, 40, 50, 0.75) 100%
+            );
+        }
+
+        .side-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            color: var(--white);
+        }
+
+        .side-content .logo-img {
+            width: 72px;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+        }
+
+        .side-content .label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.65);
+            margin-bottom: 8px;
+        }
+
+        .side-content .hospital-name {
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.35;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+        }
+
+        .side-content .tagline {
+            font-size: 11.5px;
+            font-style: italic;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 16px;
+        }
+
+        .side-steps {
+            border-top: 1px solid rgba(255,255,255,0.15);
+            padding-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: left;
+        }
+
+        .side-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .step-num {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--teal);
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .step-text {
+            font-size: 11.5px;
+            color: rgba(255,255,255,0.75);
+            line-height: 1.5;
+        }
+
+        /* ── Main panel ───────────────────────── */
+        .panel-main {
+            flex: 1;
+            background: var(--white);
+            padding: 44px 44px;
+            min-width: 0;
+        }
+
+        .top-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .top-nav a {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .top-nav a:hover { color: var(--teal); }
+
+        .top-nav .sep { color: var(--border); }
+
+        .heading {
+            font-size: 21px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.3px;
+            margin-bottom: 4px;
+        }
+
+        .subheading {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 28px;
+        }
+
+        /* ── Section labels ───────────────────── */
+        .section-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--teal-dark);
+            padding-bottom: 8px;
+            border-bottom: 1.5px solid var(--teal-light);
+            margin-bottom: 16px;
+            margin-top: 24px;
+        }
+
+        .section-label:first-of-type { margin-top: 0; }
+
+        /* ── Grid ─────────────────────────────── */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 16px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0 16px;
+        }
+
+        .span-2 { grid-column: span 2; }
+
+        /* ── Field ────────────────────────────── */
+        .field {
+            margin-bottom: 14px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 5px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .required-star { color: var(--teal); margin-left: 2px; }
+
+        .input-wrap { position: relative; }
+
+        .input-wrap input,
+        .input-wrap select,
+        .input-wrap textarea {
+            width: 100%;
+            padding: 10px 13px 10px 36px;
+            font-size: 13.5px;
+            font-family: inherit;
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            background: #fafcfe;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            appearance: none;
+        }
+
+        .input-wrap textarea {
+            resize: vertical;
+            min-height: 72px;
+            padding-top: 10px;
+            line-height: 1.5;
+        }
+
+        .input-wrap select { cursor: pointer; }
+
+        .no-icon input,
+        .no-icon select,
+        .no-icon textarea {
+            padding-left: 13px;
+        }
+
+        .input-wrap input:focus,
+        .input-wrap select:focus,
+        .input-wrap textarea:focus {
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px var(--teal-glow);
+            background: var(--white);
+        }
+
+        .input-wrap .icon-left {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            font-size: 13px;
+            pointer-events: none;
+            transition: color 0.2s;
+        }
+
+        .input-wrap:focus-within .icon-left { color: var(--teal); }
+
+        .input-wrap .icon-left.top-align {
+            top: 12px;
+            transform: none;
+        }
+
+        .input-wrap .toggle-eye {
+            position: absolute;
+            right: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            font-size: 13px;
+            cursor: pointer;
+            padding: 4px;
+            transition: color 0.2s;
+            user-select: none;
+        }
+
+        .input-wrap .toggle-eye:hover { color: var(--teal); }
+
+        /* ── Password strength ────────────────── */
+        .strength-bar {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .strength-seg {
+            height: 3px;
+            flex: 1;
+            border-radius: 2px;
+            background: var(--border);
+            transition: background 0.3s;
+        }
+
+        .strength-label {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        /* ── Notice box ───────────────────────── */
+        .notice {
+            background: var(--teal-light);
+            border: 1px solid rgba(0,173,181,0.2);
+            border-left: 3px solid var(--teal);
+            border-radius: 8px;
+            padding: 11px 14px;
+            font-size: 12.5px;
+            color: var(--teal-dark);
+            margin-bottom: 24px;
+            display: flex;
+            gap: 9px;
+            align-items: flex-start;
+            line-height: 1.55;
+        }
+
+        .notice i { margin-top: 1px; flex-shrink: 0; }
+
+        /* ── Alert ────────────────────────────── */
+        .alert {
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-error {
+            background: var(--error-bg);
+            border: 1px solid var(--error-bdr);
+            color: var(--error);
+        }
+
+        .alert-success {
+            background: var(--success-bg);
+            border: 1px solid var(--success-bdr);
+            color: var(--success);
+        }
+
+        /* ── Submit row ───────────────────────── */
+        .submit-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .submit-row .back-link {
+            font-size: 13px;
+            color: var(--muted);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.2s;
+        }
+
+        .submit-row .back-link:hover { color: var(--teal); }
+
+        .btn-primary {
+            padding: 12px 32px;
+            background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+            color: var(--white);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            border: none;
+            border-radius: 9px;
+            cursor: pointer;
+            letter-spacing: 0.02em;
+            transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 4px 14px rgba(0, 173, 181, 0.35);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 173, 181, 0.45);
+        }
+
+        /* ── Loader ───────────────────────────── */
+        #loaderOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        /* ── Mobile ───────────────────────────── */
+        @media (max-width: 760px) {
+            .card { flex-direction: column-reverse; }
+            .panel-side { width: 100%; min-height: 200px; }
+            .panel-main { padding: 32px 24px; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .span-2 { grid-column: span 1; }
+            .side-steps { display: none; }
+        }
+
+
+        /* ── Custom dropdown ──────────────────────────────── */
+        .custom-select-wrapper {
+            position: relative;
+        }
+
+        .custom-select-wrapper select {
+            width: 100%;
+            padding: 10px 36px 10px 36px;
+            font-size: 13.5px;
+            font-family: inherit;
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            background: #fafcfe;
+            color: var(--text);
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .custom-select-wrapper select:focus {
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px var(--teal-glow);
+            background: var(--white);
+        }
+
+        /* Placeholder option color */
+        .custom-select-wrapper select:invalid,
+        .custom-select-wrapper select option[value=""] {
+            color: var(--muted);
+        }
+
+        .custom-select-wrapper select option,
+        .custom-select-wrapper select optgroup {
+            color: var(--text);
+        }
+
+        /* Custom chevron arrow */
+        .custom-select-wrapper .select-arrow {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            font-size: 12px;
+            pointer-events: none;
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .custom-select-wrapper:focus-within .select-arrow {
+            color: var(--teal);
+            transform: translateY(-50%) rotate(180deg);
+        }
+
+        .custom-select-wrapper .icon-left {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            font-size: 13px;
+            pointer-events: none;
+            transition: color 0.2s;
+        }
+
+        .custom-select-wrapper:focus-within .icon-left {
+            color: var(--teal);
+        }
+
+        /* optgroup label styling (supported in Firefox/Chrome) */
+        .custom-select-wrapper select optgroup {
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--teal-dark);
+            background: var(--teal-light);
+            padding: 4px 0;
+        }
+
+        .custom-select-wrapper select optgroup option {
+            font-weight: 400;
+            font-size: 13.5px;
+            color: var(--text);
+            background: var(--white);
+            padding-left: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+
+        <!-- Side branding panel -->
+        <div class="panel-side">
+            <div class="side-content">
+                <img src="{% static 'img/mharsmc.png' %}" alt="Logo" class="logo-img">
+                <!-- <img src="https://placehold.co/72x72/ffffff/00ADB5?text=M" alt="Logo" class="logo-img"> -->
+                <p class="label">Staff Portal</p>
+                <h2 class="hospital-name">Mayor Hilarion A. Ramiro Sr. Medical Center</h2>
+                <p class="tagline">"Serbisyong Kasaligan, MHARSMC imong kauban."</p>
+
+                <div class="side-steps">
+                    <div class="side-step">
+                        <div class="step-num">1</div>
+                        <div class="step-text">Fill in your personal &amp; employment details.</div>
+                    </div>
+                    <div class="side-step">
+                        <div class="step-num">2</div>
+                        <div class="step-text">Submit your access request for IT review.</div>
+                    </div>
+                    <div class="side-step">
+                        <div class="step-num">3</div>
+                        <div class="step-text">Receive your credentials once approved.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main form panel -->
+        <div class="panel-main">
+            <div class="top-nav">
+                <a href="loginpage.html"><i class="fa fa-arrow-left"></i> Back to Sign In</a>
+            </div>
+
+            <h1 class="heading">Request Portal Access</h1>
+            <p class="subheading">Complete the form below. The IT Team will review and activate your account.</p>
+
+            <div class="notice">
+                <i class="fa fa-circle-info"></i>
+                <span>Access is restricted to MHARSMC staff. Use your official hospital email address. Your account will be activated within <strong>1–2 business days</strong> after IT review.</span>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert {% if message.tags == 'success' %}alert-success{% else %}alert-error{% endif %}">
+                    <i class="fa {% if message.tags == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form action="{% url 'register' %}" method="POST" id="regForm">
+            <!-- <form action="#" method="POST" id="regForm"> -->
+                {% csrf_token %}
+
+                <!-- Personal Information -->
+                <div class="section-label">Personal Information</div>
+
+                <div class="grid-3">
+                    <div class="field">
+                        <label>First Name <span class="required-star">*</span></label>
+                        <div class="input-wrap">
+                            <i class="fa fa-user icon-left"></i>
+                            <input type="text" name="first_name" placeholder="Juan" required>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>Middle Name</label>
+                        <div class="input-wrap no-icon">
+                            <input type="text" name="middle_name" placeholder="Optional">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>Last Name <span class="required-star">*</span></label>
+                        <div class="input-wrap no-icon">
+                            <input type="text" name="last_name" placeholder="Dela Cruz" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="field">
+                        <label>Hospital Email <span class="required-star">*</span></label>
+                        <div class="input-wrap">
+                            <i class="fa fa-envelope icon-left"></i>
+                            <input type="email" name="email" placeholder="you@mharsmc.gov.ph" required>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>Mobile Number</label>
+                        <div class="input-wrap">
+                            <i class="fa fa-phone icon-left"></i>
+                            <input type="tel" name="mobile_number" placeholder="+63 9XX XXX XXXX">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Employment Details -->
+                <div class="section-label">Employment Details</div>
+
+                <div class="grid-2">
+                    <div class="field">
+                        <label>Department <span class="required-star">*</span></label>
+                        <div class="custom-select-wrapper">
+                            <i class="fa fa-building icon-left"></i>
+                            <select name="department" required>
+                                <option value="" disabled selected>— Select a department —</option>
+
+                                <optgroup label="Office of the Medical Center Chief">
+                                    <option value="Office of the Medical Center Chief — Legal Unit">Legal Unit</option>
+                                    <option value="Office of the Medical Center Chief — Public Health Unit">Public Health Unit</option>
+                                    <option value="Office of the Medical Center Chief — Planning and Management Unit">Planning and Management Unit</option>
+                                    <option value="Office of the Medical Center Chief — Office of Strategic Management">Office of Strategic Management</option>
+                                    <option value="Office of the Medical Center Chief — Professional Education, Training and Research">Professional Education, Training and Research</option>
+                                    <option value="Office of the Medical Center Chief — Health Emergency and Disaster Management Unit">Health Emergency and Disaster Management Unit</option>
+                                </optgroup>
+
+                                <optgroup label="Allied Health Professional Service">
+                                    <option value="Allied Health Professional Service — Nutrition and Dietetics Department">Nutrition and Dietetics Department</option>
+                                    <option value="Allied Health Professional Service — Pharmacy Department">Pharmacy Department</option>
+                                    <option value="Allied Health Professional Service — Medical Social Work Department">Medical Social Work Department</option>
+                                    <option value="Allied Health Professional Service — Health Information Management Department">Health Information Management Department</option>
+                                </optgroup>
+
+                                <optgroup label="Nursing Service">
+                                    <option value="Nursing Service — Clinical Nursing Units">Clinical Nursing Units</option>
+                                    <option value="Nursing Service — Operating Room">Operating Room</option>
+                                    <option value="Nursing Service — Special Care Areas">Special Care Areas</option>
+                                    <option value="Nursing Service — Obstetric Complex">Obstetric Complex</option>
+                                    <option value="Nursing Service — Emergency Room">Emergency Room</option>
+                                    <option value="Nursing Service — Outpatient Department">Outpatient Department</option>
+                                    <option value="Nursing Service — Dialysis Unit">Dialysis Unit</option>
+                                </optgroup>
+
+                                <optgroup label="Hospital Operations and Patient Support Service (HOPSS)">
+                                    <option value="HOPSS — Human Resource Management Section">Human Resource Management Section</option>
+                                    <option value="HOPSS — Procurement Section">Procurement Section</option>
+                                    <option value="HOPSS — Materials Management Section">Materials Management Section</option>
+                                    <option value="HOPSS — Integrated Management Information System Section">Integrated Management Information System Section</option>
+                                    <option value="HOPSS — Security">Security</option>
+                                    <option value="HOPSS — Engineering and Facilities Management Section">Engineering and Facilities Management Section</option>
+                                    <option value="HOPSS — Housekeeping, Linen, and Laundry">Housekeeping, Linen, and Laundry</option>
+                                </optgroup>
+
+                                <optgroup label="Finance Service">
+                                    <option value="Finance Service — Billing and Claims Section">Billing and Claims Section</option>
+                                    <option value="Finance Service — Accounting Section">Accounting Section</option>
+                                    <option value="Finance Service — Budget Section">Budget Section</option>
+                                    <option value="Finance Service — Cash Operations Section">Cash Operations Section</option>
+                                    <option value="Finance Service — Health Insurance Medical Evaluation Unit">Health Insurance Medical Evaluation Unit</option>
+                                </optgroup>
+                            </select>
+                            <i class="fa fa-chevron-down select-arrow"></i>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>Position / Designation <span class="required-star">*</span></label>
+                        <div class="input-wrap">
+                            <i class="fa fa-briefcase icon-left"></i>
+                            <input type="text" name="position" placeholder="e.g. Nurse II, Admin Officer" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Reason for Access <span class="required-star">*</span></label>
+                    <div class="input-wrap no-icon">
+                        <textarea name="reason" placeholder="Briefly describe why you need access to the MHARSMC Intranet portal..." required></textarea>
+                    </div>
+                </div>
+
+                <!-- Account Credentials -->
+                <div class="section-label">Account Credentials</div>
+
+                <div class="grid-2">
+                    <div class="field">
+                        <label>Preferred Username <span class="required-star">*</span></label>
+                        <div class="input-wrap">
+                            <i class="fa fa-at icon-left"></i>
+                            <input type="text" name="username" id="username" placeholder="e.g. jdelacruz" autocomplete="username" required>
+                        </div>
+                    </div>
+                    <div class="field" style="display:flex;align-items:flex-end;">
+                        <p style="font-size:12px;color:var(--muted);line-height:1.6;padding-bottom:14px;">
+                            Username should be your name in lowercase with no spaces.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="field">
+                        <label>Password <span class="required-star">*</span></label>
+                        <div class="input-wrap">
+                            <i class="fa fa-lock icon-left"></i>
+                            <input type="password" name="password" id="password" placeholder="Min. 8 characters" autocomplete="new-password" required>
+                            <span class="toggle-eye" id="togglePass"><i class="fa fa-eye"></i></span>
+                        </div>
+                        <div class="strength-bar">
+                            <div class="strength-seg" id="s1"></div>
+                            <div class="strength-seg" id="s2"></div>
+                            <div class="strength-seg" id="s3"></div>
+                            <div class="strength-seg" id="s4"></div>
+                        </div>
+                        <div class="strength-label" id="strengthLabel">Enter a password</div>
+                    </div>
+                    <div class="field">
+                        <label>Confirm Password <span class="required-star">*</span></label>
+                        <div class="input-wrap">
+                            <i class="fa fa-lock icon-left"></i>
+                            <input type="password" name="confirm_password" id="confirm_password" placeholder="Repeat password" autocomplete="new-password" required>
+                            <span class="toggle-eye" id="toggleConfirm"><i class="fa fa-eye"></i></span>
+                        </div>
+                        <div id="matchMsg" style="font-size:12px;margin-top:4px;display:none;"></div>
+                    </div>
+                </div>
+
+                <div class="submit-row">
+                    <a href="{% url 'login' %}" class="back-link">
+                        <i class="fa fa-arrow-left"></i> Back to Sign In
+                    </a>
+                    <button type="submit" class="btn-primary">
+                        <i class="fa fa-paper-plane"></i> Submit Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loaderOverlay">
+        <l-spiral size="60" speed="0.9" color="white"></l-spiral>
+    </div>
+
+    <script type="module" src="https://cdn.jsdelivr.net/npm/ldrs/dist/auto/spiral.js"></script>
+    <script>
+        // ── Eye toggles ────────────────────────────────
+        function makeToggle(btnId, inputId) {
+            const btn   = document.getElementById(btnId);
+            const input = document.getElementById(inputId);
+            const icon  = btn.querySelector('i');
+            btn.addEventListener('mousedown', () => { input.type = 'text'; icon.classList.replace('fa-eye','fa-eye-slash'); });
+            ['mouseup','mouseleave'].forEach(e => btn.addEventListener(e, () => { input.type = 'password'; icon.classList.replace('fa-eye-slash','fa-eye'); }));
+        }
+        makeToggle('togglePass',    'password');
+        makeToggle('toggleConfirm', 'confirm_password');
+
+        // ── Password strength ──────────────────────────
+        const passInput   = document.getElementById('password');
+        const segs        = [document.getElementById('s1'), document.getElementById('s2'), document.getElementById('s3'), document.getElementById('s4')];
+        const strengthLbl = document.getElementById('strengthLabel');
+        const colors      = ['#e74c3c','#e67e22','#f1c40f','#27ae60'];
+        const labels      = ['Weak','Fair','Good','Strong'];
+
+        passInput.addEventListener('input', () => {
+            const v = passInput.value;
+            let score = 0;
+            if (v.length >= 8)  score++;
+            if (/[A-Z]/.test(v)) score++;
+            if (/[0-9]/.test(v)) score++;
+            if (/[^A-Za-z0-9]/.test(v)) score++;
+
+            segs.forEach((s, i) => {
+                s.style.background = i < score ? colors[score - 1] : 'var(--border)';
+            });
+            strengthLbl.textContent = v.length === 0 ? 'Enter a password' : labels[score - 1] || 'Weak';
+            strengthLbl.style.color = v.length === 0 ? 'var(--muted)' : colors[score - 1] || colors[0];
+        });
+
+        // ── Confirm password match ─────────────────────
+        const confirmInput = document.getElementById('confirm_password');
+        const matchMsg     = document.getElementById('matchMsg');
+
+        confirmInput.addEventListener('input', () => {
+            if (!confirmInput.value) { matchMsg.style.display = 'none'; return; }
+            const match = passInput.value === confirmInput.value;
+            matchMsg.style.display = 'block';
+            matchMsg.textContent   = match ? '✓ Passwords match' : '✗ Passwords do not match';
+            matchMsg.style.color   = match ? 'var(--success)' : 'var(--error)';
+        });
+
+        // ── Form guard (no mismatched submit) ─────────
+        const loader = document.getElementById('loaderOverlay');
+        document.getElementById('regForm').addEventListener('submit', e => {
+            if (passInput.value !== confirmInput.value) {
+                e.preventDefault();
+                matchMsg.style.display = 'block';
+                matchMsg.textContent   = '✗ Passwords do not match';
+                matchMsg.style.color   = 'var(--error)';
+                confirmInput.focus();
+                return;
+            }
+            loader.style.display = 'flex';
+        });
+
+        // ── Auto-dismiss alerts ────────────────────────
+        document.querySelectorAll('.alert').forEach(el => {
+            setTimeout(() => {
+                el.style.transition = 'opacity 0.5s';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 500);
+            }, 4000);
+        });
+    </script>
+</body>
+</html>

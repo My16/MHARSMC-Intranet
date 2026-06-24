@@ -174,6 +174,7 @@ def user_management(request):
     total_users    = base_qs.count()
     active_users   = base_qs.filter(user__is_active=True).count()
     inactive_users = base_qs.filter(user__is_active=False).count()
+    pending_users = base_qs.filter(user__is_active=False, access_reason__gt='').count()
 
     roles = Role.objects.all().order_by('name')
 
@@ -182,6 +183,7 @@ def user_management(request):
         'total_users':      total_users,
         'active_users':     active_users,
         'inactive_users':   inactive_users,
+        'pending_users':    pending_users,
         'search_query':     search_query,
         'module_choices':   MODULE_CHOICES,
         'roles':            roles,
@@ -235,6 +237,70 @@ def user_add(request):
             return redirect('user_management')
 
     return redirect('user_management')
+
+def register(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+
+    if request.method == 'POST':
+        first_name       = request.POST.get('first_name', '').strip()
+        middle_name      = request.POST.get('middle_name', '').strip()
+        last_name        = request.POST.get('last_name', '').strip()
+        email            = request.POST.get('email', '').strip()
+        mobile_number    = request.POST.get('mobile_number', '').strip()
+        department       = request.POST.get('department', '').strip()
+        position         = request.POST.get('position', '').strip()
+        reason           = request.POST.get('reason', '').strip()
+        username         = request.POST.get('username', '').strip()
+        password         = request.POST.get('password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+
+        errors = []
+
+        if not all([first_name, last_name, email, department, position, reason, username, password]):
+            errors.append('Please fill in all required fields.')
+
+        if password != confirm_password:
+            errors.append('Passwords do not match.')
+
+        if len(password) < 8:
+            errors.append('Password must be at least 8 characters.')
+
+        if User.objects.filter(username__iexact=username).exists():
+            errors.append(f'Username "{username}" is already taken.')
+
+        if User.objects.filter(email__iexact=email).exists():
+            errors.append('An account with that email already exists.')
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            return render(request, 'register.html')
+
+        # Create user as inactive — IT admin activates it
+        user = User.objects.create_user(
+            username   = username,
+            email      = email,
+            password   = password,
+            first_name = first_name,
+            last_name  = last_name,
+            is_active  = False,   # pending IT approval
+        )
+
+        # Create the profile
+        UserProfile.objects.create(
+            user          = user,
+            middle_name   = middle_name,
+            department    = department,
+            position      = position,
+            mobile_number = mobile_number,
+            access_reason = reason,
+        )
+
+        messages.success(request, 'Your access request has been submitted. The IT Team will activate your account within 1–2 business days.')
+        return redirect('login')
+
+    return render(request, 'register.html', {'department_choices': DEPARTMENT_CHOICES,})
 
 
 @login_required
@@ -454,6 +520,28 @@ def role_delete(request, pk):
         messages.success(request, f'Role "{name}" has been deleted.')
 
     return redirect('role_management')
+
+@login_required
+@user_passes_test(is_admin)
+def user_approve(request, pk):
+    """Approve a pending self-registration: activate the account and assign a role."""
+    if request.method == 'POST':
+        profile = get_object_or_404(UserProfile, user__pk=pk, user__is_superuser=False)
+        user = profile.user
+
+        user.is_active = True
+        user.save()
+
+        role_pk = request.POST.get('role')
+        if role_pk:
+            try:
+                profile.role = Role.objects.get(pk=role_pk)
+                profile.save()
+            except Role.DoesNotExist:
+                pass
+
+        messages.success(request, f'"{profile.get_full_name_with_middle()}" has been approved and activated.')
+    return redirect('user_management')
 
 
 # ── Misc ───────────────────────────────────────────────────────────────────────
