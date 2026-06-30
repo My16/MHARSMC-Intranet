@@ -573,7 +573,7 @@
         <!-- Main form panel -->
         <div class="panel-main">
             <div class="top-nav">
-                <a href="loginpage.html"><i class="fa fa-arrow-left"></i> Back to Sign In</a>
+                <a href="{% url 'login' %}"><i class="fa fa-arrow-left"></i> Back to Sign In</a>
             </div>
 
             <h1 class="heading">Request Portal Access</h1>
@@ -651,6 +651,7 @@
                                 <option value="" disabled selected>— Select a department —</option>
 
                                 <optgroup label="Office of the Medical Center Chief">
+                                    <option value="Office of the Medical Center Chief">Office of the Medical Center Chief (Head Office)</option>
                                     <option value="Office of the Medical Center Chief — Legal Unit">Legal Unit</option>
                                     <option value="Office of the Medical Center Chief — Public Health Unit">Public Health Unit</option>
                                     <option value="Office of the Medical Center Chief — Planning and Management Unit">Planning and Management Unit</option>
@@ -660,6 +661,7 @@
                                 </optgroup>
 
                                 <optgroup label="Allied Health Professional Service">
+                                    <option value="Allied Health Professional Service">Office of the Chief Allied Health Professional Service (Head Office)</option>
                                     <option value="Allied Health Professional Service — Nutrition and Dietetics Department">Nutrition and Dietetics Department</option>
                                     <option value="Allied Health Professional Service — Pharmacy Department">Pharmacy Department</option>
                                     <option value="Allied Health Professional Service — Medical Social Work Department">Medical Social Work Department</option>
@@ -667,6 +669,7 @@
                                 </optgroup>
 
                                 <optgroup label="Nursing Service">
+                                    <option value="Nursing Service">Office of the Chief Nurse (Head Office)</option>
                                     <option value="Nursing Service — Clinical Nursing Units">Clinical Nursing Units</option>
                                     <option value="Nursing Service — Operating Room">Operating Room</option>
                                     <option value="Nursing Service — Special Care Areas">Special Care Areas</option>
@@ -677,6 +680,7 @@
                                 </optgroup>
 
                                 <optgroup label="Hospital Operations and Patient Support Service (HOPSS)">
+                                    <option value="HOPSS">Office of the Chief Administrative Officer (Head Office)</option>
                                     <option value="HOPSS — Human Resource Management Section">Human Resource Management Section</option>
                                     <option value="HOPSS — Procurement Section">Procurement Section</option>
                                     <option value="HOPSS — Materials Management Section">Materials Management Section</option>
@@ -687,6 +691,7 @@
                                 </optgroup>
 
                                 <optgroup label="Finance Service">
+                                    <option value="Finance Service">Office of the Chief Finance Officer (Head Office)</option>
                                     <option value="Finance Service — Billing and Claims Section">Billing and Claims Section</option>
                                     <option value="Finance Service — Accounting Section">Accounting Section</option>
                                     <option value="Finance Service — Budget Section">Budget Section</option>

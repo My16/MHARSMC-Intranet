@@ -1,7 +1,9 @@
 from django import template
+from intranetapp.models import DEPARTMENT_CHOICES
 
 register = template.Library()
 
+_DEPT_LABELS = dict(DEPARTMENT_CHOICES)
 
 @register.filter(name='has_access')
 def has_access(role, module_key):
@@ -66,10 +68,13 @@ def file_icon(filename):
 
 @register.filter
 def dept_short(value):
-    """Returns only the sub-section part after ' — '."""
+    """Returns only the sub-section part after ' — '.
+    For head-office values with no sub-section, returns the display label instead."""
     if value and ' — ' in value:
         return value.split(' — ', 1)[1]
-    return value or '—'
+    if value:
+        return _DEPT_LABELS.get(value, value)
+    return '—'
 
 @register.filter
 def dept_parent(value):
