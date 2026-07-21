@@ -87,6 +87,7 @@ DEPARTMENT_CHOICES = [
     ("Office of the Medical Center Chief — Office of Strategic Management",          "Office of Strategic Management (MCC Office)"),
     ("Office of the Medical Center Chief — Professional Education, Training and Research", "Professional Education, Training and Research (MCC Office)"),
     ("Office of the Medical Center Chief — Health Emergency and Disaster Management Unit", "Health Emergency and Disaster Management Unit (MCC Office)"),
+    ("Office of the Medical Center Chief — Infection Prevention and Control Unit", "Infection Prevention and Control Unit (MCC Office)"),
 
     # Allied Health Professional Service
     ("Allied Health Professional Service",                                           "Office of the Chief Allied Health Professional Service (Head Office)"),
