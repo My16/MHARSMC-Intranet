@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
+from django.utils import timezone
 
 from .models import UserProfile, Role, DEPARTMENT_CHOICES, EmployeeCornerPost, PostAttachment, Application
 from .forms import UserForm, UserEditForm, UserProfileForm
@@ -34,7 +35,7 @@ def notifications_list(request):
             'url':        n.url,
             'is_read':    n.is_read,
             'actor':      n.actor.get_full_name() if n.actor else 'System',
-            'created_at': n.created_at.strftime('%b %d, %Y %I:%M %p'),
+            'created_at': timezone.localtime(n.created_at).strftime('%b %d, %Y %I:%M %p'),
         }
         for n in notifs
     ]
