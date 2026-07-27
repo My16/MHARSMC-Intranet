@@ -58,6 +58,16 @@ urlpatterns = [
     path('issuances/categories/<int:pk>/edit/',       views.issuance_category_edit,      name='issuance_category_edit'),
     path('issuances/categories/<int:pk>/delete/',     views.issuance_category_delete,    name='issuance_category_delete'),
 
+    # PGS
+    path('pgs/', views.pgs_dashboard, name='pgs_dashboard'),
+    path('pgs/indicator/add/', views.pgs_indicator_add, name='pgs_indicator_add'),
+    path('pgs/indicator/<int:pk>/archive/', views.pgs_indicator_archive, name='pgs_indicator_archive'),
+    path('pgs/indicator/<int:pk>/delete/', views.pgs_indicator_delete, name='pgs_indicator_delete'),
+    path('pgs/indicator/<int:indicator_id>/entry/add/', views.pgs_entry_add, name='pgs_entry_add'),
+    path('pgs/entry/<int:pk>/delete/', views.pgs_entry_delete, name='pgs_entry_delete'),
+    path('pgs/indicator/<int:pk>/edit/', views.pgs_indicator_edit, name='pgs_indicator_edit'),
+    path('pgs/entry/<int:pk>/edit/',     views.pgs_entry_edit,     name='pgs_entry_edit'),
+
     # Main list / tabs
     path('wiki/',                              views.wiki,               name='wiki'),
  

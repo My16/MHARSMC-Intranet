@@ -1024,6 +1024,17 @@
       </div>
       {% endif %}
 
+      
+      {% if request.user.is_superuser or request.user|has_module_access:'pgs' %}
+      <div class="nav__item">
+        <a href="{% url 'pgs_dashboard' %}" class="nav__link">
+          <span class="nav__icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav__label">PGS Monitoring</span>
+        </a>
+        <span class="nav__tooltip">PGS Monitoring</span>
+      </div>
+      {% endif %}
+
       {% if request.user.is_superuser or request.user|has_module_access:'wiki' %}
       <div class="nav__section-label">Knowledge</div>
       <div class="nav__item">

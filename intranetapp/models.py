@@ -21,6 +21,7 @@ class Role(models.Model):
     press_releases   = models.CharField(max_length=10, choices=PERM_CHOICES, default=PERM_NONE)
     events_trainings = models.CharField(max_length=10, choices=PERM_CHOICES, default=PERM_NONE)
     issuances        = models.CharField(max_length=10, choices=PERM_CHOICES, default=PERM_NONE)
+    pgs              = models.CharField(max_length=10, choices=PERM_CHOICES, default=PERM_NONE)
     wiki             = models.CharField(max_length=10, choices=PERM_CHOICES, default=PERM_NONE)
     e_library        = models.CharField(max_length=10, choices=PERM_CHOICES, default=PERM_NONE)
     employees_corner = models.CharField(max_length=10, choices=PERM_CHOICES, default=PERM_NONE)
@@ -1295,3 +1296,147 @@ class BlockedUser(models.Model):
 
     def __str__(self):
         return f'{self.blocker.username} blocked {self.blocked.username}'
+
+
+
+def get_grouped_department_choices():
+    """
+    Groups DEPARTMENT_CHOICES under their parent office for <optgroup> rendering.
+    Relies on the existing convention that each parent office entry
+    (e.g. "Nursing Service") is immediately followed by its sub-units
+    (e.g. "Nursing Service — Operating Room") in DEPARTMENT_CHOICES.
+    Returns: [ (group_label, [(value, label), ...]), ... ]
+    """
+    groups = []
+    current = None
+    for value, label in DEPARTMENT_CHOICES:
+        top_level = value.split(' — ')[0]
+        if current is None or current[0] != top_level:
+            current = [top_level, []]
+            groups.append(current)
+        current[1].append((value, label))
+    return groups
+
+
+class PGSIndicator(models.Model):
+    """
+    A deliverable owned by a department/unit — e.g. 'Submit Q3 utilization
+    report'. Always scored against an implicit 100% target; departments log
+    progress against it over time via PGSProgressEntry.
+    """
+    department  = models.CharField(max_length=200, choices=DEPARTMENT_CHOICES)
+    title       = models.CharField(max_length=300, verbose_name='Deliverable')
+    description = models.TextField(blank=True, default='')
+    due_date    = models.DateField(null=True, blank=True, verbose_name='Due Date')
+    is_archived = models.BooleanField(default=False)
+
+    created_by  = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name='pgs_indicators')
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering            = ['department', 'title']
+        verbose_name        = 'PGS Deliverable'
+        verbose_name_plural = 'PGS Deliverables'
+
+    def __str__(self):
+        return f'{self.title} ({self.get_department_display()})'
+
+    @property
+    def latest_entry(self):
+        return self.entries.order_by('-submitted_at').first()
+
+    @property
+    def entry_count(self):
+        return self.entries.count()
+
+    @property
+    def is_complete(self):
+        latest = self.latest_entry
+        return bool(latest and latest.percent_of_target >= 100)
+
+    @property
+    def is_overdue(self):
+        if not self.due_date or self.is_complete:
+            return False
+        return self.due_date < timezone.now().date()
+
+    @property
+    def days_until_due(self):
+        if not self.due_date:
+            return None
+        return (self.due_date - timezone.now().date()).days
+
+
+class PGSProgressEntry(models.Model):
+    """
+    A single progress update against a PGSIndicator, optionally backed by
+    an uploaded file (report, screenshot, signed document, etc.). No
+    "reporting period" is typed — submitted_at is the timestamp of record,
+    shown to users as e.g. "Jul 22, 2026".
+
+    percent_complete is a plain 0-100% value against the deliverable's
+    implicit 100% target (no over-achievement values above 100 are stored).
+    """
+    indicator        = models.ForeignKey(PGSIndicator, on_delete=models.CASCADE, related_name='entries')
+    percent_complete = models.DecimalField(max_digits=5, decimal_places=2, verbose_name='% Complete')
+    remarks          = models.TextField(blank=True, default='')
+    attachment       = models.FileField(upload_to='pgs_attachments/', blank=True, null=True,
+                                         verbose_name='Supporting File')
+
+    submitted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='pgs_entries')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+    updated_by   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='pgs_entries_edited')
+
+    class Meta:
+        ordering            = ['-submitted_at']
+        verbose_name        = 'PGS Progress Update'
+        verbose_name_plural = 'PGS Progress Updates'
+
+    def __str__(self):
+        return f'{self.indicator.title} — {self.submitted_at:%b %d, %Y}'
+
+    @property
+    def percent_of_target(self):
+        # Capped to a plain 0-100% range (was previously 0-150).
+        return round(max(0, min(100, float(self.percent_complete))))
+
+    @property
+    def status(self):
+        """
+        Two possible values once an entry exists: 'on' (Accomplished, the
+        deliverable hit its 100% target) or 'risk' (Ongoing, anywhere from
+        0% up to just under 100%). The third state, 'none' (Not Started),
+        only applies at the indicator level when no entry has been logged
+        yet — see PGSIndicator / the dashboard view.
+        """
+        return 'on' if self.percent_of_target >= 100 else 'risk'
+
+    @property
+    def period_display(self):
+        """Replaces the old free-typed 'period' field — auto-derived from the timestamp."""
+        return self.submitted_at.strftime('%b %d, %Y')
+
+    @property
+    def attachment_name(self):
+        if self.attachment:
+            return self.attachment.name.split('/')[-1]
+        return ''
+
+    @property
+    def file_size_display(self):
+        if not self.attachment:
+            return ''
+        try:
+            size = self.attachment.size
+        except Exception:
+            return ''
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024:
+                return f'{size:.0f} {unit}'
+            size /= 1024.0
+        return f'{size:.1f} TB'

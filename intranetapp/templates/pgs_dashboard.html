@@ -1,0 +1,907 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}PGS Monitoring — MHARSMC Intranet{% endblock %}
+{% block page_title %}Performance Governance System{% endblock %}
+{% block breadcrumb %}PGS Monitoring{% endblock %}
+
+{% block extra_css %}
+<style>
+  .pgs-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .pgs-stat {
+    background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow-sm);
+  }
+  .pgs-stat__label { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 4px; }
+  .pgs-stat__value { font-family: 'EB Garamond', serif; font-size: 1.9rem; font-weight: 600; color: var(--green-dark); }
+  .pgs-stat__value.on   { color: #1a7a4a; }
+  .pgs-stat__value.risk { color: #b8860b; }
+  .pgs-stat__value.off  { color: #c0392b; }
+
+  /* Clickable stat cards ("Past due" and "Your office") */
+  .pgs-stat-link { text-decoration: none; display: block; }
+  .pgs-stat--clickable { cursor: pointer; transition: box-shadow .15s, border-color .15s, background .15s; }
+  .pgs-stat--clickable:hover { box-shadow: var(--shadow-md); border-color: #e0a5a5; }
+  .pgs-stat--clickable.active { border-color: #c0392b; background: #fef6f6; }
+  .pgs-stat--clickable.dept-active { border-color: var(--green-mid); background: var(--green-pale); }
+
+  .pgs-active-filter {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    font-size: .8rem; color: var(--text-primary);
+  }
+  .pgs-active-filter a { color: var(--green-mid); font-weight: 600; }
+  .pgs-active-filter a:hover { text-decoration: underline; }
+
+  .pgs-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .pgs-charts { grid-template-columns: 1fr; } }
+  .pgs-chart-card {
+    background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow-sm);
+  }
+  .pgs-chart-card h3 { font-family: 'EB Garamond', serif; font-size: 1.02rem; color: var(--text-primary); margin-bottom: 2px; }
+  .pgs-chart-card .pgs-chart-sub { font-size: .74rem; color: var(--text-muted); margin-bottom: 10px; }
+
+  .pgs-toolbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .pgs-toolbar-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pgs-toolbar select {
+    padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--white); font-size: .83rem; color: var(--text-primary);
+  }
+  .pgs-toolbar input[type="text"] {
+    padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--white); font-size: .83rem; color: var(--text-primary);
+    min-width: 220px;
+  }
+  .pgs-toolbar label.chk {
+    display: flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--text-muted); cursor: pointer;
+  }
+  .pgs-btn {
+    padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: .83rem; font-weight: 600; background: var(--green-mid); color: #fff;
+    display: inline-flex; align-items: center; gap: 7px; transition: background .15s;
+  }
+  .pgs-btn:hover { background: var(--green-dark); }
+  .pgs-btn.ghost { background: var(--white); color: var(--green-mid); border: 1px solid var(--border); }
+  .pgs-btn.ghost:hover { background: var(--green-pale); }
+  .pgs-btn.small { padding: 5px 11px; font-size: .74rem; }
+  .pgs-btn.danger { background: #dc2626; }
+  .pgs-btn.danger:hover { background: #b91c1c; }
+  .pgs-spacer { flex: 1; }
+
+  /* ── List layout (replaces the old thumbnail/card grid) ── */
+  .pgs-list { display: flex; flex-direction: column; gap: 12px; }
+  .pgs-list-item {
+    background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow-sm);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 18px; flex-wrap: wrap;
+  }
+  .pgs-list-item.archived { opacity: .6; }
+  .pgs-list-item.overdue { border-color: #f3b8b8; }
+  .pgs-list-main { flex: 1 1 380px; min-width: 260px; display: flex; flex-direction: column; gap: 8px; }
+  .pgs-list-titlerow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .pgs-list-title { font-family: 'EB Garamond', serif; font-weight: 600; font-size: 1.05rem; color: var(--text-primary); line-height: 1.3; }
+  .pgs-list-dept { font-size: .7rem; color: var(--green-mid); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .pgs-list-desc { font-size: .78rem; color: var(--text-muted); line-height: 1.4; }
+  .pgs-list-meta { font-size: .77rem; color: var(--text-muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .pgs-list-actions {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    min-width: 160px;
+  }
+
+  .pgs-pill { padding: 3px 10px; border-radius: 20px; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+  .pgs-pill.on   { background: #e7f7ee; color: #1a7a4a; }
+  .pgs-pill.risk { background: #fdf3d9; color: #92650a; }
+  .pgs-pill.none { background: var(--border); color: var(--text-muted); }
+  .pgs-pill.pastdue { background: #fbeaea; color: #b91c1c; }
+  .pgs-status-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+  /* ── Single "Actions" dropdown (replaces the row of separate buttons) ── */
+  .pgs-actions-dropdown { position: relative; }
+  .pgs-actions-menu {
+    display: none; position: absolute; right: 0; top: calc(100% + 6px);
+    background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow-lg); min-width: 190px; padding: 6px; z-index: 50;
+  }
+  .pgs-actions-menu.open { display: flex; flex-direction: column; gap: 2px; }
+  .pgs-actions-menu button, .pgs-actions-menu .pgs-actions-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 8px 10px; border: none; background: none; border-radius: 7px;
+    font-size: .82rem; color: var(--text-primary); cursor: pointer; text-align: left;
+  }
+  .pgs-actions-menu button:hover, .pgs-actions-menu .pgs-actions-item:hover { background: var(--green-pale); }
+  .pgs-actions-menu button.danger { color: #dc2626; }
+  .pgs-actions-menu button.danger:hover { background: #fef2f2; }
+  .pgs-actions-menu form { margin: 0; }
+  .pgs-actions-menu i { width: 14px; text-align: center; }
+
+  .pgs-progress-track { height: 8px; border-radius: 5px; background: var(--green-pale); overflow: hidden; }
+  .pgs-progress-fill { height: 100%; border-radius: 5px; transition: width .3s; }
+  .pgs-card__due { font-weight: 600; }
+  .pgs-card__due.overdue { color: #c0392b; }
+
+  .pgs-card__actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .pgs-empty {
+    text-align: center; padding: 40px 20px; color: var(--text-muted);
+    border: 2px dashed var(--border); border-radius: 12px; background: var(--white);
+  }
+
+  /* ── Pagination ── */
+  .pgs-pagination {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 18px; flex-wrap: wrap;
+  }
+  .pgs-pagination a { text-decoration: none; }
+  .pgs-pagination-summary {
+    text-align: center; font-size: .76rem; color: var(--text-muted); margin-top: 8px;
+  }
+
+  /* ── Modals ── */
+  .pgs-modal {
+    display: none; position: fixed; inset: 0; z-index: 2000;
+    background: rgba(10, 31, 20, .45); align-items: center; justify-content: center;
+  }
+  .pgs-modal.open { display: flex; }
+  .pgs-modal-box {
+    background: var(--white); border-radius: 16px; width: 460px; max-width: 92vw;
+    max-height: 88vh; overflow-y: auto; padding: 22px 24px 20px;
+    box-shadow: var(--shadow-lg);
+  }
+  .pgs-modal-box.wide { width: 580px; }
+  .pgs-modal-box h3 { font-family: 'EB Garamond', serif; font-size: 1.15rem; color: var(--text-primary); margin-bottom: 14px; }
+  .pgs-field { margin-bottom: 12px; }
+  .pgs-field label { display: block; font-size: .76rem; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; }
+  .pgs-field input, .pgs-field select, .pgs-field textarea {
+    width: 100%; padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: .85rem; color: var(--text-primary); font-family: 'Source Sans 3', sans-serif;
+  }
+  .pgs-field textarea { resize: vertical; min-height: 60px; }
+  .pgs-field-row { display: flex; gap: 10px; }
+  .pgs-field-row .pgs-field { flex: 1; }
+  .pgs-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .pgs-fixed-dept {
+    padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: .85rem; background: var(--green-pale); color: var(--text-primary);
+  }
+  .pgs-bar-preview { margin-top: 8px; }
+
+  /* ── History modal contents ── */
+  .pgs-hist-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 0;
+    border-bottom: 1px solid var(--green-pale); font-size: .8rem;
+  }
+  .pgs-hist-row:last-child { border-bottom: none; }
+  .pgs-hist-period { font-weight: 600; color: var(--text-primary); min-width: 90px; }
+  .pgs-hist-val { color: var(--text-muted); flex: 1; }
+  .pgs-hist-file { color: var(--green-mid); }
+  .pgs-hist-file:hover { text-decoration: underline; }
+  .pgs-hist-del, .pgs-hist-edit { background: none; border: none; cursor: pointer; font-size: .74rem; }
+  .pgs-hist-del { color: var(--text-muted); }
+  .pgs-hist-del:hover { color: #dc2626; }
+  .pgs-hist-edit { color: var(--green-mid); }
+  .pgs-hist-edit:hover { color: var(--green-dark); }
+  .pgs-hist-empty { text-align: center; color: var(--text-muted); font-size: .82rem; padding: 18px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="pgs-stats">
+  <div class="pgs-stat">
+    <div class="pgs-stat__label">Overall compliance</div>
+    <div class="pgs-stat__value {% if overall_avg >= 90 %}on{% elif overall_avg >= 60 %}risk{% else %}off{% endif %}">{{ overall_avg }}%</div>
+  </div>
+  <div class="pgs-stat">
+    <div class="pgs-stat__label">Active deliverables</div>
+    <div class="pgs-stat__value">{{ total_indicators }}</div>
+  </div>
+  <div class="pgs-stat">
+    <div class="pgs-stat__label">Departments reporting</div>
+    <div class="pgs-stat__value">{{ departments_reporting }}</div>
+  </div>
+  <a class="pgs-stat-link" href="{% if show_overdue %}?{% else %}?overdue=1{% endif %}" title="{% if show_overdue %}Clear the past due filter{% else %}Show past due deliverables across all departments{% endif %}">
+    <div class="pgs-stat pgs-stat--clickable {% if show_overdue %}active{% endif %}">
+      <div class="pgs-stat__label">Past due</div>
+      <div class="pgs-stat__value off">{{ total_past_due }}</div>
+    </div>
+  </a>
+  {% if my_department %}
+  <a class="pgs-stat-link"
+     href="{% if selected_department == my_department %}?{% else %}?department={{ my_department }}{% endif %}"
+     title="{% if selected_department == my_department %}Clear department filter{% else %}Show only your department's deliverables and charts{% endif %}">
+    <div class="pgs-stat pgs-stat--clickable {% if selected_department == my_department %}dept-active{% endif %}">
+      <div class="pgs-stat__label">Your office</div>
+      <div class="pgs-stat__value" style="font-size:1.05rem;line-height:1.3;">{{ my_department_label|default:my_department }}</div>
+    </div>
+  </a>
+  {% endif %}
+</div>
+
+<div class="pgs-charts">
+  <div class="pgs-chart-card">
+    <h3>Status mix by department</h3>
+    <div class="pgs-chart-sub" id="pgsDeptChartSub">
+      {% if chart_scope_label %}Deliverables for {{ chart_scope_label }}, split by status{% else %}Count of deliverables per department, split by status{% endif %}
+    </div>
+    <div style="position:relative;height:340px;">
+      <canvas id="pgsDeptChart" role="img" aria-label="Stacked bar chart showing count of accomplished, ongoing, and not started deliverables per department"></canvas>
+    </div>
+  </div>
+  <div class="pgs-chart-card">
+    <h3>Org-wide trend by month</h3>
+    <div class="pgs-chart-sub" id="pgsTrendSub">
+      {% if chart_scope_label %}Average % complete for {{ chart_scope_label }}, by month{% else %}Average % complete across all updates submitted that month{% endif %}
+    </div>
+    <div style="position:relative;height:340px;">
+      <canvas id="pgsTrendChart" role="img" aria-label="Line chart of average percent complete over months"></canvas>
+    </div>
+  </div>
+  <div class="pgs-chart-card">
+    <h3>Overall status breakdown</h3>
+    <div class="pgs-chart-sub" id="pgsStatusPieSub">
+      {% if chart_scope_label %}Share of active deliverables for {{ chart_scope_label }}{% else %}Share of all active deliverables, org-wide{% endif %}
+    </div>
+    <div style="position:relative;height:340px;">
+      <canvas id="pgsStatusPieChart" role="img" aria-label="Pie chart showing the share of deliverables that are accomplished, ongoing, not started, or past due"></canvas>
+    </div>
+  </div>
+</div>
+
+<div id="pgsActiveFilterBanner">
+  {% if show_overdue or selected_department %}
+  <div class="pgs-active-filter">
+    {% if show_overdue %}<span class="pgs-pill pastdue">Showing past due only</span>{% endif %}
+    {% if chart_scope_label %}<span class="pgs-pill on">{{ chart_scope_label }}</span>{% endif %}
+    {% if search_query %}<span>matching &ldquo;{{ search_query }}&rdquo;</span>{% endif %}
+    <a href="?">Clear filter</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="pgs-toolbar">
+  <form method="get" class="pgs-toolbar-form" id="pgsFilterForm">
+    {% if show_overdue %}<input type="hidden" name="overdue" value="1">{% endif %}
+    <select name="department">
+      <option value="">All departments</option>
+      {% for group_name, opts in department_groups %}
+        <optgroup label="{{ group_name }}">
+          {% for value, label in opts %}
+            <option value="{{ value }}" {% if selected_department == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </optgroup>
+      {% endfor %}
+    </select>
+    <label class="chk">
+      <input type="checkbox" name="show_archived" value="1" {% if show_archived %}checked{% endif %}>
+      Show archived
+    </label>
+    <input type="text" name="q" id="pgsSearchInput" value="{{ search_query }}" placeholder="Search deliverables..." autocomplete="off">
+    <!-- <button type="submit" class="pgs-btn ghost small">
+      <i class="fa-solid fa-magnifying-glass"></i> Search
+    </button> -->
+    <select name="per_page">
+      {% for choice in per_page_choices %}
+        <option value="{{ choice }}" {% if per_page == choice %}selected{% endif %}>{{ choice }} / page</option>
+      {% endfor %}
+    </select>
+  </form>
+  <div class="pgs-spacer"></div>
+  <button class="pgs-btn" onclick="pgsOpenAddModal()">
+    <i class="fa-solid fa-plus"></i> Add Deliverable
+  </button>
+</div>
+
+<div id="pgsResultsContainer">
+{% if indicators %}
+<div class="pgs-list">
+  {% for ind in indicators %}
+  <div class="pgs-list-item {% if ind.is_archived %}archived{% endif %} {% if ind.is_overdue %}overdue{% endif %}">
+    <div class="pgs-list-main">
+      <div class="pgs-list-titlerow">
+        <div class="pgs-list-title">{{ ind.title }}</div>
+        <div class="pgs-status-pills">
+          <span class="pgs-pill {{ ind.status_label }}">
+            {% if ind.status_label == 'on' %}Accomplished
+            {% elif ind.status_label == 'risk' %}Ongoing
+            {% else %}Not Started{% endif %}
+          </span>
+          {% if ind.is_overdue %}<span class="pgs-pill pastdue">Past Due</span>{% endif %}
+        </div>
+      </div>
+      <div class="pgs-list-dept">{{ ind.get_department_display }}</div>
+
+      {% if ind.description %}<div class="pgs-list-desc">{{ ind.description }}</div>{% endif %}
+
+      <div class="pgs-progress-track">
+        <div class="pgs-progress-fill"
+             style="width:{% if ind.pct %}{% if ind.pct > 100 %}100{% else %}{{ ind.pct }}{% endif %}{% else %}0{% endif %}%; background: {% if ind.status_label == 'on' %}#2d9d6f{% elif ind.status_label == 'risk' %}#d9a520{% else %}var(--border){% endif %};">
+        </div>
+      </div>
+
+      <div class="pgs-list-meta">
+        <span>
+          {% if ind.latest %}
+            {{ ind.pct }}% complete
+            <span style="color:var(--border);">&middot;</span> updated {{ ind.latest.period_display }}
+            <span style="color:var(--border);">&middot;</span> {{ ind.entry_count }} update{{ ind.entry_count|pluralize }}
+          {% else %}
+            No progress logged yet
+          {% endif %}
+        </span>
+        {% if ind.due_date %}
+        <span class="pgs-card__due {% if ind.is_overdue %}overdue{% endif %}">
+          <i class="fa-regular fa-calendar"></i>
+          Due {{ ind.due_date|date:"M d, Y" }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="pgs-list-actions">
+      <div class="pgs-actions-dropdown">
+        <button type="button" class="pgs-btn ghost small pgs-actions-toggle" onclick="pgsToggleActions(event, '{{ ind.id }}')">
+          Actions <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div class="pgs-actions-menu" id="pgsActionsMenu_{{ ind.id }}">
+          {% if ind.can_edit and not ind.is_archived %}
+            <button type="button" onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenEntryModal('{{ ind.id }}', '{{ ind.title|escapejs }}', {{ ind.pct|default:0 }})">
+              <i class="fa-solid fa-plus"></i> Log progress
+            </button>
+          {% endif %}
+          {% if ind.entry_count %}
+            <button type="button" onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenHistoryModal('{{ ind.id }}', '{{ ind.title|escapejs }}')">
+              <i class="fa-solid fa-clock-rotate-left"></i> History
+            </button>
+          {% endif %}
+          {% if ind.can_edit %}
+            <button type="button"
+                    onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenEditIndicatorModal('{{ ind.id }}', '{{ ind.title|escapejs }}', '{{ ind.description|escapejs }}', '{{ ind.due_date|date:"Y-m-d" }}', '{{ ind.department|escapejs }}')">
+              <i class="fa-solid fa-pen"></i> Edit
+            </button>
+          {% endif %}
+          {% if ind.can_edit %}
+            <form method="post" action="{% url 'pgs_indicator_archive' ind.id %}">
+              {% csrf_token %}
+              <button type="submit">
+                <i class="fa-solid {% if ind.is_archived %}fa-box-open{% else %}fa-box-archive{% endif %}"></i>
+                {% if ind.is_archived %}Restore{% else %}Archive{% endif %}
+              </button>
+            </form>
+          {% endif %}
+          {% if can_manage %}
+            <form method="post" action="{% url 'pgs_indicator_delete' ind.id %}"
+                  onsubmit="return confirm('Delete this deliverable and all its progress history? This cannot be undone.');">
+              {% csrf_token %}
+              <button type="submit" class="danger"><i class="fa-solid fa-trash-can"></i> Delete</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if ind.entry_count %}
+    <template id="pgsHistData_{{ ind.id }}">
+      {% for e in ind.history %}
+      <div class="pgs-hist-row">
+        <span class="pgs-hist-period">{{ e.period_display }}</span>
+        <span class="pgs-hist-val">{{ e.percent_of_target }}% complete{% if e.remarks %} &mdash; {{ e.remarks }}{% endif %}</span>
+        {% if e.attachment %}
+          <a class="pgs-hist-file" href="{{ e.attachment.url }}" target="_blank" title="{{ e.attachment_name }} ({{ e.file_size_display }})">
+            <i class="fa-solid fa-paperclip"></i>
+          </a>
+        {% endif %}
+        {% if ind.can_edit %}
+          <button type="button" class="pgs-hist-edit"
+                  onclick="pgsOpenEditEntryModal('{{ e.id }}', '{{ ind.title|escapejs }}', {{ e.percent_of_target }}, '{{ e.remarks|escapejs }}')">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <form method="post" action="{% url 'pgs_entry_delete' e.id %}" style="display:inline;"
+                onsubmit="return confirm('Remove this progress entry?');">
+            {% csrf_token %}
+            <button type="submit" class="pgs-hist-del"><i class="fa-solid fa-xmark"></i></button>
+          </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </template>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if paginator.num_pages > 1 %}
+<div class="pgs-pagination">
+  {% if page_obj.has_previous %}
+    <a class="pgs-btn ghost small" href="?{{ base_querystring }}{% if base_querystring %}&{% endif %}page=1">&laquo; First</a>
+    <a class="pgs-btn ghost small" href="?{{ base_querystring }}{% if base_querystring %}&{% endif %}page={{ page_obj.previous_page_number }}">&lsaquo; Prev</a>
+  {% endif %}
+  <span style="font-size:.82rem;color:var(--text-muted);padding:0 8px;">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+    <a class="pgs-btn ghost small" href="?{{ base_querystring }}{% if base_querystring %}&{% endif %}page={{ page_obj.next_page_number }}">Next &rsaquo;</a>
+    <a class="pgs-btn ghost small" href="?{{ base_querystring }}{% if base_querystring %}&{% endif %}page={{ paginator.num_pages }}">Last &raquo;</a>
+  {% endif %}
+</div>
+{% endif %}
+<div class="pgs-pagination-summary">
+  Showing {{ page_obj.start_index }}&ndash;{{ page_obj.end_index }} of {{ paginator.count }} deliverable{{ paginator.count|pluralize }}
+</div>
+
+{% else %}
+<div class="pgs-empty">
+  <i class="fa-solid fa-chart-line" style="font-size:2rem;color:var(--green-light);margin-bottom:10px;"></i>
+  {% if search_query or show_overdue or selected_department %}
+    <p>No deliverables match the current filters.</p>
+    <p style="margin-top:6px;"><a href="?" style="color:var(--green-mid);font-weight:600;">Clear all filters</a></p>
+  {% else %}
+    <p>No deliverables yet for this view. Add one to start tracking progress.</p>
+  {% endif %}
+</div>
+{% endif %}
+</div><!-- /pgsResultsContainer -->
+
+<!-- Hidden JSON blob carrying the (possibly department-scoped) chart data.
+     Lives outside #pgsResultsContainer but is still fetched/parsed on every
+     AJAX filter reload, so the three Chart.js instances can be updated
+     in place without creating any new charts. -->
+<script type="application/json" id="pgsChartDataJson">
+{
+  "dept_names": {{ dept_names_json|safe }},
+  "dept_on": {{ dept_on_json|safe }},
+  "dept_risk": {{ dept_risk_json|safe }},
+  "dept_none": {{ dept_none_json|safe }},
+  "trend_labels": {{ trend_labels_json|safe }},
+  "trend_values": {{ trend_values_json|safe }},
+  "pie_values": {{ pie_values_json|safe }},
+  "chart_scope_label": {{ chart_scope_label_json|safe }}
+}
+</script>
+
+<!-- ═══ ADD DELIVERABLE MODAL ═══ -->
+<div class="pgs-modal" id="pgsAddTargetModal">
+  <div class="pgs-modal-box">
+    <h3>Add a deliverable</h3>
+    <form method="post" action="{% url 'pgs_indicator_add' %}">
+      {% csrf_token %}
+      <div class="pgs-field">
+        <label>Department / unit</label>
+        {% if can_manage %}
+          <select name="department" required>
+            <option value="">Select department</option>
+            {% for group_name, opts in department_groups %}
+              <optgroup label="{{ group_name }}">
+                {% for value, label in opts %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </optgroup>
+            {% endfor %}
+          </select>
+        {% else %}
+          <div class="pgs-fixed-dept">{{ my_department_label|default:"Your department is not set — contact IT." }}</div>
+          <input type="hidden" name="department" value="{{ my_department }}">
+        {% endif %}
+      </div>
+      <div class="pgs-field">
+        <label>Deliverable name</label>
+        <input type="text" name="title" placeholder="e.g. Submit Q3 utilization report" required>
+      </div>
+      <div class="pgs-field">
+        <label>Description (optional)</label>
+        <textarea name="description" placeholder="What does this deliverable involve?"></textarea>
+      </div>
+      <div class="pgs-field">
+        <label>Due date (optional)</label>
+        <input type="date" name="due_date">
+      </div>
+      <div class="pgs-modal-actions">
+        <button type="button" class="pgs-btn ghost" onclick="pgsCloseModal('pgsAddTargetModal')">Cancel</button>
+        <button type="submit" class="pgs-btn">Add deliverable</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ EDIT DELIVERABLE MODAL ═══ -->
+<div class="pgs-modal" id="pgsEditTargetModal">
+  <div class="pgs-modal-box">
+    <h3>Edit deliverable</h3>
+    <form method="post" id="pgsEditIndicatorForm">
+      {% csrf_token %}
+      <div class="pgs-field">
+        <label>Department / unit</label>
+        {% if can_manage %}
+          <select name="department" id="pgsEditIndicatorDept" required>
+            {% for group_name, opts in department_groups %}
+              <optgroup label="{{ group_name }}">
+                {% for value, label in opts %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </optgroup>
+            {% endfor %}
+          </select>
+        {% else %}
+          <div class="pgs-fixed-dept" id="pgsEditIndicatorDeptLabel"></div>
+        {% endif %}
+      </div>
+      <div class="pgs-field">
+        <label>Deliverable name</label>
+        <input type="text" name="title" id="pgsEditIndicatorTitle" required>
+      </div>
+      <div class="pgs-field">
+        <label>Description (optional)</label>
+        <textarea name="description" id="pgsEditIndicatorDesc"></textarea>
+      </div>
+      <div class="pgs-field">
+        <label>Due date (optional)</label>
+        <input type="date" name="due_date" id="pgsEditIndicatorDue">
+      </div>
+      <div class="pgs-modal-actions">
+        <button type="button" class="pgs-btn ghost" onclick="pgsCloseModal('pgsEditTargetModal')">Cancel</button>
+        <button type="submit" class="pgs-btn">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ LOG PROGRESS MODAL ═══ -->
+<div class="pgs-modal" id="pgsAddEntryModal">
+  <div class="pgs-modal-box">
+    <h3>Log progress — <span id="pgsEntryTargetName"></span></h3>
+    <p id="pgsEntryCurrentStatus" style="font-size:.8rem;color:var(--text-muted);margin-bottom:14px;"></p>
+    <form method="post" id="pgsEntryForm" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="pgs-field">
+        <label>% Complete (0–100)</label>
+        <input type="number" name="percent_complete" id="pgsEntryNum" min="0" max="100" step="0.1" value="0"
+               oninput="pgsUpdateBar('pgsEntryNum','pgsEntryBarFill')" required>
+        <div class="pgs-progress-track pgs-bar-preview">
+          <div class="pgs-progress-fill" id="pgsEntryBarFill" style="width:0%;background:#2d9d6f;"></div>
+        </div>
+      </div>
+      <div class="pgs-field">
+        <label>Remarks (optional)</label>
+        <textarea name="remarks" placeholder="Brief context for this update"></textarea>
+      </div>
+      <div class="pgs-field">
+        <label>Supporting file (optional)</label>
+        <input type="file" name="attachment">
+      </div>
+      <div class="pgs-modal-actions">
+        <button type="button" class="pgs-btn ghost" onclick="pgsCloseModal('pgsAddEntryModal')">Cancel</button>
+        <button type="submit" class="pgs-btn">Save progress</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ EDIT PROGRESS ENTRY MODAL ═══ -->
+<div class="pgs-modal" id="pgsEditEntryModal">
+  <div class="pgs-modal-box">
+    <h3>Edit progress — <span id="pgsEditEntryTargetName"></span></h3>
+    <form method="post" id="pgsEditEntryForm" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="pgs-field">
+        <label>% Complete (0–100)</label>
+        <input type="number" name="percent_complete" id="pgsEditEntryNum" min="0" max="100" step="0.1" value="0"
+               oninput="pgsUpdateBar('pgsEditEntryNum','pgsEditEntryBarFill')" required>
+        <div class="pgs-progress-track pgs-bar-preview">
+          <div class="pgs-progress-fill" id="pgsEditEntryBarFill" style="width:0%;background:#2d9d6f;"></div>
+        </div>
+      </div>
+      <div class="pgs-field">
+        <label>Remarks (optional)</label>
+        <textarea name="remarks" id="pgsEditEntryRemarks" placeholder="Brief context for this update"></textarea>
+      </div>
+      <div class="pgs-field">
+        <label>Replace supporting file (optional)</label>
+        <input type="file" name="attachment">
+      </div>
+      <div class="pgs-modal-actions">
+        <button type="button" class="pgs-btn ghost" onclick="pgsCloseModal('pgsEditEntryModal')">Cancel</button>
+        <button type="submit" class="pgs-btn">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ HISTORY MODAL ═══ -->
+<div class="pgs-modal" id="pgsHistoryModal">
+  <div class="pgs-modal-box wide">
+    <h3>Progress history — <span id="pgsHistoryTargetName"></span></h3>
+    <div id="pgsHistoryModalBody"></div>
+    <div class="pgs-modal-actions">
+      <button type="button" class="pgs-btn ghost" onclick="pgsCloseModal('pgsHistoryModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+{% if messages %}
+<script>
+  // Django messages rendered as toasts (matches the toast style used for
+  // notifications/chat in base.html, including its #notifToasts container
+  // and the 'slideIn' keyframe injected by that page's own script).
+  (function () {
+    const pgsMsgs = [
+      {% for m in messages %}
+      { text: "{{ m|escapejs }}", isError: {% if m.tags == 'error' %}true{% else %}false{% endif %} },
+      {% endfor %}
+    ];
+    function pgsShowToast(msg, delay) {
+      setTimeout(() => {
+        const wrap  = document.getElementById('notifToasts') || document.body;
+        const toast = document.createElement('div');
+        const color = msg.isError ? '#dc2626' : 'var(--green-accent)';
+        toast.style.cssText = `background:var(--white);border:1px solid var(--border);border-left:4px solid ${color};border-radius:10px;padding:12px 16px;box-shadow:var(--shadow-md);max-width:320px;pointer-events:all;display:flex;gap:12px;align-items:flex-start;animation:slideIn .3s ease;`;
+        toast.innerHTML = `<i class="fa-solid ${msg.isError ? 'fa-circle-exclamation' : 'fa-circle-check'}" style="color:${color};margin-top:2px;font-size:1rem;"></i><div style="font-size:.83rem;color:var(--text-primary);line-height:1.4;">${msg.text}</div>`;
+        wrap.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .4s'; setTimeout(() => toast.remove(), 400); }, 5000);
+      }, delay);
+    }
+    pgsMsgs.forEach((m, i) => pgsShowToast(m, i * 180));
+  })();
+</script>
+{% endif %}
+<script>
+  function pgsOpenModal(id) { document.getElementById(id).classList.add('open'); }
+  function pgsCloseModal(id) { document.getElementById(id).classList.remove('open'); }
+  document.querySelectorAll('.pgs-modal').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+  });
+
+  function pgsOpenAddModal() {
+    pgsOpenModal('pgsAddTargetModal');
+  }
+
+  // ── Single "Actions" dropdown per deliverable ──
+  function pgsCloseAllActionMenus() {
+    document.querySelectorAll('.pgs-actions-menu.open').forEach(m => m.classList.remove('open'));
+  }
+  function pgsToggleActions(event, id) {
+    event.stopPropagation();
+    const menu = document.getElementById('pgsActionsMenu_' + id);
+    const wasOpen = menu.classList.contains('open');
+    pgsCloseAllActionMenus();
+    if (!wasOpen) menu.classList.add('open');
+  }
+  function pgsCloseActions(id) {
+    const menu = document.getElementById('pgsActionsMenu_' + id);
+    if (menu) menu.classList.remove('open');
+  }
+  document.addEventListener('click', pgsCloseAllActionMenus);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') pgsCloseAllActionMenus(); });
+
+  // ── Log progress ──
+  function pgsOpenEntryModal(indicatorId, title, currentPct) {
+    const pct = Math.max(0, Math.min(100, currentPct || 0));
+    document.getElementById('pgsEntryTargetName').textContent = title;
+    document.getElementById('pgsEntryCurrentStatus').textContent =
+      currentPct != null ? ('Current progress: ' + pct + '% complete') : 'No progress logged yet.';
+    document.getElementById('pgsEntryForm').action = '/pgs/indicator/' + indicatorId + '/entry/add/';
+    document.getElementById('pgsEntryNum').value = pct;
+    document.getElementById('pgsEntryBarFill').style.width = pct + '%';
+    pgsOpenModal('pgsAddEntryModal');
+  }
+
+  // ── Edit deliverable ──
+  function pgsOpenEditIndicatorModal(id, title, description, dueDate, department) {
+    document.getElementById('pgsEditIndicatorForm').action = '/pgs/indicator/' + id + '/edit/';
+    document.getElementById('pgsEditIndicatorTitle').value = title;
+    document.getElementById('pgsEditIndicatorDesc').value = description;
+    document.getElementById('pgsEditIndicatorDue').value = dueDate;
+    const deptSelect = document.getElementById('pgsEditIndicatorDept');
+    if (deptSelect) { deptSelect.value = department; }
+    const deptLabel = document.getElementById('pgsEditIndicatorDeptLabel');
+    if (deptLabel) { deptLabel.textContent = department; }
+    pgsOpenModal('pgsEditTargetModal');
+  }
+
+  // ── Edit progress entry ──
+  function pgsOpenEditEntryModal(entryId, indicatorTitle, pct, remarks) {
+    document.getElementById('pgsEditEntryForm').action = '/pgs/entry/' + entryId + '/edit/';
+    document.getElementById('pgsEditEntryTargetName').textContent = indicatorTitle;
+    document.getElementById('pgsEditEntryNum').value = pct;
+    document.getElementById('pgsEditEntryRemarks').value = remarks;
+    document.getElementById('pgsEditEntryBarFill').style.width = Math.max(0, Math.min(100, pct)) + '%';
+    pgsCloseModal('pgsHistoryModal');
+    pgsOpenModal('pgsEditEntryModal');
+  }
+
+  // ── History modal ──
+  function pgsOpenHistoryModal(indicatorId, title) {
+    document.getElementById('pgsHistoryTargetName').textContent = title;
+    const tpl = document.getElementById('pgsHistData_' + indicatorId);
+    const body = document.getElementById('pgsHistoryModalBody');
+    body.innerHTML = tpl ? tpl.innerHTML : '<div class="pgs-hist-empty">No progress logged yet.</div>';
+    pgsOpenModal('pgsHistoryModal');
+  }
+
+  // ── Static (non-draggable) progress bar preview for number inputs ──
+  function pgsUpdateBar(inputId, barId) {
+    const val = Math.max(0, Math.min(100, parseFloat(document.getElementById(inputId).value) || 0));
+    document.getElementById(barId).style.width = val + '%';
+  }
+
+  // ── Status mix by department (stacked horizontal bar) ──
+  const pgsDeptNames = {{ dept_names_json|safe }};
+  const pgsDeptOn    = {{ dept_on_json|safe }};
+  const pgsDeptRisk  = {{ dept_risk_json|safe }};
+  const pgsDeptNone  = {{ dept_none_json|safe }};
+
+  const pgsDeptChart = new Chart(document.getElementById('pgsDeptChart'), {
+    type: 'bar',
+    data: {
+      labels: pgsDeptNames,
+      datasets: [
+        { label: 'Accomplished', data: pgsDeptOn,   backgroundColor: '#2d9d6f', stack: 's' },
+        { label: 'Ongoing',      data: pgsDeptRisk, backgroundColor: '#d9a520', stack: 's' },
+        { label: 'Not Started',  data: pgsDeptNone, backgroundColor: '#c9c9c9', stack: 's' },
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.x}` } }
+      },
+      scales: {
+        x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+        y: { stacked: true, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  // ── Live search / filtering (no full page reload) ──
+  // Debounces typing in the search box, and applies department/archived/
+  // per-page changes instantly, by re-fetching this same URL with updated
+  // query params and swapping in just the results + active-filter banner
+  // + chart data (so the same three Chart.js instances get re-scoped to
+  // whichever department is selected, instead of creating new charts).
+  // Falls back to a normal form submit if JS is unavailable.
+  (function () {
+    const form      = document.getElementById('pgsFilterForm');
+    const search    = document.getElementById('pgsSearchInput');
+    const results   = document.getElementById('pgsResultsContainer');
+    const banner    = document.getElementById('pgsActiveFilterBanner');
+    if (!form || !results) return;
+
+    let debounceTimer = null;
+    let requestSeq = 0;
+
+    function buildUrl() {
+      const params = new URLSearchParams(new FormData(form));
+      params.delete('page'); // any filter change resets to page 1
+      const qs = params.toString();
+      return window.location.pathname + (qs ? '?' + qs : '');
+    }
+
+    function loadResults(url) {
+      const mySeq = ++requestSeq;
+      results.style.transition = 'opacity .1s';
+      results.style.opacity = '0.55';
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.text())
+        .then(html => {
+          if (mySeq !== requestSeq) return; // a newer request already landed
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const newResults = doc.getElementById('pgsResultsContainer');
+          const newBanner  = doc.getElementById('pgsActiveFilterBanner');
+          if (newResults) results.innerHTML = newResults.innerHTML;
+          if (banner && newBanner) banner.innerHTML = newBanner.innerHTML;
+          pgsUpdateChartsFromDoc(doc);
+          results.style.opacity = '1';
+          window.history.replaceState(null, '', url);
+        })
+        .catch(() => { results.style.opacity = '1'; });
+    }
+
+    // Type-to-search, debounced so it doesn't fire on every keystroke
+    if (search) {
+      search.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function () { loadResults(buildUrl()); }, 350);
+      });
+    }
+
+    // Dropdowns / checkbox update immediately, no debounce needed
+    form.querySelectorAll('select[name="department"], select[name="per_page"], input[name="show_archived"]')
+      .forEach(el => el.addEventListener('change', function () { loadResults(buildUrl()); }));
+
+    // Search button / Enter key also goes through the same live path
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      clearTimeout(debounceTimer);
+      loadResults(buildUrl());
+    });
+
+    // Pagination links and "Clear filter" inside the swapped containers
+    document.addEventListener('click', function (e) {
+      const link = e.target.closest('#pgsResultsContainer a, #pgsActiveFilterBanner a');
+      if (!link) return;
+      const href = link.getAttribute('href');
+      if (href === null) return;
+      e.preventDefault();
+      loadResults(href.startsWith('?') || href === '' ? window.location.pathname + href : href);
+    });
+  })();
+
+  // ── Re-scope the three existing charts (dept mix / trend / pie) to
+  // whatever chart data comes back with an AJAX-loaded page, instead of
+  // creating new chart instances. Also updates the subtitle text so it's
+  // clear whether the charts are showing org-wide or a single department. ──
+  function pgsUpdateChartsFromDoc(doc) {
+    const el = doc.getElementById('pgsChartDataJson');
+    if (!el) return;
+    let d;
+    try { d = JSON.parse(el.textContent); } catch (e) { return; }
+
+    pgsDeptChart.data.labels = d.dept_names;
+    pgsDeptChart.data.datasets[0].data = d.dept_on;
+    pgsDeptChart.data.datasets[1].data = d.dept_risk;
+    pgsDeptChart.data.datasets[2].data = d.dept_none;
+    pgsDeptChart.update();
+
+    pgsTrendChart.data.labels = d.trend_labels;
+    pgsTrendChart.data.datasets[0].data = d.trend_values;
+    pgsTrendChart.update();
+
+    pgsStatusPieChart.data.datasets[0].data = d.pie_values;
+    pgsStatusPieChart.update();
+
+    const subMap = {
+      pgsDeptChartSub: d.chart_scope_label
+        ? `Deliverables for ${d.chart_scope_label}, split by status`
+        : 'Count of deliverables per department, split by status',
+      pgsTrendSub: d.chart_scope_label
+        ? `Average % complete for ${d.chart_scope_label}, by month`
+        : 'Average % complete across all updates submitted that month',
+      pgsStatusPieSub: d.chart_scope_label
+        ? `Share of active deliverables for ${d.chart_scope_label}`
+        : 'Share of all active deliverables, org-wide',
+    };
+    Object.entries(subMap).forEach(([id, text]) => {
+      const node = document.getElementById(id);
+      if (node) node.textContent = text;
+    });
+  }
+
+  const pgsTrendLabels = {{ trend_labels_json|safe }};
+  const pgsTrendValues = {{ trend_values_json|safe }};
+
+  const pgsTrendChart = new Chart(document.getElementById('pgsTrendChart'), {
+    type: 'line',
+    data: { labels: pgsTrendLabels, datasets: [{ label: '% complete', data: pgsTrendValues, borderColor: '#2d6a4f', backgroundColor: 'rgba(45,106,79,0.08)', fill: true, tension: 0.25, pointRadius: 4, pointBackgroundColor: '#2d6a4f' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y + '% complete' } } },
+      scales: { y: { beginAtZero: true, suggestedMax: 110, ticks: { callback: v => v + '%' } } }
+    }
+  });
+  const pgsStatusPieChart = new Chart(document.getElementById('pgsStatusPieChart'), {
+    type: 'pie',
+    data: {
+      labels: {{ pie_labels_json|safe }},
+      datasets: [{
+        data: {{ pie_values_json|safe }},
+        backgroundColor: ['#2d9d6f', '#d9a520', '#c9c9c9', '#c0392b'],
+        borderColor: '#ffffff',
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+        tooltip: { callbacks: { label: c => `${c.label}: ${c.parsed}` } }
+      }
+    }
+  });
+</script>
+{% endblock %}

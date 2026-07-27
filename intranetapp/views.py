@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from .models import UserProfile, Role, DEPARTMENT_CHOICES, EmployeeCornerPost, PostAttachment, Application
 from .forms import UserForm, UserEditForm, UserProfileForm
-
+from collections import defaultdict
 
 from django.http import JsonResponse
 from .models import Notification
@@ -93,6 +93,7 @@ MODULE_CHOICES = [
     ('press_releases',   'Press Releases'),
     ('events_trainings', 'Events & Trainings'),
     ('issuances',        'Issuances'),
+    ('pgs',              'Performance Governance System'),
     ('wiki',             'Wiki'),
     ('e_library', 'e-Library'),
     ('applications',     'Applications'),
@@ -4070,3 +4071,529 @@ def messenger_unsend(request, conv_id, msg_id):
         msg.unsent_for.add(request.user)
 
     return JsonResponse({'success': True, 'scope': scope})
+
+
+def _can_manage_pgs(user):
+    """Org-wide PGS management access (any department, create/archive/delete deliverables)."""
+    if not user.is_authenticated: return False
+    if user.is_superuser: return True
+    return hasattr(user, 'profile') and user.profile.can_edit_module('pgs')
+
+
+def _can_submit_for_department(user, department):
+    """
+    A user may log/edit/archive a deliverable or progress entry for their
+    own department, or for any department if they hold org-wide PGS
+    management access. This is the single choke point that keeps users
+    out of other departments' deliverables — every add/edit/archive/delete
+    view below must route its permission check through this function.
+    """
+    if _can_manage_pgs(user):
+        return True
+    return hasattr(user, 'profile') and user.profile.department == department
+
+
+def _actor_display_name(user):
+    return user.get_full_name() or user.username
+
+
+def _notify_pgs_event(actor, notif_type, title, message, url):
+    """
+    Broadcast a PGS notification to every other active user, so anything
+    logged/added/changed in PGS shows up in everyone's notification bell.
+    These are created as plain DB rows — picked up by the existing
+    notifications_list polling — since PGS doesn't have a live websocket
+    channel the way Messenger does. If you want a live push too, this is
+    the spot to also channel_layer.group_send to notif_user_{r.pk}, same
+    pattern as messenger_send.
+    """
+    from .models import Notification
+    recipients = User.objects.filter(is_active=True).exclude(pk=actor.pk)
+    Notification.objects.bulk_create([
+        Notification(
+            recipient=r, actor=actor, notif_type=notif_type,
+            title=title, message=message, url=url,
+        )
+        for r in recipients
+    ])
+
+
+@login_required
+def pgs_dashboard(request):
+    from .models import PGSIndicator, DEPARTMENT_CHOICES, get_grouped_department_choices
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    from django.db.models import Q
+    import json as _json
+
+    can_manage    = _can_manage_pgs(request.user)
+    my_department = request.user.profile.department if hasattr(request.user, 'profile') else ''
+    my_department_label = dict(DEPARTMENT_CHOICES).get(my_department, my_department)
+
+    selected_department = request.GET.get('department', '').strip()
+    show_archived        = request.GET.get('show_archived') == '1'
+    show_overdue         = request.GET.get('overdue') == '1'
+    search_query         = request.GET.get('q', '').strip()
+
+    PER_PAGE_CHOICES = [10, 25, 50, 100]
+    try:
+        per_page = int(request.GET.get('per_page', 10))
+    except (TypeError, ValueError):
+        per_page = 10
+    if per_page not in PER_PAGE_CHOICES:
+        per_page = 10
+
+    indicators_qs = (
+        PGSIndicator.objects
+        .select_related('created_by')
+        .prefetch_related('entries', 'entries__submitted_by')
+        .order_by('department', 'title')
+    )
+    if not show_archived:
+        indicators_qs = indicators_qs.filter(is_archived=False)
+    if selected_department:
+        indicators_qs = indicators_qs.filter(department=selected_department)
+    if search_query:
+        indicators_qs = indicators_qs.filter(
+            Q(title__icontains=search_query) | Q(description__icontains=search_query)
+        )
+
+    indicators = list(indicators_qs)
+    for ind in indicators:
+        latest = ind.latest_entry
+        ind.latest = latest
+        ind.pct = latest.percent_of_target if latest else None
+        ind.status_label = latest.status if latest else 'none'
+        # Department-scoped edit permission — same rule used server-side by
+        # every mutating view, so what the user sees matches what they can do.
+        ind.can_edit = _can_submit_for_department(request.user, ind.department)
+        ind.history = list(ind.entries.all())
+
+    # "Past due" quick filter, driven by the clickable stat card. Applied in
+    # Python (not the queryset) since is_overdue depends on is_complete,
+    # which itself depends on the latest progress entry — a computed
+    # property, not a raw DB column.
+    if show_overdue:
+        indicators = [ind for ind in indicators if ind.is_overdue]
+
+    # ── Department status mix (for the stacked comparison chart) — computed
+    #    across ALL non-archived deliverables for every department that
+    #    actually has deliverables, regardless of the department filter.
+    #    We tally the org-wide past-due total (used by the "Past due" stat
+    #    card, which always stays org-wide), and also build a per-department
+    #    pie breakdown (`pie_counts_by_dept`) in the same pass, so the three
+    #    charts can be re-scoped to a single department below without a
+    #    second query. ──
+    dept_summary = {}
+    total_past_due = 0
+    # Mutually-exclusive 4-way bucket per department, used to slice the pie
+    # chart down to one department when `selected_department` is set.
+    pie_counts_by_dept = {}
+    for label, name in DEPARTMENT_CHOICES:
+        dept_indicators = list(
+            PGSIndicator.objects.filter(department=label, is_archived=False)
+            .prefetch_related('entries')
+        )
+        if not dept_indicators:
+            continue
+        # Three buckets: 'on' = Accomplished, 'risk' = Ongoing, 'none' = Not Started
+        counts = {'on': 0, 'risk': 0, 'none': 0}
+        dept_pie = {'on': 0, 'ongoing': 0, 'not_started': 0, 'past_due': 0}
+        pcts = []
+        for ind in dept_indicators:
+            latest = ind.latest_entry
+            if latest:
+                counts[latest.status] += 1
+                pcts.append(latest.percent_of_target)
+            else:
+                counts['none'] += 1
+
+            if ind.is_overdue:
+                total_past_due += 1
+                dept_pie['past_due'] += 1
+            elif latest and latest.status == 'on':
+                dept_pie['on'] += 1
+            elif latest:
+                dept_pie['ongoing'] += 1
+            else:
+                dept_pie['not_started'] += 1
+
+        dept_summary[label] = {
+            'name':   name,
+            'counts': counts,
+            'avg':    round(sum(pcts) / len(pcts)) if pcts else 0,
+            'total':  len(dept_indicators),
+        }
+        pie_counts_by_dept[label] = dept_pie
+
+    overall_avg = (
+        round(sum(d['avg'] for d in dept_summary.values() if d['avg']) /
+              max(1, len([d for d in dept_summary.values() if d['avg']])))
+        if dept_summary else 0
+    )
+
+    # ── Scope the three chart datasets to `selected_department`, if any.
+    #    The stat cards above (overall_avg, total_past_due) intentionally
+    #    stay org-wide — only the charts follow the filter, reusing the
+    #    exact same Chart.js instances on the frontend instead of adding
+    #    new ones. Clearing the department filter (chart_scope_label=None)
+    #    goes back to the org-wide view automatically. ──
+    chart_scope_label = dict(DEPARTMENT_CHOICES).get(selected_department) if selected_department else None
+
+    if selected_department and selected_department in dept_summary:
+        chart_dept_summary = {selected_department: dept_summary[selected_department]}
+        pie_counts = pie_counts_by_dept[selected_department]
+    elif selected_department:
+        # Selected department has no deliverables at all — empty charts.
+        chart_dept_summary = {}
+        pie_counts = {'on': 0, 'ongoing': 0, 'not_started': 0, 'past_due': 0}
+    else:
+        chart_dept_summary = dept_summary
+        pie_counts = {
+            k: sum(d[k] for d in pie_counts_by_dept.values())
+            for k in ('on', 'ongoing', 'not_started', 'past_due')
+        }
+
+    dept_names   = [d['name'] for d in chart_dept_summary.values()]
+    dept_on      = [d['counts']['on']   for d in chart_dept_summary.values()]
+    dept_risk    = [d['counts']['risk'] for d in chart_dept_summary.values()]
+    dept_none    = [d['counts']['none'] for d in chart_dept_summary.values()]
+
+    departments_reporting = len(dept_summary)
+
+    # ── Trend by month (average % across all entries submitted that month),
+    #    scoped to `selected_department` the same way as the other charts.
+    #    No typed "period" needed, we use submitted_at. ──
+    month_map = defaultdict(list)
+    trend_qs = PGSIndicator.objects.filter(is_archived=False)
+    if selected_department:
+        trend_qs = trend_qs.filter(department=selected_department)
+    for ind in trend_qs.prefetch_related('entries'):
+        for e in ind.entries.all():
+            key = e.submitted_at.strftime('%Y-%m')
+            month_map[key].append(e.percent_of_target)
+    month_keys = sorted(month_map.keys())
+    trend_labels = [datetime.datetime.strptime(m, '%Y-%m').strftime('%b %Y') for m in month_keys]
+    trend_values = [round(sum(month_map[m]) / len(month_map[m])) for m in month_keys]
+
+    # ── Pagination ──
+    paginator = Paginator(indicators, per_page)
+    try:
+        page_obj = paginator.page(request.GET.get('page', 1))
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages) if paginator.num_pages else paginator.page(1)
+
+    # Current filters minus "page", reused by pagination links so Prev/Next
+    # don't drop the active department/search/overdue/per_page filters.
+    qd = request.GET.copy()
+    qd.pop('page', None)
+    base_querystring = qd.urlencode()
+
+    return render(request, 'pgs_dashboard.html', {
+        'indicators':             page_obj.object_list,
+        'page_obj':               page_obj,
+        'paginator':              paginator,
+        'base_querystring':       base_querystring,
+        'per_page':               per_page,
+        'per_page_choices':       PER_PAGE_CHOICES,
+        'search_query':           search_query,
+        'show_overdue':           show_overdue,
+        'total_past_due':         total_past_due,
+        'department_choices':     DEPARTMENT_CHOICES,
+        'department_groups':      get_grouped_department_choices(),
+        'dept_summary':           dept_summary,
+        'dept_names_json':        _json.dumps(dept_names),
+        'dept_on_json':           _json.dumps(dept_on),
+        'dept_risk_json':         _json.dumps(dept_risk),
+        'dept_none_json':         _json.dumps(dept_none),
+        'pie_labels_json':        _json.dumps(['Accomplished', 'Ongoing', 'Not Started', 'Past Due']),
+        'pie_values_json':        _json.dumps([
+            pie_counts['on'], pie_counts['ongoing'],
+            pie_counts['not_started'], pie_counts['past_due'],
+        ]),
+        'trend_labels_json':      _json.dumps(trend_labels),
+        'trend_values_json':      _json.dumps(trend_values),
+        'overall_avg':            overall_avg,
+        'departments_reporting':  departments_reporting,
+        'can_manage':             can_manage,
+        'my_department':          my_department,
+        'my_department_label':    my_department_label,
+        'selected_department':    selected_department,
+        'show_archived':          show_archived,
+        'total_indicators':       PGSIndicator.objects.filter(is_archived=False).count(),
+        # NEW — drives chart subtitles + the "Your office" / department
+        # filter state; also embedded in the hidden #pgsChartDataJson blob
+        # that the frontend re-parses after every AJAX filter reload.
+        'chart_scope_label':      chart_scope_label,
+        'chart_scope_label_json': _json.dumps(chart_scope_label),
+    })
+
+
+@login_required
+def pgs_indicator_add(request):
+    from .models import PGSIndicator
+
+    if request.method == 'POST':
+        department  = request.POST.get('department', '').strip()
+        title       = request.POST.get('title', '').strip()
+        description = request.POST.get('description', '').strip()
+        due_date    = request.POST.get('due_date', '').strip() or None
+
+        if not _can_submit_for_department(request.user, department):
+            messages.error(request, 'You can only add deliverables for your own department.')
+            return redirect('pgs_dashboard')
+
+        errors = []
+        if not department: errors.append('Department is required.')
+        if not title:      errors.append('Deliverable title is required.')
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            return redirect('pgs_dashboard')
+
+        indicator = PGSIndicator.objects.create(
+            department=department, title=title, description=description,
+            due_date=due_date, created_by=request.user,
+        )
+        messages.success(request, f'Deliverable "{indicator.title}" has been added.')
+
+        _notify_pgs_event(
+            request.user,
+            'pgs_deliverable_added',
+            'New PGS deliverable added',
+            f'{_actor_display_name(request.user)} added "{indicator.title}" under {indicator.get_department_display()}.',
+            reverse('pgs_dashboard'),
+        )
+
+    return redirect('pgs_dashboard')
+
+
+@login_required
+def pgs_indicator_edit(request, pk):
+    """
+    Edit an existing deliverable's title/description/due date. The
+    department itself may only be reassigned by org-wide PGS managers;
+    a department-scoped editor cannot move a deliverable to another
+    department and cannot edit deliverables that already belong to a
+    department other than their own.
+    """
+    from .models import PGSIndicator
+    indicator = get_object_or_404(PGSIndicator, pk=pk)
+
+    # Blocks editing of another department's deliverable outright.
+    if not _can_submit_for_department(request.user, indicator.department):
+        messages.error(request, 'You can only edit deliverables for your own department.')
+        return redirect('pgs_dashboard')
+
+    if request.method == 'POST':
+        title       = request.POST.get('title', '').strip()
+        description = request.POST.get('description', '').strip()
+        due_date    = request.POST.get('due_date', '').strip() or None
+        new_department = request.POST.get('department', '').strip()
+
+        errors = []
+        if not title:
+            errors.append('Deliverable title is required.')
+
+        # Only an org-wide manager may move a deliverable to a different
+        # department; otherwise the submitted department value is ignored.
+        if new_department and new_department != indicator.department:
+            if not _can_manage_pgs(request.user):
+                errors.append('You do not have permission to reassign this deliverable to another department.')
+            else:
+                indicator.department = new_department
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            return redirect('pgs_dashboard')
+
+        indicator.title = title
+        indicator.description = description
+        indicator.due_date = due_date
+        indicator.save()
+        messages.success(request, f'Deliverable "{indicator.title}" has been updated.')
+
+        _notify_pgs_event(
+            request.user,
+            'pgs_deliverable_updated',
+            'PGS deliverable updated',
+            f'{_actor_display_name(request.user)} updated "{indicator.title}".',
+            reverse('pgs_dashboard'),
+        )
+
+    return redirect('pgs_dashboard')
+
+
+@login_required
+def pgs_indicator_archive(request, pk):
+    from .models import PGSIndicator
+    indicator = get_object_or_404(PGSIndicator, pk=pk)
+
+    if not _can_submit_for_department(request.user, indicator.department):
+        messages.error(request, 'You do not have permission to archive this deliverable.')
+        return redirect('pgs_dashboard')
+
+    if request.method == 'POST':
+        indicator.is_archived = not indicator.is_archived
+        indicator.save()
+        verb = 'archived' if indicator.is_archived else 'restored'
+        messages.success(request, f'Deliverable "{indicator.title}" has been {verb}.')
+
+        _notify_pgs_event(
+            request.user,
+            'pgs_deliverable_archived' if indicator.is_archived else 'pgs_deliverable_restored',
+            f'PGS deliverable {verb}',
+            f'{_actor_display_name(request.user)} {verb} "{indicator.title}".',
+            reverse('pgs_dashboard'),
+        )
+
+    return redirect('pgs_dashboard')
+
+
+@login_required
+def pgs_indicator_delete(request, pk):
+    from .models import PGSIndicator
+    indicator = get_object_or_404(PGSIndicator, pk=pk)
+
+    if not _can_manage_pgs(request.user):
+        messages.error(request, 'You do not have permission to delete deliverables.')
+        return redirect('pgs_dashboard')
+
+    if request.method == 'POST':
+        title = indicator.title
+        for entry in indicator.entries.all():
+            if entry.attachment:
+                entry.attachment.delete(save=False)
+        indicator.delete()
+        messages.success(request, f'Deliverable "{title}" and its progress history have been deleted.')
+
+        _notify_pgs_event(
+            request.user,
+            'pgs_deliverable_deleted',
+            'PGS deliverable deleted',
+            f'{_actor_display_name(request.user)} deleted "{title}" and its progress history.',
+            reverse('pgs_dashboard'),
+        )
+
+    return redirect('pgs_dashboard')
+
+
+def _validate_percent(raw):
+    """Shared 0-100% validation used by both add and edit progress entries."""
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None, 'Percent complete must be a number.'
+    if value < 0 or value > 100:
+        return None, 'Percent complete must be between 0 and 100.'
+    return value, None
+
+
+@login_required
+def pgs_entry_add(request, indicator_id):
+    from .models import PGSIndicator, PGSProgressEntry
+    indicator = get_object_or_404(PGSIndicator, pk=indicator_id)
+
+    if not _can_submit_for_department(request.user, indicator.department):
+        messages.error(request, 'You can only submit progress for your own department.')
+        return redirect('pgs_dashboard')
+
+    if request.method == 'POST':
+        remarks    = request.POST.get('remarks', '').strip()
+        attachment = request.FILES.get('attachment')
+
+        percent_complete, err = _validate_percent(request.POST.get('percent_complete', '').strip())
+        if err:
+            messages.error(request, err)
+            return redirect('pgs_dashboard')
+
+        PGSProgressEntry.objects.create(
+            indicator=indicator, percent_complete=percent_complete,
+            remarks=remarks, attachment=attachment, submitted_by=request.user,
+        )
+        messages.success(request, f'Progress for "{indicator.title}" has been recorded.')
+
+        _notify_pgs_event(
+            request.user,
+            'pgs_progress_logged',
+            f'Progress logged: {indicator.title}',
+            f'{_actor_display_name(request.user)} logged {round(percent_complete)}% progress on "{indicator.title}".',
+            reverse('pgs_dashboard'),
+        )
+
+    return redirect('pgs_dashboard')
+
+
+@login_required
+def pgs_entry_edit(request, pk):
+    """
+    Edit an existing progress entry (percent complete, remarks, and
+    optionally replace the attached file). Restricted to the entry's own
+    department, same as adding/deleting an entry.
+    """
+    from .models import PGSProgressEntry
+    entry = get_object_or_404(PGSProgressEntry, pk=pk)
+
+    if not _can_submit_for_department(request.user, entry.indicator.department):
+        messages.error(request, 'You can only edit progress entries for your own department.')
+        return redirect('pgs_dashboard')
+
+    if request.method == 'POST':
+        remarks    = request.POST.get('remarks', '').strip()
+        attachment = request.FILES.get('attachment')
+
+        percent_complete, err = _validate_percent(request.POST.get('percent_complete', '').strip())
+        if err:
+            messages.error(request, err)
+            return redirect('pgs_dashboard')
+
+        entry.percent_complete = percent_complete
+        entry.remarks = remarks
+        entry.updated_by = request.user
+        if attachment:
+            if entry.attachment:
+                entry.attachment.delete(save=False)
+            entry.attachment = attachment
+        entry.save()
+        messages.success(request, f'Progress entry for "{entry.indicator.title}" has been updated.')
+
+        _notify_pgs_event(
+            request.user,
+            'pgs_progress_updated',
+            f'Progress updated: {entry.indicator.title}',
+            f'{_actor_display_name(request.user)} updated a progress entry on "{entry.indicator.title}".',
+            reverse('pgs_dashboard'),
+        )
+
+    return redirect('pgs_dashboard')
+
+
+@login_required
+def pgs_entry_delete(request, pk):
+    from .models import PGSProgressEntry
+    entry = get_object_or_404(PGSProgressEntry, pk=pk)
+
+    if not _can_submit_for_department(request.user, entry.indicator.department):
+        messages.error(request, 'You do not have permission to delete this entry.')
+        return redirect('pgs_dashboard')
+
+    if request.method == 'POST':
+        if entry.attachment:
+            entry.attachment.delete(save=False)
+        title = entry.indicator.title
+        when = entry.period_display
+        entry.delete()
+        messages.success(request, f'Progress entry for "{title}" ({when}) has been removed.')
+
+        _notify_pgs_event(
+            request.user,
+            'pgs_progress_deleted',
+            f'Progress entry removed: {title}',
+            f'{_actor_display_name(request.user)} removed a progress entry ({when}) from "{title}".',
+            reverse('pgs_dashboard'),
+        )
+
+    return redirect('pgs_dashboard')
