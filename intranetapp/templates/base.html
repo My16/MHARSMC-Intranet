@@ -223,8 +223,10 @@
     .header__user {
       display: flex; align-items: center; gap: 9px;
       padding: 4px 10px 4px 4px; border-radius: 24px; cursor: pointer; transition: background .18s;
+      position: relative;
     }
     .header__user:hover { background: var(--green-pale); }
+    .header__user.open { background: var(--green-pale); }
 
     .header__avatar {
       width: 34px; height: 34px; border-radius: 50%;
@@ -240,13 +242,58 @@
       white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;
     }
     .header__user-role { font-size: .68rem; color: var(--green-mid); white-space: nowrap; font-weight: 400; }
-    .header__user i { font-size: .7rem; color: var(--text-muted); margin-left: 2px; }
+    .header__user i.fa-chevron-down { font-size: .7rem; color: var(--text-muted); margin-left: 2px; transition: transform .18s; }
+    .header__user.open i.fa-chevron-down { transform: rotate(180deg); }
 
     .header__hamburger {
       display: none; background: transparent; border: none; cursor: pointer;
       color: var(--text-primary); font-size: 1.1rem; padding: 6px; border-radius: 6px; margin-right: 4px;
     }
     .header__hamburger:hover { background: var(--green-pale); }
+
+    /* ── User dropdown menu ── */
+    .header__user-menu {
+      display: none; position: absolute; top: calc(100% + 10px); right: 0;
+      width: 240px; background: var(--white);
+      border: 1px solid var(--border); border-radius: 14px;
+      box-shadow: var(--shadow-lg); z-index: 500; overflow: hidden;
+      animation: userMenuIn .16s ease;
+    }
+    .header__user-menu.open { display: block; }
+    @keyframes userMenuIn {
+      from { opacity: 0; transform: translateY(-6px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .header__user-menu-head {
+      display: flex; align-items: center; gap: 11px;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+    }
+    .header__user-menu-av {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 2px solid var(--green-accent); overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--green-mid); font-size: .85rem; font-weight: 600;
+      color: var(--white); flex-shrink: 0;
+    }
+    .header__user-menu-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .header__user-menu-name {
+      font-size: .87rem; font-weight: 700; color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+    }
+    .header__user-menu-role { font-size: .71rem; color: var(--green-mid); margin-top: 1px; }
+    .header__user-menu-items { padding: 6px; }
+    .header__user-menu-item {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 12px; border-radius: 9px;
+      font-size: .84rem; font-weight: 500; color: var(--text-primary);
+      cursor: pointer; transition: background .14s; white-space: nowrap;
+    }
+    .header__user-menu-item:hover { background: var(--green-pale); }
+    .header__user-menu-item i { width: 17px; text-align: center; color: var(--green-mid); font-size: .85rem; }
+    .header__user-menu-sep { height: 1px; background: var(--border); margin: 5px 0; }
+    .header__user-menu-item.danger { color: #dc2626; }
+    .header__user-menu-item.danger i { color: #dc2626; }
+    .header__user-menu-item.danger:hover { background: #fef2f2; }
 
     /* ═══════════════════════════════════════════════════════════
        LAYOUT / MAIN
@@ -283,13 +330,14 @@
       .header__hamburger { display: flex; }
       .header__user-info { display: none; }
       .header__breadcrumb { display: none; }
-      .header__user i { display: none; }
+      .header__user i.fa-chevron-down { display: none; }
       .sidebar { width: 0; pointer-events: none; }
       .sidebar.is-open { width: var(--sidebar-expanded); pointer-events: all; }
       .sidebar:hover:not(.is-open) { width: 0; }
       .main { margin-left: 0; }
       .overlay { display: block; }
       .content { padding: 16px; }
+      .header__user-menu { right: -8px; }
     }
 
     .sr-only {
@@ -1224,7 +1272,7 @@
 
     <div class="header__divider" aria-hidden="true"></div>
 
-    <div class="header__user" role="button" tabindex="0" aria-label="User menu">
+    <div class="header__user" id="headerUserBtn" role="button" tabindex="0" aria-label="User menu" aria-haspopup="true" aria-expanded="false">
       <div class="header__avatar">
         {% if request.user.profile.avatar %}
           <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.profile.get_full_name_with_middle }}" />
@@ -1240,6 +1288,35 @@
         </div>
       </div>
       <i class="fa-solid fa-chevron-down"></i>
+
+      <!-- ═══ USER DROPDOWN MENU ═══ -->
+      <div class="header__user-menu" id="headerUserMenu">
+        <!-- <div class="header__user-menu-head">
+          <div class="header__user-menu-av">
+            {% if request.user.profile.avatar %}
+              <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.profile.get_full_name_with_middle }}" />
+            {% else %}
+              {{ request.user.first_name|slice:":1"|upper }}{{ request.user.last_name|slice:":1"|upper }}
+            {% endif %}
+          </div>
+          <div style="min-width:0;">
+            <div class="header__user-menu-name">{{ request.user.profile.get_full_name_with_middle }}</div>
+            <div class="header__user-menu-role">
+              {% if request.user.profile.position %}{{ request.user.profile.position }}
+              {% else %}{{ request.user.profile.get_role_display }}{% endif %}
+            </div>
+          </div>
+        </div> -->
+        <div class="header__user-menu-items">
+          <a href="{% url 'settings_profile' %}" class="header__user-menu-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+          <div class="header__user-menu-sep"></div>
+          <a href="{% url 'logout' %}" class="header__user-menu-item danger">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </a>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -1378,6 +1455,40 @@
           link.setAttribute('aria-current', 'page');
         }
       });
+    })();
+
+    /* ── User dropdown menu (Settings / Logout) ── */
+    (function () {
+      const userBtn  = document.getElementById('headerUserBtn');
+      const userMenu = document.getElementById('headerUserMenu');
+      if (!userBtn || !userMenu) return;
+
+      function openMenu() {
+        userMenu.classList.add('open');
+        userBtn.classList.add('open');
+        userBtn.setAttribute('aria-expanded', 'true');
+      }
+      function closeMenu() {
+        userMenu.classList.remove('open');
+        userBtn.classList.remove('open');
+        userBtn.setAttribute('aria-expanded', 'false');
+      }
+      function toggleMenu(e) {
+        e.stopPropagation();
+        userMenu.classList.contains('open') ? closeMenu() : openMenu();
+      }
+
+      userBtn.addEventListener('click', toggleMenu);
+      userBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleMenu(e); }
+        if (e.key === 'Escape') closeMenu();
+      });
+      // Prevent clicks inside the menu itself from bubbling up and re-toggling
+      userMenu.addEventListener('click', (e) => e.stopPropagation());
+      document.addEventListener('click', (e) => {
+        if (!userBtn.contains(e.target)) closeMenu();
+      });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
     })();
   </script>
 

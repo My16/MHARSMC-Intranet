@@ -4597,3 +4597,57 @@ def pgs_entry_delete(request, pk):
         )
 
     return redirect('pgs_dashboard')
+
+def _notify_pgs_event(actor, notif_type, title, message, url):
+    """
+    Broadcast a PGS notification to every other active user: creates the DB
+    rows (picked up by notifications_list polling / on next page load), and
+    also pushes each one live over the notif_user_{pk} websocket group —
+    same pattern ChatConsumer/messenger uses for chat_message — so the bell
+    updates immediately instead of waiting for a poll.
+    """
+    from asgiref.sync import async_to_sync
+    from channels.layers import get_channel_layer
+    from django.db.models import Count
+    from .models import Notification
+
+    recipients = User.objects.filter(is_active=True).exclude(pk=actor.pk)
+    if not recipients.exists():
+        return
+
+    notifications = Notification.objects.bulk_create([
+        Notification(
+            recipient=r, actor=actor, notif_type=notif_type,
+            title=title, message=message, url=url,
+        )
+        for r in recipients
+    ])
+
+    # Unread count per recipient, fetched in a single query rather than one
+    # per user, so a large org-wide broadcast doesn't trigger N+1 queries.
+    recipient_ids = [n.recipient_id for n in notifications]
+    unread_counts = dict(
+        Notification.objects.filter(recipient_id__in=recipient_ids, is_read=False)
+        .values('recipient_id')
+        .annotate(count=Count('id'))
+        .values_list('recipient_id', 'count')
+    )
+
+    channel_layer = get_channel_layer()
+    actor_name = _actor_display_name(actor)
+
+    for n in notifications:
+        async_to_sync(channel_layer.group_send)(
+            f'notif_user_{n.recipient_id}',
+            {
+                'type':         'send_notification',   # -> NotificationConsumer.send_notification
+                'id':           n.pk,
+                'notif_type':   n.notif_type,
+                'title':        n.title,
+                'message':      n.message,
+                'url':          n.url,
+                'actor':        actor_name,
+                'created_at':   n.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'unread_count': unread_counts.get(n.recipient_id, 0),
+            }
+        )

@@ -71,8 +71,23 @@
   .pgs-btn.danger:hover { background: #b91c1c; }
   .pgs-spacer { flex: 1; }
 
-  /* ── List layout (replaces the old thumbnail/card grid) ── */
-  .pgs-list { display: flex; flex-direction: column; gap: 12px; }
+  /* ── List layout: grouped by department, 2 columns within each group ── */
+  .pgs-list { display: flex; flex-direction: column; gap: 26px; }
+  .pgs-dept-group { display: flex; flex-direction: column; gap: 12px; }
+  .pgs-dept-group-header {
+    display: flex; align-items: baseline; gap: 10px;
+    padding-bottom: 6px; border-bottom: 2px solid var(--green-pale);
+  }
+  .pgs-dept-group-header h4 {
+    font-family: 'EB Garamond', serif; font-size: 1.05rem; font-weight: 700;
+    color: var(--green-dark); margin: 0;
+  }
+  .pgs-dept-group-count { font-size: .72rem; color: var(--text-muted); }
+  .pgs-dept-group-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start;
+  }
+  @media (max-width: 900px) { .pgs-dept-group-grid { grid-template-columns: 1fr; } }
+
   .pgs-list-item {
     background: var(--white); border: 1px solid var(--border); border-radius: 12px;
     padding: 16px 18px; box-shadow: var(--shadow-sm);
@@ -169,6 +184,43 @@
   }
   .pgs-bar-preview { margin-top: 8px; }
 
+  /* ── Drag-and-drop file upload zone (matches the Issuance page style) ── */
+  .file-upload-zone {
+    position: relative; border: 2px dashed var(--border); border-radius: 10px;
+    padding: 20px 16px; text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s; color: var(--text-muted);
+  }
+  .file-upload-zone:hover, .file-upload-zone.dragover {
+    border-color: var(--green-mid); background: var(--green-pale);
+  }
+  .file-upload-zone input[type="file"] {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; cursor: pointer;
+  }
+  .file-upload-zone i.fa-cloud-arrow-up {
+    display: block; font-size: 1.6rem; color: var(--green-mid); margin-bottom: 8px;
+  }
+  .file-upload-zone span { font-size: .8rem; line-height: 1.4; }
+  .file-upload-zone span strong { color: var(--green-dark); }
+
+  .file-preview {
+    display: none; align-items: center; gap: 10px; margin-top: 10px;
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--green-pale); font-size: .8rem;
+  }
+  .file-preview.show { display: flex; }
+  .file-preview i { color: var(--green-mid); font-size: 1.1rem; }
+  .file-preview .fname {
+    font-weight: 600; color: var(--text-primary); flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .file-preview .fsize { color: var(--text-muted); font-size: .72rem; white-space: nowrap; }
+  .file-preview .fremove {
+    background: none; border: none; cursor: pointer; color: var(--text-muted);
+    font-size: .8rem; padding: 2px 4px;
+  }
+  .file-preview .fremove:hover { color: #dc2626; }
+
   /* ── History modal contents ── */
   .pgs-hist-row {
     display: flex; align-items: center; gap: 8px; padding: 8px 0;
@@ -177,6 +229,8 @@
   .pgs-hist-row:last-child { border-bottom: none; }
   .pgs-hist-period { font-weight: 600; color: var(--text-primary); min-width: 90px; }
   .pgs-hist-val { color: var(--text-muted); flex: 1; }
+  .pgs-hist-by { color: var(--green-mid); font-size: .74rem; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+  .pgs-hist-by.pgs-hist-edited { color: var(--text-muted); font-style: italic; }
   .pgs-hist-file { color: var(--green-mid); }
   .pgs-hist-file:hover { text-decoration: underline; }
   .pgs-hist-del, .pgs-hist-edit { background: none; border: none; cursor: pointer; font-size: .74rem; }
@@ -298,117 +352,136 @@
 <div id="pgsResultsContainer">
 {% if indicators %}
 <div class="pgs-list">
-  {% for ind in indicators %}
-  <div class="pgs-list-item {% if ind.is_archived %}archived{% endif %} {% if ind.is_overdue %}overdue{% endif %}">
-    <div class="pgs-list-main">
-      <div class="pgs-list-titlerow">
-        <div class="pgs-list-title">{{ ind.title }}</div>
-        <div class="pgs-status-pills">
-          <span class="pgs-pill {{ ind.status_label }}">
-            {% if ind.status_label == 'on' %}Accomplished
-            {% elif ind.status_label == 'risk' %}Ongoing
-            {% else %}Not Started{% endif %}
-          </span>
-          {% if ind.is_overdue %}<span class="pgs-pill pastdue">Past Due</span>{% endif %}
-        </div>
-      </div>
-      <div class="pgs-list-dept">{{ ind.get_department_display }}</div>
-
-      {% if ind.description %}<div class="pgs-list-desc">{{ ind.description }}</div>{% endif %}
-
-      <div class="pgs-progress-track">
-        <div class="pgs-progress-fill"
-             style="width:{% if ind.pct %}{% if ind.pct > 100 %}100{% else %}{{ ind.pct }}{% endif %}{% else %}0{% endif %}%; background: {% if ind.status_label == 'on' %}#2d9d6f{% elif ind.status_label == 'risk' %}#d9a520{% else %}var(--border){% endif %};">
-        </div>
-      </div>
-
-      <div class="pgs-list-meta">
-        <span>
-          {% if ind.latest %}
-            {{ ind.pct }}% complete
-            <span style="color:var(--border);">&middot;</span> updated {{ ind.latest.period_display }}
-            <span style="color:var(--border);">&middot;</span> {{ ind.entry_count }} update{{ ind.entry_count|pluralize }}
-          {% else %}
-            No progress logged yet
-          {% endif %}
-        </span>
-        {% if ind.due_date %}
-        <span class="pgs-card__due {% if ind.is_overdue %}overdue{% endif %}">
-          <i class="fa-regular fa-calendar"></i>
-          Due {{ ind.due_date|date:"M d, Y" }}
-        </span>
-        {% endif %}
-      </div>
+  {% regroup indicators by get_department_display as pgs_dept_groups %}
+  {% for dept_group in pgs_dept_groups %}
+  <div class="pgs-dept-group">
+    <div class="pgs-dept-group-header">
+      <h4>{{ dept_group.grouper }}</h4>
+      <span class="pgs-dept-group-count">{{ dept_group.list|length }} deliverable{{ dept_group.list|length|pluralize }}</span>
     </div>
+    <div class="pgs-dept-group-grid">
+      {% for ind in dept_group.list %}
+      <div class="pgs-list-item {% if ind.is_archived %}archived{% endif %} {% if ind.is_overdue %}overdue{% endif %}">
+        <div class="pgs-list-main">
+          <div class="pgs-list-titlerow">
+            <div class="pgs-list-title">{{ ind.title }}</div>
+            <div class="pgs-status-pills">
+              <span class="pgs-pill {{ ind.status_label }}">
+                {% if ind.status_label == 'on' %}Accomplished
+                {% elif ind.status_label == 'risk' %}Ongoing
+                {% else %}Not Started{% endif %}
+              </span>
+              {% if ind.is_overdue %}<span class="pgs-pill pastdue">Past Due</span>{% endif %}
+            </div>
+          </div>
+          <div class="pgs-list-dept">{{ ind.get_department_display }}</div>
 
-    <div class="pgs-list-actions">
-      <div class="pgs-actions-dropdown">
-        <button type="button" class="pgs-btn ghost small pgs-actions-toggle" onclick="pgsToggleActions(event, '{{ ind.id }}')">
-          Actions <i class="fa-solid fa-chevron-down"></i>
-        </button>
-        <div class="pgs-actions-menu" id="pgsActionsMenu_{{ ind.id }}">
-          {% if ind.can_edit and not ind.is_archived %}
-            <button type="button" onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenEntryModal('{{ ind.id }}', '{{ ind.title|escapejs }}', {{ ind.pct|default:0 }})">
-              <i class="fa-solid fa-plus"></i> Log progress
+          {% if ind.description %}<div class="pgs-list-desc">{{ ind.description }}</div>{% endif %}
+
+          <div class="pgs-progress-track">
+            <div class="pgs-progress-fill"
+                 style="width:{% if ind.pct %}{% if ind.pct > 100 %}100{% else %}{{ ind.pct }}{% endif %}{% else %}0{% endif %}%; background: {% if ind.status_label == 'on' %}#2d9d6f{% elif ind.status_label == 'risk' %}#d9a520{% else %}var(--border){% endif %};">
+            </div>
+          </div>
+
+          <div class="pgs-list-meta">
+            <span>
+              {% if ind.latest %}
+                {{ ind.pct }}% complete
+                <span style="color:var(--border);">&middot;</span> updated {{ ind.latest.period_display }}
+                <span style="color:var(--border);">&middot;</span> {{ ind.entry_count }} update{{ ind.entry_count|pluralize }}
+              {% else %}
+                No progress logged yet
+              {% endif %}
+            </span>
+            {% if ind.due_date %}
+            <span class="pgs-card__due {% if ind.is_overdue %}overdue{% endif %}">
+              <i class="fa-regular fa-calendar"></i>
+              Due {{ ind.due_date|date:"M d, Y" }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="pgs-list-actions">
+          <div class="pgs-actions-dropdown">
+            <button type="button" class="pgs-btn ghost small pgs-actions-toggle" onclick="pgsToggleActions(event, '{{ ind.id }}')">
+              Actions <i class="fa-solid fa-chevron-down"></i>
             </button>
-          {% endif %}
-          {% if ind.entry_count %}
-            <button type="button" onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenHistoryModal('{{ ind.id }}', '{{ ind.title|escapejs }}')">
-              <i class="fa-solid fa-clock-rotate-left"></i> History
-            </button>
-          {% endif %}
-          {% if ind.can_edit %}
-            <button type="button"
-                    onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenEditIndicatorModal('{{ ind.id }}', '{{ ind.title|escapejs }}', '{{ ind.description|escapejs }}', '{{ ind.due_date|date:"Y-m-d" }}', '{{ ind.department|escapejs }}')">
-              <i class="fa-solid fa-pen"></i> Edit
-            </button>
-          {% endif %}
-          {% if ind.can_edit %}
-            <form method="post" action="{% url 'pgs_indicator_archive' ind.id %}">
-              {% csrf_token %}
-              <button type="submit">
-                <i class="fa-solid {% if ind.is_archived %}fa-box-open{% else %}fa-box-archive{% endif %}"></i>
-                {% if ind.is_archived %}Restore{% else %}Archive{% endif %}
+            <div class="pgs-actions-menu" id="pgsActionsMenu_{{ ind.id }}">
+              {% if ind.can_edit and not ind.is_archived %}
+                <button type="button" onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenEntryModal('{{ ind.id }}', '{{ ind.title|escapejs }}', {{ ind.pct|default:0 }})">
+                  <i class="fa-solid fa-plus"></i> Log progress
+                </button>
+              {% endif %}
+              {% if ind.entry_count %}
+                <button type="button" onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenHistoryModal('{{ ind.id }}', '{{ ind.title|escapejs }}')">
+                  <i class="fa-solid fa-clock-rotate-left"></i> History
+                </button>
+              {% endif %}
+              {% if ind.can_edit %}
+                <button type="button"
+                        onclick="pgsCloseActions('{{ ind.id }}'); pgsOpenEditIndicatorModal('{{ ind.id }}', '{{ ind.title|escapejs }}', '{{ ind.description|escapejs }}', '{{ ind.due_date|date:"Y-m-d" }}', '{{ ind.department|escapejs }}')">
+                  <i class="fa-solid fa-pen"></i> Edit
+                </button>
+              {% endif %}
+              {% if ind.can_edit %}
+                <form method="post" action="{% url 'pgs_indicator_archive' ind.id %}">
+                  {% csrf_token %}
+                  <button type="submit">
+                    <i class="fa-solid {% if ind.is_archived %}fa-box-open{% else %}fa-box-archive{% endif %}"></i>
+                    {% if ind.is_archived %}Restore{% else %}Archive{% endif %}
+                  </button>
+                </form>
+              {% endif %}
+              {% if can_manage %}
+                <form method="post" action="{% url 'pgs_indicator_delete' ind.id %}"
+                      onsubmit="return confirm('Delete this deliverable and all its progress history? This cannot be undone.');">
+                  {% csrf_token %}
+                  <button type="submit" class="danger"><i class="fa-solid fa-trash-can"></i> Delete</button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        {% if ind.entry_count %}
+        <template id="pgsHistData_{{ ind.id }}">
+          {% for e in ind.history %}
+          <div class="pgs-hist-row">
+            <span class="pgs-hist-period">{{ e.period_display }}</span>
+            <span class="pgs-hist-val">{{ e.percent_of_target }}% complete{% if e.remarks %} &mdash; {{ e.remarks }}{% endif %}</span>
+            <span class="pgs-hist-by" title="Logged by {{ e.submitted_by.get_full_name|default:e.submitted_by.username|default:"an unknown user" }}">
+              <i class="fa-regular fa-user"></i> {{ e.submitted_by.get_full_name|default:e.submitted_by.username|default:"—" }}
+            </span>
+            {% if e.updated_by and e.updated_at != e.submitted_at %}
+            <span class="pgs-hist-by pgs-hist-edited" title="Last edited by {{ e.updated_by.get_full_name|default:e.updated_by.username }} on {{ e.updated_at|date:'M d, Y' }}">
+              <i class="fa-solid fa-pen"></i> edited by {{ e.updated_by.get_full_name|default:e.updated_by.username }}
+            </span>
+            {% endif %}
+            {% if e.attachment %}
+              <a class="pgs-hist-file" href="{{ e.attachment.url }}" target="_blank" title="{{ e.attachment_name }} ({{ e.file_size_display }})">
+                <i class="fa-solid fa-paperclip"></i>
+              </a>
+            {% endif %}
+            {% if ind.can_edit %}
+              <button type="button" class="pgs-hist-edit"
+                      onclick="pgsOpenEditEntryModal('{{ e.id }}', '{{ ind.title|escapejs }}', {{ e.percent_of_target }}, '{{ e.remarks|escapejs }}')">
+                <i class="fa-solid fa-pen"></i>
               </button>
-            </form>
-          {% endif %}
-          {% if can_manage %}
-            <form method="post" action="{% url 'pgs_indicator_delete' ind.id %}"
-                  onsubmit="return confirm('Delete this deliverable and all its progress history? This cannot be undone.');">
-              {% csrf_token %}
-              <button type="submit" class="danger"><i class="fa-solid fa-trash-can"></i> Delete</button>
-            </form>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    {% if ind.entry_count %}
-    <template id="pgsHistData_{{ ind.id }}">
-      {% for e in ind.history %}
-      <div class="pgs-hist-row">
-        <span class="pgs-hist-period">{{ e.period_display }}</span>
-        <span class="pgs-hist-val">{{ e.percent_of_target }}% complete{% if e.remarks %} &mdash; {{ e.remarks }}{% endif %}</span>
-        {% if e.attachment %}
-          <a class="pgs-hist-file" href="{{ e.attachment.url }}" target="_blank" title="{{ e.attachment_name }} ({{ e.file_size_display }})">
-            <i class="fa-solid fa-paperclip"></i>
-          </a>
-        {% endif %}
-        {% if ind.can_edit %}
-          <button type="button" class="pgs-hist-edit"
-                  onclick="pgsOpenEditEntryModal('{{ e.id }}', '{{ ind.title|escapejs }}', {{ e.percent_of_target }}, '{{ e.remarks|escapejs }}')">
-            <i class="fa-solid fa-pen"></i>
-          </button>
-          <form method="post" action="{% url 'pgs_entry_delete' e.id %}" style="display:inline;"
-                onsubmit="return confirm('Remove this progress entry?');">
-            {% csrf_token %}
-            <button type="submit" class="pgs-hist-del"><i class="fa-solid fa-xmark"></i></button>
-          </form>
+              <form method="post" action="{% url 'pgs_entry_delete' e.id %}" style="display:inline;"
+                    onsubmit="return confirm('Remove this progress entry?');">
+                {% csrf_token %}
+                <button type="submit" class="pgs-hist-del"><i class="fa-solid fa-xmark"></i></button>
+              </form>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </template>
         {% endif %}
       </div>
       {% endfor %}
-    </template>
-    {% endif %}
+    </div>
   </div>
   {% endfor %}
 </div>
@@ -567,7 +640,21 @@
       </div>
       <div class="pgs-field">
         <label>Supporting file (optional)</label>
-        <input type="file" name="attachment">
+        <div class="file-upload-zone" id="pgsEntryUploadZone">
+          <input type="file" name="attachment" id="pgsEntryAttachment"
+                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.rar,.txt"
+                 onchange="pgsHandleFile(this,'pgsEntryFilePreview')">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <span><strong>Click to upload</strong> or drag &amp; drop<br>PDF, Word, Excel, images and more</span>
+        </div>
+        <div class="file-preview" id="pgsEntryFilePreview">
+          <i class="fa-solid fa-file"></i>
+          <span class="fname"></span>
+          <span class="fsize"></span>
+          <button type="button" class="fremove" onclick="pgsClearFile('pgsEntryAttachment','pgsEntryFilePreview')" title="Remove file">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
       </div>
       <div class="pgs-modal-actions">
         <button type="button" class="pgs-btn ghost" onclick="pgsCloseModal('pgsAddEntryModal')">Cancel</button>
@@ -597,7 +684,21 @@
       </div>
       <div class="pgs-field">
         <label>Replace supporting file (optional)</label>
-        <input type="file" name="attachment">
+        <div class="file-upload-zone" id="pgsEditEntryUploadZone">
+          <input type="file" name="attachment" id="pgsEditEntryAttachment"
+                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.rar,.txt"
+                 onchange="pgsHandleFile(this,'pgsEditEntryFilePreview')">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <span><strong>Click to upload</strong> or drag &amp; drop<br>PDF, Word, Excel, images and more</span>
+        </div>
+        <div class="file-preview" id="pgsEditEntryFilePreview">
+          <i class="fa-solid fa-file"></i>
+          <span class="fname"></span>
+          <span class="fsize"></span>
+          <button type="button" class="fremove" onclick="pgsClearFile('pgsEditEntryAttachment','pgsEditEntryFilePreview')" title="Remove file">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
       </div>
       <div class="pgs-modal-actions">
         <button type="button" class="pgs-btn ghost" onclick="pgsCloseModal('pgsEditEntryModal')">Cancel</button>
@@ -649,6 +750,49 @@
 </script>
 {% endif %}
 <script>
+  // ── Drag-and-drop file upload preview (matches the Issuance page's
+  // handleSingleFile pattern) — shows filename, size, and a type-matched
+  // icon once a file is chosen, and lets the user clear the selection. ──
+  function pgsFileIconClass(filename) {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    const map = {
+      pdf: 'fa-solid fa-file-pdf',
+      doc: 'fa-solid fa-file-word', docx: 'fa-solid fa-file-word',
+      xls: 'fa-solid fa-file-excel', xlsx: 'fa-solid fa-file-excel',
+      ppt: 'fa-solid fa-file-powerpoint', pptx: 'fa-solid fa-file-powerpoint',
+      jpg: 'fa-solid fa-file-image', jpeg: 'fa-solid fa-file-image', png: 'fa-solid fa-file-image',
+      zip: 'fa-solid fa-file-zipper', rar: 'fa-solid fa-file-zipper',
+      txt: 'fa-solid fa-file-lines',
+    };
+    return map[ext] || 'fa-solid fa-file';
+  }
+  function pgsFormatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    const units = ['KB', 'MB', 'GB'];
+    let val = bytes, i = -1;
+    do { val /= 1024; i++; } while (val >= 1024 && i < units.length - 1);
+    return val.toFixed(1) + ' ' + units[i];
+  }
+  function pgsHandleFile(input, previewId) {
+    const preview = document.getElementById(previewId);
+    if (!preview) return;
+    const file = input.files && input.files[0];
+    if (!file) { preview.classList.remove('show'); return; }
+    const nameEl = preview.querySelector('.fname');
+    const sizeEl = preview.querySelector('.fsize');
+    const iconEl = preview.querySelector('i:not(.fa-xmark)');
+    if (nameEl) nameEl.textContent = file.name;
+    if (sizeEl) sizeEl.textContent = pgsFormatFileSize(file.size);
+    if (iconEl) iconEl.className = pgsFileIconClass(file.name);
+    preview.classList.add('show');
+  }
+  function pgsClearFile(inputId, previewId) {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    if (input) input.value = '';
+    if (preview) preview.classList.remove('show');
+  }
+
   function pgsOpenModal(id) { document.getElementById(id).classList.add('open'); }
   function pgsCloseModal(id) { document.getElementById(id).classList.remove('open'); }
   document.querySelectorAll('.pgs-modal').forEach(m => {
@@ -686,6 +830,7 @@
     document.getElementById('pgsEntryForm').action = '/pgs/indicator/' + indicatorId + '/entry/add/';
     document.getElementById('pgsEntryNum').value = pct;
     document.getElementById('pgsEntryBarFill').style.width = pct + '%';
+    pgsClearFile('pgsEntryAttachment', 'pgsEntryFilePreview');
     pgsOpenModal('pgsAddEntryModal');
   }
 
@@ -709,6 +854,7 @@
     document.getElementById('pgsEditEntryNum').value = pct;
     document.getElementById('pgsEditEntryRemarks').value = remarks;
     document.getElementById('pgsEditEntryBarFill').style.width = Math.max(0, Math.min(100, pct)) + '%';
+    pgsClearFile('pgsEditEntryAttachment', 'pgsEditEntryFilePreview');
     pgsCloseModal('pgsHistoryModal');
     pgsOpenModal('pgsEditEntryModal');
   }
@@ -782,6 +928,47 @@
       return window.location.pathname + (qs ? '?' + qs : '');
     }
 
+    // Keeps the toolbar controls (search box, department, archived,
+    // per_page, and the hidden "overdue" flag) in sync with whatever
+    // filters are actually reflected in a given URL. Without this, a
+    // control that lives outside #pgsResultsContainer (so it survives the
+    // AJAX swap untouched) can silently stay set from an earlier click —
+    // e.g. picking "Your office" or "Past due" — and then get folded into
+    // the next unrelated search, making it look like search is broken or
+    // that results are stuck scoped to one department.
+    function pgsSyncToolbarFromUrl(url) {
+      const params = new URL(url, window.location.origin).searchParams;
+
+      if (search) search.value = params.get('q') || '';
+
+      const deptSel = form.querySelector('select[name="department"]');
+      if (deptSel) deptSel.value = params.get('department') || '';
+
+      const archivedChk = form.querySelector('input[name="show_archived"]');
+      if (archivedChk) archivedChk.checked = params.get('show_archived') === '1';
+
+      const perPageSel = form.querySelector('select[name="per_page"]');
+      if (perPageSel && params.get('per_page')) perPageSel.value = params.get('per_page');
+
+      // The "overdue" flag only exists in the DOM as a hidden input when the
+      // page was originally rendered with it on — it isn't inside the
+      // AJAX-swapped container, so it never gets removed on its own once
+      // added. Manage it here so a stale "past due only" filter can't keep
+      // riding along with later searches.
+      let overdueInput = form.querySelector('input[name="overdue"]');
+      if (params.get('overdue') === '1') {
+        if (!overdueInput) {
+          overdueInput = document.createElement('input');
+          overdueInput.type = 'hidden';
+          overdueInput.name = 'overdue';
+          overdueInput.value = '1';
+          form.appendChild(overdueInput);
+        }
+      } else if (overdueInput) {
+        overdueInput.remove();
+      }
+    }
+
     function loadResults(url) {
       const mySeq = ++requestSeq;
       results.style.transition = 'opacity .1s';
@@ -796,6 +983,7 @@
           if (newResults) results.innerHTML = newResults.innerHTML;
           if (banner && newBanner) banner.innerHTML = newBanner.innerHTML;
           pgsUpdateChartsFromDoc(doc);
+          pgsSyncToolbarFromUrl(url);
           results.style.opacity = '1';
           window.history.replaceState(null, '', url);
         })
