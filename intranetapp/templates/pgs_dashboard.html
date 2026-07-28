@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}PGS Monitoring — MHARSMC Intranet{% endblock %}
+{% block title %}OSM Operations Review — MHARSMC Intranet{% endblock %}
 {% block page_title %}Performance Governance System{% endblock %}
-{% block breadcrumb %}PGS Monitoring{% endblock %}
+{% block breadcrumb %}OSM Operations Review{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -145,15 +145,26 @@
     border: 2px dashed var(--border); border-radius: 12px; background: var(--white);
   }
 
-  /* ── Pagination ── */
-  .pgs-pagination {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    margin-top: 18px; flex-wrap: wrap;
-  }
-  .pgs-pagination a { text-decoration: none; }
+  /* ── Pagination (press-release style) ── */
   .pgs-pagination-summary {
     text-align: center; font-size: .76rem; color: var(--text-muted); margin-top: 8px;
   }
+  .pgs-pagination-wrap {
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 18px; gap: 4px; flex-wrap: wrap;
+  }
+  .pgs-page-btn {
+    min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .83rem; font-family: inherit; font-weight: 500;
+    border: 1px solid var(--border); background: var(--white); color: var(--text-primary);
+    cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, color .15s;
+    line-height: 1;
+  }
+  .pgs-page-btn:hover { background: var(--green-pale); border-color: var(--green-mid); color: var(--green-dark); }
+  .pgs-page-btn.active { background: var(--green-mid); border-color: var(--green-mid); color: var(--white); cursor: default; font-weight: 600; }
+  .pgs-page-btn.disabled { opacity: .4; pointer-events: none; cursor: default; }
+  .pgs-page-ellipsis { min-width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; font-size: .83rem; color: var(--text-muted); }
 
   /* ── Modals ── */
   .pgs-modal {
@@ -486,22 +497,17 @@
   {% endfor %}
 </div>
 
-{% if paginator.num_pages > 1 %}
-<div class="pgs-pagination">
-  {% if page_obj.has_previous %}
-    <a class="pgs-btn ghost small" href="?{{ base_querystring }}{% if base_querystring %}&{% endif %}page=1">&laquo; First</a>
-    <a class="pgs-btn ghost small" href="?{{ base_querystring }}{% if base_querystring %}&{% endif %}page={{ page_obj.previous_page_number }}">&lsaquo; Prev</a>
-  {% endif %}
-  <span style="font-size:.82rem;color:var(--text-muted);padding:0 8px;">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
-  {% if page_obj.has_next %}
-    <a class="pgs-btn ghost small" href="?{{ base_querystring }}{% if base_querystring %}&{% endif %}page={{ page_obj.next_page_number }}">Next &rsaquo;</a>
-    <a class="pgs-btn ghost small" href="?{{ base_querystring }}{% if base_querystring %}&{% endif %}page={{ paginator.num_pages }}">Last &raquo;</a>
-  {% endif %}
-</div>
-{% endif %}
 <div class="pgs-pagination-summary">
   Showing {{ page_obj.start_index }}&ndash;{{ page_obj.end_index }} of {{ paginator.count }} deliverable{{ paginator.count|pluralize }}
 </div>
+{% if paginator.num_pages > 1 %}
+<div class="pgs-pagination-wrap"
+     id="pgsPaginationWrap"
+     role="navigation"
+     aria-label="Pagination"
+     data-current="{{ page_obj.number }}"
+     data-total="{{ paginator.num_pages }}"></div>
+{% endif %}
 
 {% else %}
 <div class="pgs-empty">
@@ -904,6 +910,56 @@
     }
   });
 
+  // ── Pagination (built client-side, press-release style: numbered
+  // buttons with ellipsis + chevron prev/next), driven off the data-*
+  // attributes the server renders into #pgsPaginationWrap. ──
+  function pgsBuildPageUrl(p) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', p);
+    return '?' + params.toString();
+  }
+
+  function pgsRenderPagination() {
+    const wrap = document.getElementById('pgsPaginationWrap');
+    if (!wrap) return;
+    const current = parseInt(wrap.dataset.current, 10);
+    const total   = parseInt(wrap.dataset.total, 10);
+    if (!total || total <= 1) { wrap.innerHTML = ''; return; }
+
+    let html = '';
+
+    html += current > 1
+      ? `<a href="${pgsBuildPageUrl(current - 1)}" class="pgs-page-btn" aria-label="Previous page"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>`
+      : `<span class="pgs-page-btn disabled" aria-disabled="true"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>`;
+
+    const shown = { left: false, right: false };
+    for (let n = 1; n <= total; n++) {
+      const isActive = n === current;
+      const isEdge   = n === 1 || n === total;
+      const isNear   = n >= current - 2 && n <= current + 2;
+
+      if (isActive) {
+        html += `<span class="pgs-page-btn active" aria-current="page">${n}</span>`;
+      } else if (isEdge || isNear) {
+        html += `<a href="${pgsBuildPageUrl(n)}" class="pgs-page-btn">${n}</a>`;
+      } else if (n === current - 3 && !shown.left) {
+        shown.left = true;
+        html += `<span class="pgs-page-ellipsis">…</span>`;
+      } else if (n === current + 3 && !shown.right) {
+        shown.right = true;
+        html += `<span class="pgs-page-ellipsis">…</span>`;
+      }
+    }
+
+    html += current < total
+      ? `<a href="${pgsBuildPageUrl(current + 1)}" class="pgs-page-btn" aria-label="Next page"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>`
+      : `<span class="pgs-page-btn disabled" aria-disabled="true"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>`;
+
+    wrap.innerHTML = html;
+  }
+
+  pgsRenderPagination(); // initial render on page load
+
   // ── Live search / filtering (no full page reload) ──
   // Debounces typing in the search box, and applies department/archived/
   // per-page changes instantly, by re-fetching this same URL with updated
@@ -984,6 +1040,7 @@
           if (banner && newBanner) banner.innerHTML = newBanner.innerHTML;
           pgsUpdateChartsFromDoc(doc);
           pgsSyncToolbarFromUrl(url);
+          pgsRenderPagination();
           results.style.opacity = '1';
           window.history.replaceState(null, '', url);
         })
