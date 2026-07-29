@@ -70,6 +70,25 @@ urlpatterns = [
 
     # Main list / tabs
     path('wiki/',                              views.wiki,               name='wiki'),
+
+    # E-Library
+    path('e-library/', views.e_library, name='e_library'),
+    path('e-library/create/', views.e_library_create, name='e_library_create'),
+    path('e-library/<int:pk>/edit/', views.e_library_edit, name='e_library_edit'),
+    path('e-library/<int:pk>/delete/', views.e_library_delete, name='e_library_delete'),
+    path('e-library/<int:pk>/toggle-status/', views.e_library_toggle_status, name='e_library_toggle_status'),
+ 
+    path('e-library/categories/add/', views.e_library_category_add, name='e_library_category_add'),
+    path('e-library/categories/<int:pk>/edit/', views.e_library_category_edit, name='e_library_category_edit'),
+    path('e-library/categories/<int:pk>/delete/', views.e_library_category_delete, name='e_library_category_delete'),
+ 
+    path('e-library/tags/add/', views.e_library_tag_add, name='e_library_tag_add'),
+    path('e-library/tags/<int:pk>/edit/', views.e_library_tag_edit, name='e_library_tag_edit'),
+    path('e-library/tags/<int:pk>/delete/', views.e_library_tag_delete, name='e_library_tag_delete'),
+
+    path('e-library/material-types/add/', views.e_library_material_type_add, name='e_library_material_type_add'),
+    path('e-library/material-types/<int:pk>/edit/', views.e_library_material_type_edit, name='e_library_material_type_edit'),
+    path('e-library/material-types/<int:pk>/delete/', views.e_library_material_type_delete, name='e_library_material_type_delete'),
  
     # Article CRUD
     path('wiki/create/',                       views.wiki_create,        name='wiki_create'),

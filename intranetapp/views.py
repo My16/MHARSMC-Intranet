@@ -4097,25 +4097,58 @@ def _actor_display_name(user):
     return user.get_full_name() or user.username
 
 
-def _notify_pgs_event(actor, notif_type, title, message, url):
+
+def _notify_e_library_event(actor, notif_type, title, message, url):
     """
-    Broadcast a PGS notification to every other active user, so anything
-    logged/added/changed in PGS shows up in everyone's notification bell.
-    These are created as plain DB rows — picked up by the existing
-    notifications_list polling — since PGS doesn't have a live websocket
-    channel the way Messenger does. If you want a live push too, this is
-    the spot to also channel_layer.group_send to notif_user_{r.pk}, same
-    pattern as messenger_send.
+    Broadcast an e-Library notification to every other active user: creates
+    the DB rows (picked up by notifications_list polling / on next page
+    load), and also pushes each one live over the notif_user_{pk} websocket
+    group — same pattern as messenger_send and _notify_pgs_event — so the
+    bell updates immediately instead of waiting for a poll.
     """
+    from asgiref.sync import async_to_sync
+    from channels.layers import get_channel_layer
+    from django.db.models import Count
     from .models import Notification
+
     recipients = User.objects.filter(is_active=True).exclude(pk=actor.pk)
-    Notification.objects.bulk_create([
+    if not recipients.exists():
+        return
+
+    notifications = Notification.objects.bulk_create([
         Notification(
             recipient=r, actor=actor, notif_type=notif_type,
             title=title, message=message, url=url,
         )
         for r in recipients
     ])
+
+    recipient_ids = [n.recipient_id for n in notifications]
+    unread_counts = dict(
+        Notification.objects.filter(recipient_id__in=recipient_ids, is_read=False)
+        .values('recipient_id')
+        .annotate(count=Count('id'))
+        .values_list('recipient_id', 'count')
+    )
+
+    channel_layer = get_channel_layer()
+    actor_name = _actor_display_name(actor)
+
+    for n in notifications:
+        async_to_sync(channel_layer.group_send)(
+            f'notif_user_{n.recipient_id}',
+            {
+                'type':         'send_notification',   # -> NotificationConsumer.send_notification
+                'id':           n.pk,
+                'notif_type':   n.notif_type,
+                'title':        n.title,
+                'message':      n.message,
+                'url':          n.url,
+                'actor':        actor_name,
+                'created_at':   n.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'unread_count': unread_counts.get(n.recipient_id, 0),
+            }
+        )
 
 
 @login_required
@@ -4359,14 +4392,6 @@ def pgs_indicator_add(request):
         )
         messages.success(request, f'Deliverable "{indicator.title}" has been added.')
 
-        _notify_pgs_event(
-            request.user,
-            'pgs_deliverable_added',
-            'New PGS deliverable added',
-            f'{_actor_display_name(request.user)} added "{indicator.title}" under {indicator.get_department_display()}.',
-            reverse('pgs_dashboard'),
-        )
-
     return redirect('pgs_dashboard')
 
 
@@ -4416,14 +4441,6 @@ def pgs_indicator_edit(request, pk):
         indicator.save()
         messages.success(request, f'Deliverable "{indicator.title}" has been updated.')
 
-        _notify_pgs_event(
-            request.user,
-            'pgs_deliverable_updated',
-            'PGS deliverable updated',
-            f'{_actor_display_name(request.user)} updated "{indicator.title}".',
-            reverse('pgs_dashboard'),
-        )
-
     return redirect('pgs_dashboard')
 
 
@@ -4441,14 +4458,6 @@ def pgs_indicator_archive(request, pk):
         indicator.save()
         verb = 'archived' if indicator.is_archived else 'restored'
         messages.success(request, f'Deliverable "{indicator.title}" has been {verb}.')
-
-        _notify_pgs_event(
-            request.user,
-            'pgs_deliverable_archived' if indicator.is_archived else 'pgs_deliverable_restored',
-            f'PGS deliverable {verb}',
-            f'{_actor_display_name(request.user)} {verb} "{indicator.title}".',
-            reverse('pgs_dashboard'),
-        )
 
     return redirect('pgs_dashboard')
 
@@ -4516,14 +4525,6 @@ def pgs_entry_add(request, indicator_id):
         )
         messages.success(request, f'Progress for "{indicator.title}" has been recorded.')
 
-        _notify_pgs_event(
-            request.user,
-            'pgs_progress_logged',
-            f'Progress logged: {indicator.title}',
-            f'{_actor_display_name(request.user)} logged {round(percent_complete)}% progress on "{indicator.title}".',
-            reverse('pgs_dashboard'),
-        )
-
     return redirect('pgs_dashboard')
 
 
@@ -4559,14 +4560,6 @@ def pgs_entry_edit(request, pk):
             entry.attachment = attachment
         entry.save()
         messages.success(request, f'Progress entry for "{entry.indicator.title}" has been updated.')
-
-        _notify_pgs_event(
-            request.user,
-            'pgs_progress_updated',
-            f'Progress updated: {entry.indicator.title}',
-            f'{_actor_display_name(request.user)} updated a progress entry on "{entry.indicator.title}".',
-            reverse('pgs_dashboard'),
-        )
 
     return redirect('pgs_dashboard')
 
@@ -4651,3 +4644,596 @@ def _notify_pgs_event(actor, notif_type, title, message, url):
                 'unread_count': unread_counts.get(n.recipient_id, 0),
             }
         )
+
+
+
+
+
+def _can_manage_e_library(user):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return hasattr(user, 'profile') and user.profile.can_edit_module('e_library')
+ 
+ 
+def _resolve_e_library_tags(tags_input):
+    from .models import ELibraryTag
+    pks = []
+    for raw in tags_input.split(','):
+        name = raw.strip()
+        if name:
+            tag, _ = ELibraryTag.objects.get_or_create(name=name)
+            pks.append(tag.pk)
+    return pks
+ 
+ 
+# ── List / catalog view ────────────────────────────────────────────────────
+@login_required
+def e_library(request):
+    from .models import ELibraryItem, ELibraryCategory, ELibraryTag, ELibraryMaterialType
+ 
+    can_manage = _can_manage_e_library(request.user)
+    can_view = request.user.is_superuser or (
+        hasattr(request.user, 'profile') and request.user.profile.has_module_access('e_library')
+    )
+ 
+    search_query    = request.GET.get('search', '').strip()
+    status_filter   = request.GET.get('status', '')
+    category_filter = request.GET.get('category', '')
+    type_filter     = request.GET.get('type', '')
+    tag_filter      = request.GET.get('tag', '')
+    year_filter     = request.GET.get('year', '').strip()
+ 
+    try:
+        per_page = int(request.GET.get('per_page', 12))
+    except (ValueError, TypeError):
+        per_page = 12
+    if per_page not in (12, 24, 48, 96):
+        per_page = 12
+ 
+    qs = (
+        ELibraryItem.objects
+        .select_related('category', 'material_type', 'uploaded_by')
+        .prefetch_related('tags')
+        .order_by('category__name', '-created_at')
+    )
+ 
+    if not can_manage:
+        qs = qs.filter(status='published')
+        status_filter = ''
+ 
+    if search_query:
+        qs = qs.filter(
+            Q(title__icontains=search_query) |
+            Q(authors__icontains=search_query) |
+            Q(publisher__icontains=search_query) |
+            Q(isbn__icontains=search_query) |
+            Q(call_number__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(category__name__icontains=search_query) |
+            Q(material_type__name__icontains=search_query) |
+            Q(tags__name__icontains=search_query)
+        ).distinct()
+ 
+    if can_manage and status_filter in ('draft', 'published', 'archived'):
+        qs = qs.filter(status=status_filter)
+ 
+    if category_filter:
+        qs = qs.filter(category_id=category_filter)
+ 
+    if type_filter:
+        qs = qs.filter(material_type_id=type_filter)
+ 
+    if tag_filter:
+        qs = qs.filter(tags__pk=tag_filter)
+ 
+    if year_filter:
+        try:
+            qs = qs.filter(publication_year=int(year_filter))
+        except ValueError:
+            year_filter = ''
+ 
+    if can_manage:
+        total_count     = ELibraryItem.objects.count()
+        published_count = ELibraryItem.objects.filter(status='published').count()
+        draft_count     = ELibraryItem.objects.filter(status='draft').count()
+        archived_count  = ELibraryItem.objects.filter(status='archived').count()
+    else:
+        total_count     = ELibraryItem.objects.filter(status='published').count()
+        published_count = total_count
+        draft_count     = None
+        archived_count  = None
+ 
+    paginator   = Paginator(qs, per_page)
+    page_number = request.GET.get('page', '').strip() or 1
+    page_obj    = paginator.get_page(page_number)
+ 
+    cat_search = request.GET.get('cat_search', '').strip()
+    categories_qs = ELibraryCategory.objects.all()
+    if cat_search:
+        categories_qs = categories_qs.filter(name__icontains=cat_search)
+    all_categories = ELibraryCategory.objects.all()
+ 
+    tag_search = request.GET.get('tag_search', '').strip()
+    tags_qs = ELibraryTag.objects.all()
+    if tag_search:
+        tags_qs = tags_qs.filter(name__icontains=tag_search)
+    all_tags = ELibraryTag.objects.all()
+ 
+    mt_search = request.GET.get('mt_search', '').strip()
+    material_types_qs = ELibraryMaterialType.objects.all()
+    if mt_search:
+        material_types_qs = material_types_qs.filter(name__icontains=mt_search)
+    all_material_types = ELibraryMaterialType.objects.all()
+ 
+    available_years = (
+        ELibraryItem.objects.exclude(publication_year__isnull=True)
+        .values_list('publication_year', flat=True)
+        .distinct()
+        .order_by('-publication_year')
+    )
+ 
+    return render(request, 'e_library.html', {
+        'items':               page_obj,
+        'can_manage':          can_manage,
+        'can_view':            can_view,
+        'search_query':        search_query,
+        'status_filter':       status_filter,
+        'category_filter':     category_filter,
+        'type_filter':         type_filter,
+        'tag_filter':          tag_filter,
+        'year_filter':         year_filter,
+        'available_years':     available_years,
+        'per_page':            per_page,
+        'total_count':         total_count,
+        'published_count':     published_count,
+        'draft_count':         draft_count,
+        'archived_count':      archived_count,
+        'all_categories':      all_categories,
+        'all_tags':            all_tags,
+        'all_material_types':  all_material_types,
+        'categories_qs':       categories_qs,
+        'tags_qs':             tags_qs,
+        'material_types_qs':   material_types_qs,
+        'cat_search':          cat_search,
+        'tag_search':          tag_search,
+        'mt_search':           mt_search,
+        'material_types':      all_material_types,
+    })
+ 
+ 
+# ── Create ──────────────────────────────────────────────────────────────────
+@login_required
+def e_library_create(request):
+    from .models import ELibraryItem, ELibraryCategory, ELibraryMaterialType
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to add e-Library items.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        title             = request.POST.get('title', '').strip()
+        material_type_pk  = request.POST.get('material_type', '')
+        authors           = request.POST.get('authors', '').strip()
+        publisher         = request.POST.get('publisher', '').strip()
+        publication_year  = request.POST.get('publication_year', '').strip() or None
+        edition           = request.POST.get('edition', '').strip()
+        isbn              = request.POST.get('isbn', '').strip()
+        call_number       = request.POST.get('call_number', '').strip()
+        category_pk       = request.POST.get('category', '')
+        tags_input        = request.POST.get('tags_input', '').strip()
+        description       = request.POST.get('description', '').strip()
+        status            = request.POST.get('status', 'draft')
+        archive_policy    = request.POST.get('archive_policy', 'default')
+        archive_date      = request.POST.get('archive_date', '') or None
+        attachment        = request.FILES.get('attachment')
+        cover_image       = request.FILES.get('cover_image')
+ 
+        errors = []
+        if not title:            errors.append('Title is required.')
+        if not category_pk:      errors.append('Category is required.')
+        if not material_type_pk: errors.append('Material Type is required.')
+        if not attachment:       errors.append('File is required.')
+        if status not in ('draft', 'published'):
+            status = 'draft'
+ 
+        if publication_year:
+            try:
+                publication_year = int(publication_year)
+            except ValueError:
+                errors.append('Year Published must be a valid number.')
+                publication_year = None
+ 
+        category = None
+        if category_pk:
+            try:
+                category = ELibraryCategory.objects.get(pk=category_pk)
+            except ELibraryCategory.DoesNotExist:
+                errors.append('Selected category does not exist.')
+ 
+        material_type = None
+        if material_type_pk:
+            try:
+                material_type = ELibraryMaterialType.objects.get(pk=material_type_pk)
+            except ELibraryMaterialType.DoesNotExist:
+                errors.append('Selected material type does not exist.')
+ 
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            return redirect('e_library')
+ 
+        item = ELibraryItem(
+            title=title, material_type=material_type, authors=authors,
+            publisher=publisher, publication_year=publication_year, edition=edition,
+            isbn=isbn, call_number=call_number, category=category,
+            description=description, status=status,
+            archive_policy=archive_policy, archive_date=archive_date,
+            uploaded_by=request.user, attachment=attachment,
+        )
+        if cover_image:
+            item.cover_image = cover_image
+        item.save()
+        if tags_input:
+            item.tags.set(_resolve_e_library_tags(tags_input))
+
+        verb = 'published' if status == 'published' else 'saved as draft'
+        messages.success(request, f'"{title}" has been {verb}.')
+ 
+    return redirect('e_library')
+ 
+ 
+# ── Edit ────────────────────────────────────────────────────────────────────
+@login_required
+def e_library_edit(request, pk):
+    from .models import ELibraryItem, ELibraryCategory, ELibraryMaterialType
+    item = get_object_or_404(ELibraryItem, pk=pk)
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to edit e-Library items.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        title             = request.POST.get('title', '').strip()
+        material_type_pk  = request.POST.get('material_type', '')
+        authors           = request.POST.get('authors', '').strip()
+        publisher         = request.POST.get('publisher', '').strip()
+        publication_year  = request.POST.get('publication_year', '').strip() or None
+        edition           = request.POST.get('edition', '').strip()
+        isbn              = request.POST.get('isbn', '').strip()
+        call_number       = request.POST.get('call_number', '').strip()
+        category_pk       = request.POST.get('category', '')
+        tags_input        = request.POST.get('tags_input', '').strip()
+        description       = request.POST.get('description', '').strip()
+        status            = request.POST.get('status', item.status)
+        archive_policy    = request.POST.get('archive_policy', item.archive_policy)
+        archive_date      = request.POST.get('archive_date', '') or None
+        attachment        = request.FILES.get('attachment')
+        cover_image       = request.FILES.get('cover_image')
+        clear_cover       = request.POST.get('clear_cover') == '1'
+ 
+        errors = []
+        if not title:            errors.append('Title is required.')
+        if not category_pk:      errors.append('Category is required.')
+        if not material_type_pk: errors.append('Material Type is required.')
+        if status not in ('draft', 'published', 'archived'):
+            status = item.status
+ 
+        if publication_year:
+            try:
+                publication_year = int(publication_year)
+            except ValueError:
+                errors.append('Year Published must be a valid number.')
+                publication_year = item.publication_year
+ 
+        category = None
+        if category_pk:
+            try:
+                category = ELibraryCategory.objects.get(pk=category_pk)
+            except ELibraryCategory.DoesNotExist:
+                errors.append('Selected category does not exist.')
+ 
+        material_type = None
+        if material_type_pk:
+            try:
+                material_type = ELibraryMaterialType.objects.get(pk=material_type_pk)
+            except ELibraryMaterialType.DoesNotExist:
+                errors.append('Selected material type does not exist.')
+ 
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            return redirect('e_library')
+ 
+        item.title            = title
+        item.material_type    = material_type
+        item.authors          = authors
+        item.publisher        = publisher
+        item.publication_year = publication_year
+        item.edition          = edition
+        item.isbn             = isbn
+        item.call_number      = call_number
+        item.category         = category
+        item.description      = description
+        item.status           = status
+        item.archive_policy   = archive_policy
+        item.archive_date     = archive_date
+ 
+        if attachment:
+            if item.attachment:
+                item.attachment.delete(save=False)
+            item.attachment = attachment
+ 
+        if clear_cover and item.cover_image:
+            item.cover_image.delete(save=False)
+            item.cover_image = None
+        elif cover_image:
+            if item.cover_image:
+                item.cover_image.delete(save=False)
+            item.cover_image = cover_image
+ 
+        item.save()
+        item.tags.set(_resolve_e_library_tags(tags_input))
+
+        messages.success(request, f'"{title}" has been updated.')
+ 
+    return redirect('e_library')
+ 
+ 
+# ── Delete ──────────────────────────────────────────────────────────────────
+@login_required
+def e_library_delete(request, pk):
+    from .models import ELibraryItem
+    item = get_object_or_404(ELibraryItem, pk=pk)
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to delete e-Library items.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        title = item.title
+        if item.attachment:
+            item.attachment.delete(save=False)
+        if item.cover_image:
+            item.cover_image.delete(save=False)
+        item.delete()
+        messages.success(request, f'"{title}" has been deleted.')
+
+        _notify_e_library_event(
+            request.user,
+            'library_item_deleted',
+            'e-Library item deleted',
+            f'{_actor_display_name(request.user)} deleted "{title}" from the e-Library.',
+            reverse('e_library'),
+        )
+ 
+    return redirect('e_library')
+ 
+ 
+# ── Status toggle (AJAX) ─────────────────────────────────────────────────────
+@login_required
+def e_library_toggle_status(request, pk):
+    from .models import ELibraryItem
+    if not _can_manage_e_library(request.user):
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+ 
+    item   = get_object_or_404(ELibraryItem, pk=pk)
+    action = request.POST.get('action', '')
+ 
+    if action == 'publish':
+        item.status = ELibraryItem.STATUS_PUBLISHED
+    elif action == 'draft':
+        item.status = ELibraryItem.STATUS_DRAFT
+    elif action == 'archive':
+        item.status = ELibraryItem.STATUS_ARCHIVED
+    elif action == 'unarchive':
+        item.status = ELibraryItem.STATUS_PUBLISHED if item.published_at else ELibraryItem.STATUS_DRAFT
+    else:
+        return JsonResponse({'success': False, 'error': 'Unknown action.'})
+ 
+    item.save()
+
+    return JsonResponse({'success': True, 'status': item.status, 'label': item.get_status_display()})
+ 
+ 
+# ── Category CRUD ────────────────────────────────────────────────────────────
+@login_required
+def e_library_category_add(request):
+    from .models import ELibraryCategory
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage categories.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if not name:
+            messages.error(request, 'Category name is required.')
+        elif ELibraryCategory.objects.filter(name__iexact=name).exists():
+            messages.error(request, f'Category "{name}" already exists.')
+        else:
+            ELibraryCategory.objects.create(name=name)
+            messages.success(request, f'Category "{name}" has been created.')
+ 
+    return redirect('/e-library/?manage=categories')
+ 
+ 
+@login_required
+def e_library_category_edit(request, pk):
+    from .models import ELibraryCategory
+    category = get_object_or_404(ELibraryCategory, pk=pk)
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage categories.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if not name:
+            messages.error(request, 'Category name is required.')
+        elif ELibraryCategory.objects.filter(name__iexact=name).exclude(pk=pk).exists():
+            messages.error(request, f'Category "{name}" already exists.')
+        else:
+            category.name = name
+            category.save()
+            messages.success(request, f'Category updated to "{name}".')
+ 
+    return redirect('/e-library/?manage=categories')
+ 
+ 
+@login_required
+def e_library_category_delete(request, pk):
+    from .models import ELibraryCategory
+    category = get_object_or_404(ELibraryCategory, pk=pk)
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage categories.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        if category.item_count > 0:
+            messages.error(
+                request,
+                f'Cannot delete "{category.name}" — it has {category.item_count} '
+                f'item(s) assigned. Reassign them first.'
+            )
+        else:
+            name = category.name
+            category.delete()
+            messages.success(request, f'Category "{name}" has been deleted.')
+ 
+    return redirect('/e-library/?manage=categories')
+ 
+ 
+# ── Tag CRUD ──────────────────────────────────────────────────────────────────
+@login_required
+def e_library_tag_add(request):
+    from .models import ELibraryTag
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage tags.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if not name:
+            messages.error(request, 'Tag name is required.')
+        elif ELibraryTag.objects.filter(name__iexact=name).exists():
+            messages.error(request, f'Tag "{name}" already exists.')
+        else:
+            ELibraryTag.objects.create(name=name)
+            messages.success(request, f'Tag "{name}" has been created.')
+ 
+    return redirect('/e-library/?manage=tags')
+ 
+ 
+@login_required
+def e_library_tag_edit(request, pk):
+    from .models import ELibraryTag
+    tag = get_object_or_404(ELibraryTag, pk=pk)
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage tags.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if not name:
+            messages.error(request, 'Tag name is required.')
+        elif ELibraryTag.objects.filter(name__iexact=name).exclude(pk=pk).exists():
+            messages.error(request, f'Tag "{name}" already exists.')
+        else:
+            tag.name = name
+            tag.save()
+            messages.success(request, f'Tag updated to "{name}".')
+ 
+    return redirect('/e-library/?manage=tags')
+ 
+ 
+@login_required
+def e_library_tag_delete(request, pk):
+    from .models import ELibraryTag
+    tag = get_object_or_404(ELibraryTag, pk=pk)
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage tags.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        name = tag.name
+        tag.delete()
+        messages.success(request, f'Tag "{name}" has been deleted.')
+ 
+    return redirect('/e-library/?manage=tags')
+ 
+ 
+# ── Material Type CRUD ────────────────────────────────────────────────────────
+@login_required
+def e_library_material_type_add(request):
+    from .models import ELibraryMaterialType
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage material types.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        icon = request.POST.get('icon', '').strip() or 'fa-file'
+        if not name:
+            messages.error(request, 'Material type name is required.')
+        elif ELibraryMaterialType.objects.filter(name__iexact=name).exists():
+            messages.error(request, f'Material type "{name}" already exists.')
+        else:
+            ELibraryMaterialType.objects.create(name=name, icon=icon)
+            messages.success(request, f'Material type "{name}" has been created.')
+ 
+    return redirect('/e-library/?manage=material_types')
+ 
+ 
+@login_required
+def e_library_material_type_edit(request, pk):
+    from .models import ELibraryMaterialType
+    mt = get_object_or_404(ELibraryMaterialType, pk=pk)
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage material types.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        icon = request.POST.get('icon', '').strip() or 'fa-file'
+        if not name:
+            messages.error(request, 'Material type name is required.')
+        elif ELibraryMaterialType.objects.filter(name__iexact=name).exclude(pk=pk).exists():
+            messages.error(request, f'Material type "{name}" already exists.')
+        else:
+            mt.name = name
+            mt.icon = icon
+            mt.save()
+            messages.success(request, f'Material type updated to "{name}".')
+ 
+    return redirect('/e-library/?manage=material_types')
+ 
+ 
+@login_required
+def e_library_material_type_delete(request, pk):
+    from .models import ELibraryMaterialType
+    mt = get_object_or_404(ELibraryMaterialType, pk=pk)
+ 
+    if not _can_manage_e_library(request.user):
+        messages.error(request, 'You do not have permission to manage material types.')
+        return redirect('e_library')
+ 
+    if request.method == 'POST':
+        if mt.item_count > 0:
+            messages.error(
+                request,
+                f'Cannot delete "{mt.name}" — it has {mt.item_count} '
+                f'item(s) assigned. Reassign them first.'
+            )
+        else:
+            name = mt.name
+            mt.delete()
+            messages.success(request, f'Material type "{name}" has been deleted.')
+ 
+    return redirect('/e-library/?manage=material_types')

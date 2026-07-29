@@ -146,3 +146,50 @@ def on_corner_post_save(sender, instance, created, **kwargs):
             message=instance.title,
             url=f'/employees-corner/?tab={instance.category}',
         )
+
+
+# ── e-Library ──────────────────────────────────────────────────────────────────
+@receiver(post_save, sender='intranetapp.ELibraryItem')
+def on_e_library_item_save(sender, instance, created, **kwargs):
+    if instance.status == 'published':
+        verb = 'added a new' if created else 'updated an'
+        actor = instance.uploaded_by
+        _broadcast(
+            actor=actor,
+            notif_type=Notification.TYPE_ELIBRARY,
+            title=f'{actor.get_full_name() or actor.username} {verb} e-Library item',
+            message=instance.title,
+            url='/e-library/',
+        )
+
+
+# ── PGS: Deliverables ─────────────────────────────────────────────────────────
+@receiver(post_save, sender='intranetapp.PGSIndicator')
+def on_pgs_indicator_save(sender, instance, created, **kwargs):
+    actor = instance.created_by
+    if not actor:
+        return
+    verb = 'added a new' if created else 'updated a'
+    _broadcast(
+        actor=actor,
+        notif_type=Notification.TYPE_PGS,
+        title=f'{actor.get_full_name() or actor.username} {verb} PGS deliverable',
+        message=f'{instance.title} ({instance.get_department_display()})',
+        url='/pgs/',
+    )
+
+
+# ── PGS: Progress Entries ──────────────────────────────────────────────────────
+@receiver(post_save, sender='intranetapp.PGSProgressEntry')
+def on_pgs_entry_save(sender, instance, created, **kwargs):
+    actor = instance.submitted_by
+    if not actor:
+        return
+    verb = 'logged' if created else 'updated'
+    _broadcast(
+        actor=actor,
+        notif_type=Notification.TYPE_PGS,
+        title=f'{actor.get_full_name() or actor.username} {verb} PGS progress',
+        message=f'{instance.indicator.title} — {round(instance.percent_complete)}%',
+        url='/pgs/',
+    )

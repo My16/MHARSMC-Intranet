@@ -1131,6 +1131,8 @@ class Notification(models.Model):
     TYPE_DOWNLOAD      = 'download'
     TYPE_APPLICATION   = 'application'
     TYPE_CORNER_POST   = 'corner_post'
+    TYPE_PGS      = 'pgs'
+    TYPE_ELIBRARY  = 'elibrary'
 
     TYPE_CHOICES = [
         (TYPE_PRESS_RELEASE, 'Press Release'),
@@ -1141,6 +1143,8 @@ class Notification(models.Model):
         (TYPE_DOWNLOAD,      'Download'),
         (TYPE_APPLICATION,   'Application'),
         (TYPE_CORNER_POST,   'Employee Corner Post'),
+        (TYPE_PGS,           'PGS Deliverables/Progress'),
+        (TYPE_ELIBRARY,      'E-Library Item'),
     ]
 
     recipient   = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
@@ -1440,3 +1444,211 @@ class PGSProgressEntry(models.Model):
                 return f'{size:.0f} {unit}'
             size /= 1024.0
         return f'{size:.1f} TB'
+
+
+class ELibraryCategory(models.Model):
+    """
+    Subject / collection categories for the e-Library, e.g. 'Clinical Medicine',
+    'Nursing References', 'Hospital Policies', 'Theses & Research'.
+    """
+    name       = models.CharField(max_length=200, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+ 
+    class Meta:
+        ordering            = ['name']
+        verbose_name        = 'e-Library Category'
+        verbose_name_plural = 'e-Library Categories'
+ 
+    def __str__(self):
+        return self.name
+ 
+    @property
+    def item_count(self):
+        return self.items.count()
+ 
+ 
+class ELibraryTag(models.Model):
+    """Free-form keyword tags attached to e-Library items."""
+    name       = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        ordering            = ['name']
+        verbose_name        = 'e-Library Tag'
+        verbose_name_plural = 'e-Library Tags'
+ 
+    def __str__(self):
+        return self.name
+ 
+    @property
+    def item_count(self):
+        return self.items.count()
+ 
+ 
+class ELibraryMaterialType(models.Model):
+    """
+    Manageable classification for e-Library items (Book, Journal, Thesis,
+    etc). Replaces the old hardcoded TYPE_CHOICES on ELibraryItem so staff
+    can add their own types from the "Manage" panel, the same way they
+    manage Categories and Tags.
+    """
+    name       = models.CharField(max_length=100, unique=True)
+    icon       = models.CharField(
+        max_length=50, blank=True, default='fa-file',
+        verbose_name='Icon',
+        help_text='Font Awesome class shown on cards, e.g. fa-book, fa-newspaper, fa-graduation-cap',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        ordering            = ['name']
+        verbose_name        = 'e-Library Material Type'
+        verbose_name_plural = 'e-Library Material Types'
+ 
+    def __str__(self):
+        return self.name
+ 
+    @property
+    def item_count(self):
+        return self.items.count()
+ 
+ 
+class ELibraryItem(models.Model):
+    """
+    A single catalogued item in the e-Library — a book, journal, thesis,
+    magazine, or institutional report — with standard library metadata
+    (author, publisher, year, edition, ISBN/ISSN, call number) plus the
+    same draft/publish/archive lifecycle used elsewhere in the intranet.
+    """
+ 
+    # ── Status choices ──────────────────────────────────────────────────────
+    STATUS_DRAFT     = 'draft'
+    STATUS_PUBLISHED = 'published'
+    STATUS_ARCHIVED  = 'archived'
+    STATUS_CHOICES = [
+        (STATUS_DRAFT,     'Draft'),
+        (STATUS_PUBLISHED, 'Published'),
+        (STATUS_ARCHIVED,  'Archived'),
+    ]
+ 
+    # ── Archive policy choices ──────────────────────────────────────────────
+    ARCHIVE_DEFAULT = 'default'
+    ARCHIVE_ON_DATE = 'on_date'
+    ARCHIVE_NEVER   = 'never'
+    ARCHIVE_CHOICES = [
+        (ARCHIVE_DEFAULT, 'Use Default Policy'),
+        (ARCHIVE_ON_DATE, 'Archive on specific date'),
+        (ARCHIVE_NEVER,   'Do not archive'),
+    ]
+ 
+    # ── Catalog fields ───────────────────────────────────────────────────────
+    title             = models.CharField(max_length=300)
+    material_type     = models.ForeignKey(
+        ELibraryMaterialType, on_delete=models.PROTECT, related_name='items',
+        verbose_name='Material Type',
+    )
+    authors           = models.CharField(max_length=500, blank=True, default='', verbose_name='Author(s)')
+    publisher         = models.CharField(max_length=300, blank=True, default='')
+    publication_year  = models.PositiveIntegerField(null=True, blank=True, verbose_name='Year Published')
+    edition           = models.CharField(max_length=100, blank=True, default='')
+    isbn              = models.CharField(max_length=50,  blank=True, default='', verbose_name='ISBN / ISSN')
+    call_number       = models.CharField(max_length=100, blank=True, default='', verbose_name='Call Number')
+ 
+    category = models.ForeignKey(
+        ELibraryCategory, on_delete=models.PROTECT, related_name='items', verbose_name='Category',
+    )
+    tags = models.ManyToManyField(ELibraryTag, blank=True, related_name='items', verbose_name='Tags')
+ 
+    description  = models.TextField(blank=True, default='', verbose_name='Abstract / Description')
+    cover_image  = models.ImageField(upload_to='e_library/covers/', blank=True, null=True, verbose_name='Cover Image')
+    attachment   = models.FileField(upload_to='e_library/files/', verbose_name='File')
+ 
+    # ── Status / lifecycle ───────────────────────────────────────────────────
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT)
+ 
+    # ── Archiving ─────────────────────────────────────────────────────────────
+    archive_policy = models.CharField(max_length=20, choices=ARCHIVE_CHOICES, default=ARCHIVE_DEFAULT)
+    archive_date   = models.DateField(blank=True, null=True, help_text='Only used when archive_policy = on_date')
+ 
+    # ── Authorship / timestamps ──────────────────────────────────────────────
+    uploaded_by  = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='e_library_items')
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+ 
+    class Meta:
+        ordering            = ['-created_at']
+        verbose_name        = 'e-Library Item'
+        verbose_name_plural = 'e-Library Items'
+ 
+    def __str__(self):
+        return self.title
+ 
+    def save(self, *args, **kwargs):
+        if self.status == self.STATUS_PUBLISHED and self.published_at is None:
+            self.published_at = timezone.now()
+        super().save(*args, **kwargs)
+ 
+    # ── Status helpers ───────────────────────────────────────────────────────
+    @property
+    def is_draft(self):     return self.status == self.STATUS_DRAFT
+    @property
+    def is_published(self): return self.status == self.STATUS_PUBLISHED
+    @property
+    def is_archived(self):  return self.status == self.STATUS_ARCHIVED
+ 
+    def get_status_badge_class(self):
+        return {
+            self.STATUS_DRAFT:     'badge-draft',
+            self.STATUS_PUBLISHED: 'badge-published',
+            self.STATUS_ARCHIVED:  'badge-archived',
+        }.get(self.status, '')
+ 
+    # ── Display helpers ──────────────────────────────────────────────────────
+    @property
+    def type_icon(self):
+        if self.material_type_id and self.material_type.icon:
+            return self.material_type.icon
+        return 'fa-file'
+ 
+    @property
+    def attachment_name(self):
+        if self.attachment:
+            return self.attachment.name.split('/')[-1]
+        return ''
+ 
+    @property
+    def file_extension(self):
+        if self.attachment:
+            name = self.attachment.name
+            if '.' in name:
+                return name.rsplit('.', 1)[1].lower()
+        return ''
+ 
+    @property
+    def file_size_display(self):
+        if not self.attachment:
+            return ''
+        try:
+            size = self.attachment.size
+        except Exception:
+            return ''
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024:
+                return f'{size:.0f} {unit}'
+            size /= 1024.0
+        return f'{size:.1f} TB'
+ 
+    @property
+    def citation_display(self):
+        """Quick 'Author (Year). Title. Publisher.' style one-liner for cards."""
+        parts = []
+        if self.authors:
+            parts.append(self.authors)
+        if self.publication_year:
+            parts.append(f'({self.publication_year})')
+        if self.publisher:
+            parts.append(f'— {self.publisher}')
+        return ' '.join(parts)
+ 

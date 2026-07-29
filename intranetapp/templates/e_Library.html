@@ -1,0 +1,1267 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}e-Library — MHARSMC Intranet{% endblock %}
+{% block page_title %}e-Library{% endblock %}
+{% block breadcrumb %}e-Library{% endblock %}
+
+{% block extra_css %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600&family=Source+Sans+3:wght@400;500;600&display=swap');
+
+/* ── Toasts ── */
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { background: var(--green-dark); color: var(--white); padding: 12px 18px; border-radius: 8px; font-size: .83rem; box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 10px; opacity: 0; transform: translateX(20px); animation: toastIn .3s forwards, toastOut .3s 3.5s forwards; pointer-events: all; max-width: 360px; }
+.toast.toast-error { background: #c0392b; }
+@keyframes toastIn  { to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+/* ── Header ── */
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.page-header h2 { font-family: 'EB Garamond', serif; font-size: 1.65rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+.page-header h2 small { display: block; font-family: 'Source Sans 3', sans-serif; font-size: .75rem; color: var(--text-muted); font-weight: 400; margin-top: 3px; }
+.header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ── Manage dropdown ── */
+.manage-dropdown-wrap { position: relative; }
+.manage-dropdown { position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-md); z-index: 300; overflow: hidden; display: none; }
+.manage-dropdown.open { display: block; }
+.manage-dropdown-label { padding: 6px 14px 4px; font-size: .68rem; text-transform: uppercase; letter-spacing: .7px; font-weight: 600; color: var(--text-muted); }
+.manage-dropdown-item { display: flex; align-items: center; gap: 9px; padding: 9px 14px; font-size: .84rem; color: var(--text-primary); cursor: pointer; transition: background .12s; }
+.manage-dropdown-item:hover { background: var(--green-pale); color: var(--green-dark); }
+.manage-dropdown-item i { font-size: .84rem; color: var(--text-muted); width: 16px; text-align: center; }
+
+/* ── Buttons ── */
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 8px; font-size: .84rem; font-family: inherit; font-weight: 500; border: none; cursor: pointer; transition: background .18s, box-shadow .18s, transform .15s; white-space: nowrap; line-height: 1; text-decoration: none; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--green-mid); color: var(--white); }
+.btn-primary:hover { background: var(--green-dark); box-shadow: var(--shadow-sm); }
+.btn-outline { background: var(--white); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--green-pale); border-color: var(--green-accent); }
+.btn-danger { background: #c0392b; color: var(--white); }
+.btn-danger:hover { background: #a93226; }
+.btn-sm { padding: 6px 12px; font-size: .78rem; }
+
+/* ── Stat cards ── */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
+.stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-sm); cursor: pointer; transition: box-shadow .18s, border-color .18s, transform .15s; }
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); border-color: var(--green-accent); }
+.stat-card.active { border-color: var(--green-accent); background: var(--green-pale); }
+.stat-icon { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+.stat-icon.all       { background: rgba(45,106,79,.12);  color: var(--green-mid); }
+.stat-icon.published { background: rgba(39,174,96,.15);  color: #219150; }
+.stat-icon.draft     { background: rgba(243,156,18,.15); color: #c87f00; }
+.stat-icon.archived  { background: rgba(100,100,100,.12);color: #666; }
+.stat-value { font-family: 'EB Garamond', serif; font-size: 1.55rem; font-weight: 600; color: var(--text-primary); line-height: 1; }
+.stat-label { font-size: .71rem; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .6px; font-weight: 500; }
+
+/* ── Toolbar ── */
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.search-box { flex: 1; min-width: 200px; position: relative; }
+.search-box i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: .82rem; pointer-events: none; }
+.search-box input { width: 100%; padding: 8px 11px 8px 32px; border: 1px solid var(--border); border-radius: 8px; font-size: .84rem; font-family: inherit; background: var(--white); color: var(--text-primary); outline: none; transition: border-color .18s, box-shadow .18s; }
+.search-box input:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.toolbar-select { padding: 8px 28px 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .82rem; font-family: inherit; color: var(--text-primary); background: var(--white); outline: none; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; transition: border-color .18s, box-shadow .18s; white-space: nowrap; }
+.toolbar-select:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.toolbar-select.has-value { border-color: var(--green-accent); background-color: var(--green-pale); color: var(--green-dark); font-weight: 500; }
+
+/* ── Results bar ── */
+.results-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.results-bar__count { font-size: .8rem; color: var(--text-muted); }
+.results-bar__count strong { color: var(--text-primary); font-weight: 600; }
+
+/* ── Category section ── */
+.cat-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; margin-top: 28px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.cat-section-header:first-of-type { margin-top: 0; }
+.cat-section-title { font-family: 'EB Garamond', serif; font-size: 1.15rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.cat-section-title .cat-count-badge { font-family: 'Source Sans 3', sans-serif; font-size: .72rem; font-weight: 600; background: var(--green-pale); color: var(--green-dark); padding: 2px 9px; border-radius: 20px; }
+
+/* ── Library book-card grid ── */
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.lib-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm); transition: box-shadow .18s, transform .15s, border-color .18s; display: flex; flex-direction: column; }
+.lib-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); border-color: rgba(45,106,79,.25); }
+
+.lib-card__cover { position: relative; width: 100%; height: 168px; background: linear-gradient(160deg, var(--green-pale), #e3f0e8); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+.lib-card__cover img { width: 100%; height: 100%; object-fit: cover; }
+.lib-card__cover-fallback { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--green-mid); font-size: 2.4rem; opacity: .55; }
+.lib-card__type-badge { position: absolute; top: 8px; left: 8px; background: rgba(26,71,49,.82); color: #fff; font-size: .62rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 20px; }
+
+.lib-card__body { padding: 12px 14px 4px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.lib-card__title { font-weight: 600; color: var(--green-dark); font-size: .9rem; line-height: 1.35; cursor: pointer; transition: color .15s; }
+.lib-card__title:hover { color: var(--green-mid); text-decoration: underline; }
+.lib-card__authors { font-size: .78rem; color: var(--text-primary); font-style: italic; }
+.lib-card__meta { font-size: .73rem; color: var(--text-muted); }
+.lib-card__meta span + span::before { content: '·'; margin: 0 5px; }
+.lib-card__call-no { font-size: .68rem; color: var(--text-muted); background: var(--green-pale); display: inline-block; padding: 1px 7px; border-radius: 5px; margin-top: 2px; width: fit-content; }
+.lib-card__tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.tag-pill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: rgba(52,152,219,.08); border: 1px solid rgba(52,152,219,.2); color: #1a6fa8; border-radius: 20px; font-size: .66rem; font-weight: 500; white-space: nowrap; }
+
+.lib-card__footer { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-top: 1px solid var(--border); background: rgba(0,0,0,.015); margin-top: 8px; }
+.status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: .66rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+.status-badge-published { background: rgba(39,174,96,.12); color: #1a7a3c; }
+.status-badge-draft     { background: rgba(243,156,18,.12); color: #a06800; }
+.status-badge-archived  { background: rgba(100,100,100,.1); color: #555; }
+.row-actions { display: flex; align-items: center; gap: 3px; }
+.btn-icon { width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; font-size: .72rem; border: 1px solid var(--border); background: var(--white); color: var(--text-muted); cursor: pointer; transition: background .15s, color .15s, border-color .15s; flex-shrink: 0; }
+.btn-icon:hover { background: var(--green-pale); color: var(--green-dark); border-color: var(--green-accent); }
+.btn-icon.btn-icon-danger { border-color: rgba(192,57,43,.3); color: #c0392b; }
+.btn-icon.btn-icon-danger:hover { background: rgba(192,57,43,.08); border-color: #c0392b; }
+
+/* ── Empty state ── */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; background: var(--white); border: 2px dashed var(--border); border-radius: 12px; gap: 10px; color: var(--text-muted); text-align: center; }
+.empty-state i { font-size: 2.5rem; color: var(--green-light); }
+.empty-state h3 { font-family: 'EB Garamond', serif; font-size: 1.15rem; color: var(--text-primary); }
+.empty-state p { font-size: .85rem; max-width: 300px; line-height: 1.6; }
+
+/* ── Pagination ── */
+.pagination-wrap { display: flex; align-items: center; justify-content: center; margin-top: 28px; gap: 4px; flex-wrap: wrap; }
+.page-btn { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: .83rem; font-weight: 500; border: 1px solid var(--border); background: var(--white); color: var(--text-primary); cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, color .15s; }
+.page-btn:hover  { background: var(--green-pale); border-color: var(--green-accent); color: var(--green-dark); }
+.page-btn.active { background: var(--green-mid); border-color: var(--green-mid); color: var(--white); cursor: default; font-weight: 600; }
+.page-btn.disabled { opacity: .4; pointer-events: none; }
+.page-ellipsis { min-width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; font-size: .83rem; color: var(--text-muted); }
+
+/* ── Category/tag/material-type management cards ── */
+.manage-panel { display: none; background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: var(--shadow-sm); margin-bottom: 20px; }
+.manage-panel.open { display: block; }
+.manage-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.manage-panel-header h3 { font-family: 'EB Garamond', serif; font-size: 1.1rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.manage-panel-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1rem; padding: 4px; border-radius: 5px; transition: color .15s, background .15s; }
+.manage-panel-close:hover { color: var(--green-dark); background: var(--green-pale); }
+.panel-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.cat-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--shadow-sm); transition: box-shadow .18s, transform .18s; }
+.cat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.cat-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .88rem; flex-shrink: 0; }
+.cat-icon-green { background: rgba(45,106,79,.1); color: var(--green-mid); }
+.cat-icon-blue  { background: rgba(52,152,219,.1); color: #2980b9; }
+.cat-body { flex: 1; min-width: 0; }
+.cat-name { font-weight: 600; color: var(--text-primary); font-size: .88rem; line-height: 1.3; word-break: break-word; }
+.cat-meta { font-size: .72rem; color: var(--text-muted); margin-top: 3px; }
+.cat-actions { display: flex; gap: 4px; margin-top: 8px; }
+
+/* ── Modal system ── */
+.modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(10,31,20,.55); z-index: 800; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(2px); }
+.modal-backdrop.open { display: flex; }
+.modal { background: var(--white); border-radius: 14px; width: 100%; max-width: 700px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; box-shadow: var(--shadow-lg); animation: modalIn .22s cubic-bezier(.4,0,.2,1); overflow: hidden; }
+.modal-sm  { max-width: 460px; }
+.modal-xs  { max-width: 380px; }
+@keyframes modalIn { from { opacity: 0; transform: scale(.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.modal__header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0; }
+.modal__header-icon { width: 38px; height: 38px; border-radius: 9px; background: var(--green-pale); display: flex; align-items: center; justify-content: center; color: var(--green-mid); font-size: .95rem; flex-shrink: 0; }
+.modal__header-title { flex: 1; min-width: 0; }
+.modal__header-title h3 { font-family: 'EB Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
+.modal__header-title p  { font-size: .77rem; color: var(--text-muted); margin-top: 2px; }
+.modal__close { width: 30px; height: 30px; border-radius: 6px; background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: .9rem; display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s; flex-shrink: 0; }
+.modal__close:hover { background: var(--green-pale); color: var(--green-dark); }
+.modal__body { padding: 20px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.modal__footer { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0; background: var(--green-pale); }
+.modal-danger .modal__header-icon { background: rgba(192,57,43,.1); color: #c0392b; }
+
+/* ── Form elements ── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+@media (max-width: 560px) { .form-row, .form-row-3 { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: .8rem; font-weight: 600; color: var(--text-primary); letter-spacing: .2px; }
+.form-group label .req { color: #c0392b; margin-left: 2px; }
+.form-control { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: .85rem; font-family: inherit; color: var(--text-primary); background: var(--white); outline: none; transition: border-color .18s, box-shadow .18s; width: 100%; resize: vertical; }
+.form-control:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+
+/* ── Tags input ── */
+.tags-input-wrap { border: 1px solid var(--border); border-radius: 8px; background: var(--white); padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 5px; cursor: text; transition: border-color .18s, box-shadow .18s; min-height: 40px; align-items: center; }
+.tags-input-wrap:focus-within { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.tag-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(52,152,219,.1); border: 1px solid rgba(52,152,219,.25); color: #1a6fa8; border-radius: 20px; font-size: .75rem; font-weight: 500; }
+.tag-chip button { background: none; border: none; cursor: pointer; color: #1a6fa8; padding: 0; display: flex; align-items: center; font-size: .72rem; opacity: .7; }
+.tags-text-input { border: none; outline: none; font-size: .83rem; font-family: inherit; color: var(--text-primary); background: transparent; flex: 1; min-width: 80px; padding: 2px 4px; }
+.tags-suggestions { position: absolute; top: 100%; left: 0; right: 0; z-index: 100; background: var(--white); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-md); margin-top: 3px; max-height: 180px; overflow-y: auto; }
+.tags-suggestions-item { padding: 8px 12px; font-size: .83rem; cursor: pointer; color: var(--text-primary); transition: background .12s; }
+.tags-suggestions-item:hover { background: var(--green-pale); }
+.tags-suggestions-item.create-new { color: var(--green-dark); font-weight: 500; }
+
+/* ── File / cover upload ── */
+.file-upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; transition: border-color .18s, background .18s; position: relative; background: var(--white); }
+.file-upload-zone:hover { border-color: var(--green-accent); background: var(--green-pale); }
+.file-upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.file-upload-zone i { font-size: 1.4rem; color: var(--green-light); margin-bottom: 5px; display: block; }
+.file-upload-zone span { font-size: .8rem; color: var(--text-muted); line-height: 1.5; display: block; }
+.file-upload-zone strong { color: var(--green-mid); }
+.file-preview { display: none; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 12px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; font-size: .8rem; }
+.file-preview.visible { display: flex; }
+.file-preview .fname { flex: 1; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.file-preview .fsize { color: var(--text-muted); flex-shrink: 0; }
+.current-file-strip { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; font-size: .8rem; margin-bottom: 6px; }
+.current-file-strip a { color: var(--green-dark); font-weight: 500; text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.current-file-strip a:hover { text-decoration: underline; }
+.current-file-strip img { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; }
+.clear-file-btn { padding: 3px 8px; border-radius: 5px; font-size: .72rem; border: 1px solid rgba(192,57,43,.3); color: #c0392b; background: transparent; cursor: pointer; }
+.clear-file-btn:hover { background: rgba(192,57,43,.08); }
+
+/* ── Archive section ── */
+.archive-section { background: var(--green-pale); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.archive-section h4 { font-size: .8rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; margin: 0; }
+.archive-section h4 i { color: var(--green-mid); }
+.archive-options { display: flex; flex-direction: column; gap: 8px; }
+.archive-radio { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: var(--white); border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+.archive-radio:has(input:checked) { border-color: var(--green-accent); background: rgba(82,183,136,.06); }
+.archive-radio input[type="radio"] { margin-top: 2px; accent-color: var(--green-mid); flex-shrink: 0; }
+.archive-radio-text strong { display: block; font-size: .82rem; color: var(--text-primary); }
+.archive-radio-text span   { font-size: .74rem; color: var(--text-muted); }
+.archive-date-row { display: none; gap: 8px; align-items: center; flex-wrap: wrap; }
+.archive-date-row.visible { display: flex; }
+.archive-date-row input { padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: .83rem; font-family: inherit; color: var(--text-primary); background: var(--white); outline: none; transition: border-color .18s; }
+.archive-date-row input:focus { border-color: var(--green-accent); }
+
+/* ── Detail view ── */
+.detail-title { font-family: 'EB Garamond', serif; font-size: 1.4rem; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.detail-authors { font-size: .88rem; color: var(--text-primary); font-style: italic; margin-top: 2px; }
+.detail-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: .77rem; color: var(--text-muted); padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.detail-meta span { display: flex; align-items: center; gap: 5px; }
+.detail-cover-row { display: flex; gap: 16px; align-items: flex-start; }
+.detail-cover-row img { width: 100px; height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; flex: 1; }
+.detail-grid-item { display: flex; flex-direction: column; gap: 2px; }
+.detail-grid-label { font-size: .69rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; }
+.detail-grid-val   { font-size: .85rem; color: var(--text-primary); font-weight: 500; line-height: 1.4; }
+.detail-att-box { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; font-size: .83rem; }
+.detail-att-box a { color: var(--green-dark); font-weight: 600; text-decoration: none; flex: 1; }
+.detail-att-box a:hover { text-decoration: underline; }
+.detail-archive-note { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--green-pale); border: 1px solid var(--border); border-radius: 8px; font-size: .78rem; color: var(--text-muted); }
+.detail-tags-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+.detail-desc { font-size: .84rem; color: var(--text-primary); line-height: 1.65; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="toast-container" id="toastContainer">
+  {% for msg in messages %}
+    <div class="toast {% if 'error' in msg.tags %}toast-error{% endif %}">
+      <i class="fa-solid {% if 'error' in msg.tags %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+      {{ msg }}
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Page header -->
+<div class="page-header">
+  <h2>e-Library<small>Catalog of books, journals, theses and institutional references</small></h2>
+  <div class="header-actions">
+    {% if can_manage %}
+    <div class="manage-dropdown-wrap" id="manageDropdownWrap">
+      <button class="btn btn-outline" id="manageDropdownBtn" onclick="toggleManageDropdown()">
+        <i class="fa-solid fa-sliders"></i> Manage <i class="fa-solid fa-chevron-down" style="font-size:.7rem;"></i>
+      </button>
+      <div class="manage-dropdown" id="manageDropdown">
+        <div class="manage-dropdown-label">Organize</div>
+        <div class="manage-dropdown-item" onclick="openManagePanel('categories'); closeManageDropdown();">
+          <i class="fa-solid fa-tags"></i> Categories
+          <span style="margin-left:auto;font-size:.7rem;background:var(--green-pale);color:var(--green-dark);padding:1px 7px;border-radius:20px;font-weight:600;">{{ all_categories.count }}</span>
+        </div>
+        <div class="manage-dropdown-item" onclick="openManagePanel('tags'); closeManageDropdown();">
+          <i class="fa-solid fa-hashtag"></i> Tags
+          <span style="margin-left:auto;font-size:.7rem;background:var(--green-pale);color:var(--green-dark);padding:1px 7px;border-radius:20px;font-weight:600;">{{ all_tags.count }}</span>
+        </div>
+        <div class="manage-dropdown-item" onclick="openManagePanel('material_types'); closeManageDropdown();">
+          <i class="fa-solid fa-shapes"></i> Material Types
+          <span style="margin-left:auto;font-size:.7rem;background:var(--green-pale);color:var(--green-dark);padding:1px 7px;border-radius:20px;font-weight:600;">{{ all_material_types.count }}</span>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="openCreateModal()">
+      <i class="fa-solid fa-book-medical"></i> New Item
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+{% if can_manage %}
+<!-- ── Inline Manage Panel: Categories ── -->
+<div class="manage-panel" id="managePanelCategories">
+  <div class="manage-panel-header">
+    <h3><i class="fa-solid fa-tags" style="color:var(--green-mid);font-size:.95rem;"></i> Categories</h3>
+    <button class="manage-panel-close" onclick="closeManagePanel('categories')"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-toolbar">
+    <form method="get" id="catSearchForm" style="flex:1;display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="search-box" style="flex:1;min-width:180px;">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="cat_search" value="{{ cat_search }}" placeholder="Search categories…" onchange="document.getElementById('catSearchForm').submit()">
+      </div>
+      {% if cat_search %}<a href="?manage=categories" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>{% endif %}
+    </form>
+    <button class="btn btn-primary btn-sm" onclick="openModal('catCreateModal')"><i class="fa-solid fa-plus"></i> Add Category</button>
+  </div>
+  {% if categories_qs %}
+  <div class="cat-grid">
+    {% for cat in categories_qs %}
+    <div class="cat-card">
+      <div class="cat-icon cat-icon-green"><i class="fa-solid fa-tag"></i></div>
+      <div class="cat-body">
+        <div class="cat-name">{{ cat.name }}</div>
+        <div class="cat-meta">{{ cat.item_count }} item{{ cat.item_count|pluralize }}</div>
+        <div class="cat-actions">
+          <button class="btn btn-outline btn-sm" data-pk="{{ cat.pk }}" data-name="{{ cat.name }}" onclick="openCatEditModal(this)"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button class="btn btn-sm" style="background:rgba(192,57,43,.08);color:#c0392b;border:1px solid rgba(192,57,43,.3);" data-pk="{{ cat.pk }}" data-name="{{ cat.name }}" data-count="{{ cat.item_count }}" onclick="openCatDeleteModal(this)"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:32px 20px;"><i class="fa-solid fa-tags"></i><h3>No categories found</h3><p>Click "Add Category" to create one.</p></div>
+  {% endif %}
+</div>
+
+<!-- ── Inline Manage Panel: Tags ── -->
+<div class="manage-panel" id="managePanelTags">
+  <div class="manage-panel-header">
+    <h3><i class="fa-solid fa-hashtag" style="color:#2980b9;font-size:.95rem;"></i> Tags</h3>
+    <button class="manage-panel-close" onclick="closeManagePanel('tags')"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-toolbar">
+    <form method="get" id="tagSearchForm" style="flex:1;display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="search-box" style="flex:1;min-width:180px;">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="tag_search" value="{{ tag_search }}" placeholder="Search tags…" onchange="document.getElementById('tagSearchForm').submit()">
+      </div>
+      {% if tag_search %}<a href="?manage=tags" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>{% endif %}
+    </form>
+    <button class="btn btn-primary btn-sm" onclick="openModal('tagCreateModal')"><i class="fa-solid fa-plus"></i> Add Tag</button>
+  </div>
+  {% if tags_qs %}
+  <div class="cat-grid">
+    {% for tag in tags_qs %}
+    <div class="cat-card">
+      <div class="cat-icon cat-icon-blue"><i class="fa-solid fa-hashtag"></i></div>
+      <div class="cat-body">
+        <div class="cat-name">{{ tag.name }}</div>
+        <div class="cat-meta">{{ tag.item_count }} item{{ tag.item_count|pluralize }}</div>
+        <div class="cat-actions">
+          <button class="btn btn-outline btn-sm" data-pk="{{ tag.pk }}" data-name="{{ tag.name }}" onclick="openTagEditModal(this)"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button class="btn btn-sm" style="background:rgba(192,57,43,.08);color:#c0392b;border:1px solid rgba(192,57,43,.3);" data-pk="{{ tag.pk }}" data-name="{{ tag.name }}" onclick="openTagDeleteModal(this)"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:32px 20px;"><i class="fa-solid fa-hashtag"></i><h3>No tags found</h3><p>Click "Add Tag" to create one.</p></div>
+  {% endif %}
+</div>
+
+<!-- ── Inline Manage Panel: Material Types ── -->
+<div class="manage-panel" id="managePanelMaterialTypes">
+  <div class="manage-panel-header">
+    <h3><i class="fa-solid fa-shapes" style="color:var(--green-mid);font-size:.95rem;"></i> Material Types</h3>
+    <button class="manage-panel-close" onclick="closeManagePanel('material_types')"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="panel-toolbar">
+    <form method="get" id="mtSearchForm" style="flex:1;display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="search-box" style="flex:1;min-width:180px;">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="mt_search" value="{{ mt_search }}" placeholder="Search material types…" onchange="document.getElementById('mtSearchForm').submit()">
+      </div>
+      {% if mt_search %}<a href="?manage=material_types" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>{% endif %}
+    </form>
+    <button class="btn btn-primary btn-sm" onclick="openModal('mtCreateModal')"><i class="fa-solid fa-plus"></i> Add Material Type</button>
+  </div>
+  {% if material_types_qs %}
+  <div class="cat-grid">
+    {% for mt in material_types_qs %}
+    <div class="cat-card">
+      <div class="cat-icon cat-icon-green"><i class="fa-solid {{ mt.icon|default:'fa-file' }}"></i></div>
+      <div class="cat-body">
+        <div class="cat-name">{{ mt.name }}</div>
+        <div class="cat-meta">{{ mt.item_count }} item{{ mt.item_count|pluralize }}</div>
+        <div class="cat-actions">
+          <button class="btn btn-outline btn-sm" data-pk="{{ mt.pk }}" data-name="{{ mt.name }}" data-icon="{{ mt.icon }}" onclick="openMtEditModal(this)"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button class="btn btn-sm" style="background:rgba(192,57,43,.08);color:#c0392b;border:1px solid rgba(192,57,43,.3);" data-pk="{{ mt.pk }}" data-name="{{ mt.name }}" data-count="{{ mt.item_count }}" onclick="openMtDeleteModal(this)"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:32px 20px;"><i class="fa-solid fa-shapes"></i><h3>No material types found</h3><p>Click "Add Material Type" to create one.</p></div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Stat cards -->
+<div class="stat-row">
+  <div class="stat-card {% if not status_filter %}active{% endif %}" onclick="filterByStatus('')">
+    <div class="stat-icon all"><i class="fa-solid fa-book"></i></div>
+    <div><div class="stat-value">{{ total_count }}</div><div class="stat-label">Total</div></div>
+  </div>
+  <div class="stat-card {% if status_filter == 'published' %}active{% endif %}" onclick="filterByStatus('published')">
+    <div class="stat-icon published"><i class="fa-solid fa-circle-check"></i></div>
+    <div><div class="stat-value">{{ published_count }}</div><div class="stat-label">Published</div></div>
+  </div>
+  {% if can_manage %}
+  <div class="stat-card {% if status_filter == 'draft' %}active{% endif %}" onclick="filterByStatus('draft')">
+    <div class="stat-icon draft"><i class="fa-solid fa-pen-to-square"></i></div>
+    <div><div class="stat-value">{{ draft_count }}</div><div class="stat-label">Drafts</div></div>
+  </div>
+  <div class="stat-card {% if status_filter == 'archived' %}active{% endif %}" onclick="filterByStatus('archived')">
+    <div class="stat-icon archived"><i class="fa-solid fa-box-archive"></i></div>
+    <div><div class="stat-value">{{ archived_count }}</div><div class="stat-label">Archived</div></div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Toolbar -->
+<form method="get" id="filterForm">
+  <input type="hidden" name="status" id="statusHidden" value="{{ status_filter }}">
+  <div class="toolbar">
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" name="search" value="{{ search_query }}" placeholder="Search title, author, publisher, ISBN, tag…" onchange="document.getElementById('filterForm').submit()">
+    </div>
+    <select name="category" class="toolbar-select {% if category_filter %}has-value{% endif %}" onchange="document.getElementById('filterForm').submit()">
+      <option value="">All categories</option>
+      {% for cat in all_categories %}
+      <option value="{{ cat.pk }}" {% if category_filter == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="type" class="toolbar-select {% if type_filter %}has-value{% endif %}" onchange="document.getElementById('filterForm').submit()">
+      <option value="">All types</option>
+      {% for mt in material_types %}
+      <option value="{{ mt.pk }}" {% if type_filter == mt.pk|stringformat:'s' %}selected{% endif %}>{{ mt.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="tag" class="toolbar-select {% if tag_filter %}has-value{% endif %}" onchange="document.getElementById('filterForm').submit()">
+      <option value="">All tags</option>
+      {% for tag in all_tags %}
+      <option value="{{ tag.pk }}" {% if tag_filter == tag.pk|stringformat:'s' %}selected{% endif %}>{{ tag.name }}</option>
+      {% endfor %}
+    </select>
+    {% if available_years %}
+    <select name="year" class="toolbar-select {% if year_filter %}has-value{% endif %}" onchange="document.getElementById('filterForm').submit()">
+      <option value="">All years</option>
+      {% for y in available_years %}
+      <option value="{{ y }}" {% if year_filter == y|stringformat:'s' %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    <select name="per_page" class="toolbar-select {% if per_page != 12 %}has-value{% endif %}" onchange="document.getElementById('filterForm').submit()">
+      <option value="12" {% if per_page == 12 %}selected{% endif %}>12 per page</option>
+      <option value="24" {% if per_page == 24 %}selected{% endif %}>24 per page</option>
+      <option value="48" {% if per_page == 48 %}selected{% endif %}>48 per page</option>
+      <option value="96" {% if per_page == 96 %}selected{% endif %}>96 per page</option>
+    </select>
+    {% if search_query or status_filter or category_filter or type_filter or tag_filter or year_filter or per_page != 12 %}
+    <a href="?" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Results bar -->
+<div class="results-bar">
+  <span class="results-bar__count">
+    Showing <strong>{{ items.start_index }}–{{ items.end_index }}</strong> of <strong>{{ items.paginator.count }}</strong> item{{ items.paginator.count|pluralize }}
+  </span>
+</div>
+
+<!-- Catalog, grouped by category -->
+{% regroup items by category as category_list %}
+{% if category_list %}
+  {% for group in category_list %}
+    <div class="cat-section-header">
+      <div class="cat-section-title">{{ group.grouper.name }}<span class="cat-count-badge">{{ group.list|length }}</span></div>
+    </div>
+    <div class="lib-grid">
+      {% for item in group.list %}
+      <div class="lib-card"
+           data-pk="{{ item.pk }}"
+           data-title="{{ item.title }}"
+           data-material-type="{{ item.material_type.pk }}"
+           data-material-type-label="{{ item.material_type.name }}"
+           data-authors="{{ item.authors }}"
+           data-publisher="{{ item.publisher }}"
+           data-year="{{ item.publication_year|default:'' }}"
+           data-edition="{{ item.edition }}"
+           data-isbn="{{ item.isbn }}"
+           data-call-number="{{ item.call_number }}"
+           data-category-pk="{{ item.category.pk }}"
+           data-tags="{% for t in item.tags.all %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}"
+           data-description="{{ item.description }}"
+           data-status="{{ item.status }}"
+           data-status-label="{{ item.get_status_display }}"
+           data-archive-policy="{{ item.archive_policy }}"
+           data-archive-date="{% if item.archive_date %}{{ item.archive_date|date:'Y-m-d' }}{% endif %}"
+           data-archive-date-fmt="{% if item.archive_date %}{{ item.archive_date|date:'M d, Y' }}{% endif %}"
+           data-cover-url="{% if item.cover_image %}{{ item.cover_image.url }}{% endif %}"
+           data-attachment-url="{{ item.attachment.url }}"
+           data-attachment-name="{{ item.attachment_name }}"
+           data-attachment-size="{{ item.file_size_display }}"
+           data-uploaded-by="{% if item.uploaded_by %}{{ item.uploaded_by.get_full_name|default:item.uploaded_by.username }}{% else %}Unknown{% endif %}"
+           data-created-at="{{ item.created_at|date:'M d, Y' }}"
+           data-edit-url="{% url 'e_library_edit' item.pk %}"
+           data-delete-url="{% url 'e_library_delete' item.pk %}"
+           data-toggle-url="{% url 'e_library_toggle_status' item.pk %}">
+
+        <div class="lib-card__cover">
+          {% if item.cover_image %}
+            <img src="{{ item.cover_image.url }}" alt="{{ item.title }}">
+          {% else %}
+            <div class="lib-card__cover-fallback"><i class="fa-solid {{ item.type_icon }}"></i></div>
+          {% endif %}
+          <span class="lib-card__type-badge">{{ item.material_type.name }}</span>
+        </div>
+
+        <div class="lib-card__body">
+          <div class="lib-card__title" onclick="openDetailModal(this.closest('.lib-card'))">{{ item.title }}</div>
+          {% if item.authors %}<div class="lib-card__authors">{{ item.authors }}</div>{% endif %}
+          <div class="lib-card__meta">
+            {% if item.publisher %}<span>{{ item.publisher }}</span>{% endif %}
+            {% if item.publication_year %}<span>{{ item.publication_year }}</span>{% endif %}
+            {% if item.edition %}<span>{{ item.edition }} ed.</span>{% endif %}
+          </div>
+          {% if item.call_number %}<span class="lib-card__call-no"><i class="fa-solid fa-location-dot" style="font-size:.6rem;"></i> {{ item.call_number }}</span>{% endif %}
+          {% if item.tags.all %}
+          <div class="lib-card__tags">
+            {% for t in item.tags.all %}<span class="tag-pill"><i class="fa-solid fa-hashtag" style="font-size:.55rem;"></i>{{ t.name }}</span>{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="lib-card__footer">
+          <span class="status-badge status-badge-{{ item.status }}">{{ item.get_status_display }}</span>
+          {% if can_manage %}
+          <div class="row-actions">
+            <button class="btn-icon" title="Edit" onclick="openEditModal(this.closest('.lib-card'))"><i class="fa-solid fa-pen"></i></button>
+            {% if item.status == 'draft' %}
+            <button class="btn-icon" title="Publish" style="color:var(--green-mid);border-color:rgba(45,106,79,.3);" onclick="toggleStatus(this.closest('.lib-card'),'publish')"><i class="fa-solid fa-paper-plane"></i></button>
+            {% elif item.status == 'published' %}
+            <button class="btn-icon" title="Unpublish" onclick="toggleStatus(this.closest('.lib-card'),'draft')"><i class="fa-solid fa-pen-to-square"></i></button>
+            {% elif item.status == 'archived' %}
+            <button class="btn-icon" title="Unarchive" onclick="toggleStatus(this.closest('.lib-card'),'unarchive')"><i class="fa-solid fa-box-open"></i></button>
+            {% endif %}
+            {% if item.status != 'archived' %}
+            <button class="btn-icon" title="Archive" onclick="toggleStatus(this.closest('.lib-card'),'archive')"><i class="fa-solid fa-box-archive"></i></button>
+            {% endif %}
+            <button class="btn-icon btn-icon-danger" title="Delete" onclick="openDeleteModal(this.closest('.lib-card'))"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    <i class="fa-solid fa-book-open-reader"></i>
+    <h3>No items found</h3>
+    <p>No catalog items match your current filters{% if can_manage %}, or none have been added yet{% endif %}.</p>
+  </div>
+{% endif %}
+
+<!-- Pagination -->
+{% if items.paginator.num_pages > 1 %}
+<div class="pagination-wrap" id="pagination"></div>
+<script>
+(function(){
+  function pageUrl(p){var params=new URLSearchParams(window.location.search);params.set('page',p);return'?'+params.toString();}
+  var current={{ items.number }},total={{ items.paginator.num_pages }};
+  var hasPrev={{ items.has_previous|yesno:"true,false" }},hasNext={{ items.has_next|yesno:"true,false" }};
+  var prevPage={% if items.has_previous %}{{ items.previous_page_number }}{% else %}1{% endif %};
+  var nextPage={% if items.has_next %}{{ items.next_page_number }}{% else %}{{ items.paginator.num_pages }}{% endif %};
+  var wrap=document.getElementById('pagination'),html='';
+  html+=hasPrev?'<a href="'+pageUrl(prevPage)+'" class="page-btn"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:.72rem;"></i></span>';
+  var el={left:false,right:false};
+  for(var n=1;n<=total;n++){var a=(n===current),e=(n===1||n===total),nr=(n>=current-2&&n<=current+2);
+    if(a)html+='<span class="page-btn active">'+n+'</span>';
+    else if(e||nr)html+='<a href="'+pageUrl(n)+'" class="page-btn">'+n+'</a>';
+    else if(n===current-3&&!el.left){el.left=true;html+='<span class="page-ellipsis">…</span>';}
+    else if(n===current+3&&!el.right){el.right=true;html+='<span class="page-ellipsis">…</span>';}
+  }
+  html+=hasNext?'<a href="'+pageUrl(nextPage)+'" class="page-btn"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></a>':'<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:.72rem;"></i></span>';
+  wrap.innerHTML=html;
+})();
+</script>
+{% endif %}
+
+
+<!-- ════════════════════════════════════════════════════
+     MODAL: CREATE / EDIT (shared layout, two forms)
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="libFormModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-book-medical" id="libFormIcon"></i></div>
+      <div class="modal__header-title">
+        <h3 id="libFormTitle">New e-Library Item</h3>
+        <p>Catalog details, category/tags, the file, and an optional cover image.</p>
+      </div>
+      <button class="modal__close" onclick="closeModal('libFormModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" id="libForm" enctype="multipart/form-data" style="display:contents;">
+      {% csrf_token %}
+      <input type="hidden" name="status" id="lf_status_field" value="draft">
+      <div class="modal__body">
+
+        <div class="form-group">
+          <label for="lf_title">Title <span class="req">*</span></label>
+          <input type="text" id="lf_title" name="title" class="form-control" placeholder="Full title of the work…" required maxlength="300">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="lf_authors">Author(s)</label>
+            <input type="text" id="lf_authors" name="authors" class="form-control" placeholder="e.g. Guyton, A. C.; Hall, J. E." maxlength="500">
+          </div>
+          <div class="form-group">
+            <label for="lf_material_type">Material Type <span class="req">*</span></label>
+            <select id="lf_material_type" name="material_type" class="form-control" required>
+              <option value="">— Select type —</option>
+              {% for mt in all_material_types %}
+              <option value="{{ mt.pk }}">{{ mt.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-3">
+          <div class="form-group">
+            <label for="lf_publisher">Publisher</label>
+            <input type="text" id="lf_publisher" name="publisher" class="form-control" maxlength="300">
+          </div>
+          <div class="form-group">
+            <label for="lf_year">Year Published</label>
+            <input type="number" id="lf_year" name="publication_year" class="form-control" placeholder="e.g. 2024" min="1400" max="2100">
+          </div>
+          <div class="form-group">
+            <label for="lf_edition">Edition</label>
+            <input type="text" id="lf_edition" name="edition" class="form-control" placeholder="e.g. 4th" maxlength="100">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="lf_isbn">ISBN / ISSN</label>
+            <input type="text" id="lf_isbn" name="isbn" class="form-control" maxlength="50">
+          </div>
+          <div class="form-group">
+            <label for="lf_call_number">Call Number</label>
+            <input type="text" id="lf_call_number" name="call_number" class="form-control" placeholder="e.g. WB 100 G989p" maxlength="100">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="lf_category">Category <span class="req">*</span></label>
+            <select id="lf_category" name="category" class="form-control" required>
+              <option value="">— Select category —</option>
+              {% for cat in all_categories %}
+              <option value="{{ cat.pk }}">{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tags <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+            <div style="position:relative;">
+              <div class="tags-input-wrap" id="lf_tagsWrap" onclick="document.getElementById('lf_tagsText').focus()">
+                <input type="text" id="lf_tagsText" class="tags-text-input" placeholder="Type keyword and press Enter or comma…" oninput="tagsInputHandler()" onkeydown="tagsKeyDown(event)">
+              </div>
+              <div class="tags-suggestions" id="lf_tagsSuggestions" style="display:none;"></div>
+              <input type="hidden" name="tags_input" id="lf_tags_input_hidden">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="lf_description">Abstract / Description</label>
+          <textarea id="lf_description" name="description" class="form-control" rows="3" placeholder="Short summary of the contents…" maxlength="4000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cover Image <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+            <div id="lf_currentCoverWrap" style="display:none;">
+              <div class="current-file-strip" id="lf_currentCoverStrip">
+                <img id="lf_currentCoverImg" src="" alt="">
+                <span style="flex:1;color:var(--text-muted);">Current cover image</span>
+                <button type="button" class="clear-file-btn" onclick="clearCoverImage()"><i class="fa-solid fa-xmark"></i> Remove</button>
+              </div>
+              <input type="hidden" name="clear_cover" id="lf_clearCover" value="0">
+            </div>
+            <div class="file-upload-zone">
+              <input type="file" name="cover_image" id="lf_cover" accept="image/*" onchange="handleSingleFile(this,'lf_coverPreview')">
+              <i class="fa-solid fa-image"></i>
+              <span><strong>Click to upload</strong> a cover image</span>
+            </div>
+            <div class="file-preview" id="lf_coverPreview">
+              <i class="fa-solid fa-image" id="lf_coverIcon"></i>
+              <span class="fname" id="lf_coverName"></span>
+              <span class="fsize" id="lf_coverSize"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label id="lf_attachmentLabel">File <span class="req">*</span></label>
+            <div id="lf_currentFileWrap" style="display:none;">
+              <div class="current-file-strip" id="lf_currentFileStrip">
+                <i class="fa-solid fa-file" id="lf_currentFileIcon"></i>
+                <a href="#" id="lf_currentFileLink" target="_blank" rel="noopener"></a>
+              </div>
+            </div>
+            <div class="file-upload-zone">
+              <input type="file" name="attachment" id="lf_attachment" accept=".pdf,.doc,.docx,.epub,.ppt,.pptx,.txt,.zip" onchange="handleSingleFile(this,'lf_filePreview')">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span id="lf_attachmentHint"><strong>Click to upload</strong> or drag &amp; drop
+                <!-- <br>PDF, Word, EPUB, and more</span> -->
+            </div>
+            <div class="file-preview" id="lf_filePreview">
+              <i class="fa-solid fa-file" id="lf_fileIcon"></i>
+              <span class="fname" id="lf_fileName"></span>
+              <span class="fsize" id="lf_fileSize"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="archive-section">
+          <h4><i class="fa-solid fa-box-archive"></i> Archiving Policy</h4>
+          <div class="archive-options">
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="default" checked onchange="toggleArchiveDateRow(this)">
+              <div class="archive-radio-text"><strong>Use Default Policy</strong><span>Follows the system-wide archiving schedule</span></div>
+            </label>
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="on_date" onchange="toggleArchiveDateRow(this)">
+              <div class="archive-radio-text"><strong>Archive on specific date</strong><span>Automatically archive on the chosen date</span></div>
+            </label>
+            <label class="archive-radio">
+              <input type="radio" name="archive_policy" value="never" onchange="toggleArchiveDateRow(this)">
+              <div class="archive-radio-text"><strong>Do not archive</strong><span>Keep this item available indefinitely</span></div>
+            </label>
+          </div>
+          <div class="archive-date-row" id="lf_archiveDateRow">
+            <label><i class="fa-solid fa-calendar"></i> Archive on:</label>
+            <input type="date" name="archive_date" id="lf_archive_date">
+          </div>
+        </div>
+
+      </div>
+      <div class="modal__footer" id="lf_footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('libFormModal')">Cancel</button>
+        <button type="submit" class="btn btn-outline" id="lf_draftBtn" onclick="document.getElementById('lf_status_field').value='draft'"><i class="fa-solid fa-floppy-disk"></i> Save as Draft</button>
+        <button type="submit" class="btn btn-primary" onclick="document.getElementById('lf_status_field').value='published'"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODAL: DETAIL
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="libDetailModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-eye"></i></div>
+      <div class="modal__header-title"><h3 id="detailTitle">Item</h3><p id="detailSub"></p></div>
+      <button class="modal__close" onclick="closeModal('libDetailModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="detailBody"></div>
+    <div class="modal__footer"><button class="btn btn-outline" onclick="closeModal('libDetailModal')">Close</button></div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODAL: DELETE
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="libDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-sm modal-danger">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="modal__header-title"><h3>Delete Item</h3><p>This action cannot be undone.</p></div>
+      <button class="modal__close" onclick="closeModal('libDeleteModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body"><p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to permanently delete <strong id="deleteItemName"></strong>? The file and cover image will also be removed.</p></div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('libDeleteModal')">Cancel</button>
+      <form method="post" id="libDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: CATEGORY
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="catCreateModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-tag"></i></div><div class="modal__header-title"><h3>Add Category</h3><p>Create a new e-Library category.</p></div><button class="modal__close" onclick="closeModal('catCreateModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" action="{% url 'e_library_category_add' %}" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body"><div class="form-group"><label for="cc_name">Category Name <span class="req">*</span></label><input type="text" id="cc_name" name="name" class="form-control" placeholder="e.g. Clinical Medicine" required maxlength="200" autofocus></div></div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('catCreateModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Category</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="catEditModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-pen"></i></div><div class="modal__header-title"><h3>Edit Category</h3><p>Rename this category.</p></div><button class="modal__close" onclick="closeModal('catEditModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" id="catEditForm" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body"><div class="form-group"><label for="ce_name">Category Name <span class="req">*</span></label><input type="text" id="ce_name" name="name" class="form-control" required maxlength="200"></div></div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('catEditModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="catDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs modal-danger">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="modal__header-title"><h3>Delete Category</h3><p>This cannot be undone.</p></div><button class="modal__close" onclick="closeModal('catDeleteModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal__body">
+      <p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to delete <strong id="catDeleteName"></strong>?</p>
+      <p id="catDeleteWarning" style="display:none;font-size:.82rem;color:#c0392b;background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.2);padding:8px 12px;border-radius:7px;margin-top:4px;"></p>
+    </div>
+    <div class="modal__footer"><button class="btn btn-outline" onclick="closeModal('catDeleteModal')">Cancel</button><form method="post" id="catDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" id="catDeleteSubmit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form></div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: TAG
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="tagCreateModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon" style="background:rgba(52,152,219,.1);color:#2980b9;"><i class="fa-solid fa-hashtag"></i></div><div class="modal__header-title"><h3>Add Tag</h3><p>Create a new e-Library tag.</p></div><button class="modal__close" onclick="closeModal('tagCreateModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" action="{% url 'e_library_tag_add' %}" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body"><div class="form-group"><label for="tc_name">Tag Name <span class="req">*</span></label><input type="text" id="tc_name" name="name" class="form-control" placeholder="e.g. Pediatrics, Emergency Care" required maxlength="100" autofocus></div></div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('tagCreateModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Tag</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tagEditModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon" style="background:rgba(52,152,219,.1);color:#2980b9;"><i class="fa-solid fa-pen"></i></div><div class="modal__header-title"><h3>Edit Tag</h3><p>Rename this tag.</p></div><button class="modal__close" onclick="closeModal('tagEditModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" id="tagEditForm" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body"><div class="form-group"><label for="te_name">Tag Name <span class="req">*</span></label><input type="text" id="te_name" name="name" class="form-control" required maxlength="100"></div></div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('tagEditModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tagDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs modal-danger">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="modal__header-title"><h3>Delete Tag</h3><p>This cannot be undone.</p></div><button class="modal__close" onclick="closeModal('tagDeleteModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal__body"><p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to delete the tag <strong id="tagDeleteName"></strong>? It will be removed from all items.</p></div>
+    <div class="modal__footer"><button class="btn btn-outline" onclick="closeModal('tagDeleteModal')">Cancel</button><form method="post" id="tagDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form></div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: MATERIAL TYPE
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="mtCreateModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-shapes"></i></div><div class="modal__header-title"><h3>Add Material Type</h3><p>Create a new classification.</p></div><button class="modal__close" onclick="closeModal('mtCreateModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" action="{% url 'e_library_material_type_add' %}" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body">
+        <div class="form-group"><label for="mtc_name">Name <span class="req">*</span></label><input type="text" id="mtc_name" name="name" class="form-control" placeholder="e.g. Clinical Protocol" required maxlength="100" autofocus></div>
+        <div class="form-group"><label for="mtc_icon">Icon <span style="font-weight:400;color:var(--text-muted);">(Font Awesome class)</span></label><input type="text" id="mtc_icon" name="icon" class="form-control" placeholder="e.g. fa-book" maxlength="50"></div>
+      </div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('mtCreateModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="mtEditModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-pen"></i></div><div class="modal__header-title"><h3>Edit Material Type</h3><p>Rename or restyle this type.</p></div><button class="modal__close" onclick="closeModal('mtEditModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <form method="post" id="mtEditForm" style="display:contents;">
+      {% csrf_token %}
+      <div class="modal__body">
+        <div class="form-group"><label for="mte_name">Name <span class="req">*</span></label><input type="text" id="mte_name" name="name" class="form-control" required maxlength="100"></div>
+        <div class="form-group"><label for="mte_icon">Icon <span style="font-weight:400;color:var(--text-muted);">(Font Awesome class)</span></label><input type="text" id="mte_icon" name="icon" class="form-control" maxlength="50"></div>
+      </div>
+      <div class="modal__footer"><button type="button" class="btn btn-outline" onclick="closeModal('mtEditModal')">Cancel</button><button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="mtDeleteModal" role="dialog" aria-modal="true">
+  <div class="modal modal-xs modal-danger">
+    <div class="modal__header"><div class="modal__header-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="modal__header-title"><h3>Delete Material Type</h3><p>This cannot be undone.</p></div><button class="modal__close" onclick="closeModal('mtDeleteModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal__body">
+      <p style="font-size:.9rem;color:var(--text-primary);line-height:1.6;">Are you sure you want to delete <strong id="mtDeleteName"></strong>?</p>
+      <p id="mtDeleteWarning" style="display:none;font-size:.82rem;color:#c0392b;background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.2);padding:8px 12px;border-radius:7px;margin-top:4px;"></p>
+    </div>
+    <div class="modal__footer"><button class="btn btn-outline" onclick="closeModal('mtDeleteModal')">Cancel</button><form method="post" id="mtDeleteForm" style="display:inline;">{% csrf_token %}<button type="submit" id="mtDeleteSubmit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button></form></div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+var ALL_TAGS_LIST = [{% for tag in all_tags %}{"pk":{{ tag.pk }},"name":"{{ tag.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
+var CREATE_URL = "{% url 'e_library_create' %}";
+
+function getCsrf() { return document.querySelector('[name=csrfmiddlewaretoken]').value; }
+function escHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+function escJs(s) { return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+
+function getFileIcon(name) {
+  var ext = (name || '').split('.').pop().toLowerCase();
+  if (ext === 'pdf') return 'fa-file-pdf';
+  if (['doc','docx'].indexOf(ext) !== -1) return 'fa-file-word';
+  if (['epub'].indexOf(ext) !== -1) return 'fa-book';
+  if (['ppt','pptx'].indexOf(ext) !== -1) return 'fa-file-powerpoint';
+  if (['zip','rar','7z'].indexOf(ext) !== -1) return 'fa-file-zipper';
+  if (['txt','md'].indexOf(ext) !== -1) return 'fa-file-lines';
+  return 'fa-file';
+}
+function formatBytes(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+/* ── Manage dropdown ── */
+function toggleManageDropdown() { document.getElementById('manageDropdown').classList.toggle('open'); }
+function closeManageDropdown() { document.getElementById('manageDropdown').classList.remove('open'); }
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('manageDropdownWrap');
+  if (wrap && !wrap.contains(e.target)) closeManageDropdown();
+});
+
+var MANAGE_PANEL_IDS = {
+  categories: 'managePanelCategories',
+  tags: 'managePanelTags',
+  material_types: 'managePanelMaterialTypes'
+};
+function openManagePanel(type) {
+  Object.keys(MANAGE_PANEL_IDS).forEach(function(k){
+    var el = document.getElementById(MANAGE_PANEL_IDS[k]);
+    if (el) el.classList.toggle('open', k === type);
+  });
+}
+function closeManagePanel(type) {
+  var el = document.getElementById(MANAGE_PANEL_IDS[type]);
+  if (el) el.classList.remove('open');
+}
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var manage = params.get('manage');
+  if (manage === 'categories' || manage === 'tags' || manage === 'material_types') openManagePanel(manage);
+})();
+
+/* ── Status filter ── */
+function filterByStatus(val) { document.getElementById('statusHidden').value = val; document.getElementById('filterForm').submit(); }
+
+/* ── Modal system ── */
+function openModal(id)  { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+document.querySelectorAll('.modal-backdrop').forEach(function(bd) { bd.addEventListener('click', function(e) { if (e.target === bd) closeModal(bd.id); }); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function(m) { closeModal(m.id); }); });
+
+/* ── Archive date row ── */
+function toggleArchiveDateRow(radio) { document.getElementById('lf_archiveDateRow').classList.toggle('visible', radio.value === 'on_date'); }
+
+/* ── File preview ── */
+function handleSingleFile(input, previewId) {
+  var preview = document.getElementById(previewId);
+  if (!input.files || !input.files[0]) { preview.classList.remove('visible'); return; }
+  var f = input.files[0];
+  var prefix = previewId.replace('Preview','');
+  if (previewId === 'lf_coverPreview') {
+    document.getElementById('lf_coverIcon').className = 'fa-solid fa-image';
+    document.getElementById('lf_coverName').textContent = f.name;
+    document.getElementById('lf_coverSize').textContent = formatBytes(f.size);
+  } else {
+    document.getElementById('lf_fileIcon').className = 'fa-solid ' + getFileIcon(f.name);
+    document.getElementById('lf_fileName').textContent = f.name;
+    document.getElementById('lf_fileSize').textContent = formatBytes(f.size);
+  }
+  preview.classList.add('visible');
+}
+function clearCoverImage() {
+  document.getElementById('lf_clearCover').value = '1';
+  document.getElementById('lf_currentCoverWrap').style.display = 'none';
+}
+
+/* ── Tags input widget ── */
+var _tagsChips = [];
+function renderTagChips() {
+  var wrap = document.getElementById('lf_tagsWrap');
+  var textInput = document.getElementById('lf_tagsText');
+  wrap.querySelectorAll('.tag-chip').forEach(function(c){ c.remove(); });
+  _tagsChips.forEach(function(name, i) {
+    var chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.innerHTML = escHtml(name) + '<button type="button" onclick="removeTagChip(' + i + ')" title="Remove"><i class="fa-solid fa-xmark"></i></button>';
+    wrap.insertBefore(chip, textInput);
+  });
+  document.getElementById('lf_tags_input_hidden').value = _tagsChips.join(', ');
+}
+function addTagChip(name) {
+  name = name.trim(); if (!name) return;
+  if (_tagsChips.indexOf(name) === -1) { _tagsChips.push(name); renderTagChips(); }
+  document.getElementById('lf_tagsText').value = '';
+  hideSuggestions();
+}
+function removeTagChip(idx) { _tagsChips.splice(idx, 1); renderTagChips(); }
+function tagsKeyDown(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    var val = document.getElementById('lf_tagsText').value.replace(/,/g,'').trim();
+    if (val) addTagChip(val);
+  } else if (e.key === 'Backspace') {
+    var val = document.getElementById('lf_tagsText').value;
+    if (!val && _tagsChips.length) { _tagsChips.pop(); renderTagChips(); }
+  }
+}
+function tagsInputHandler() {
+  var q = document.getElementById('lf_tagsText').value.trim().toLowerCase();
+  var suggestions = document.getElementById('lf_tagsSuggestions');
+  if (!q) { hideSuggestions(); return; }
+  var existing = ALL_TAGS_LIST.filter(function(t){ return t.name.toLowerCase().indexOf(q) !== -1 && _tagsChips.indexOf(t.name) === -1; });
+  var html = '';
+  existing.slice(0,8).forEach(function(t){ html += '<div class="tags-suggestions-item" onclick="addTagChip(\''+escJs(t.name)+'\')"><i class="fa-solid fa-hashtag" style="font-size:.7rem;margin-right:5px;color:var(--text-muted);"></i>'+escHtml(t.name)+'</div>'; });
+  var exactMatch = ALL_TAGS_LIST.some(function(t){ return t.name.toLowerCase() === q; });
+  if (!exactMatch) { var raw = document.getElementById('lf_tagsText').value.replace(/,/g,'').trim(); html += '<div class="tags-suggestions-item create-new" onclick="addTagChip(\''+escJs(raw)+'\')"><i class="fa-solid fa-plus" style="font-size:.7rem;margin-right:5px;"></i>Create "'+escHtml(raw)+'"</div>'; }
+  if (html) { suggestions.innerHTML = html; suggestions.style.display = ''; } else hideSuggestions();
+}
+function hideSuggestions() { var el = document.getElementById('lf_tagsSuggestions'); if (el) { el.style.display = 'none'; el.innerHTML = ''; } }
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('lf_tagsWrap'), sugg = document.getElementById('lf_tagsSuggestions');
+  if (wrap && sugg && !wrap.contains(e.target) && !sugg.contains(e.target)) hideSuggestions();
+});
+
+/* ── Create modal ── */
+function openCreateModal() {
+  document.getElementById('libFormTitle').textContent = 'New e-Library Item';
+  document.getElementById('libForm').action = CREATE_URL;
+  document.getElementById('lf_title').value = '';
+  document.getElementById('lf_authors').value = '';
+  document.getElementById('lf_material_type').value = '';
+  document.getElementById('lf_publisher').value = '';
+  document.getElementById('lf_year').value = '';
+  document.getElementById('lf_edition').value = '';
+  document.getElementById('lf_isbn').value = '';
+  document.getElementById('lf_call_number').value = '';
+  document.getElementById('lf_category').value = '';
+  document.getElementById('lf_description').value = '';
+  document.getElementById('lf_cover').value = '';
+  document.getElementById('lf_attachment').value = '';
+  document.getElementById('lf_attachmentLabel').innerHTML = 'File <span class="req">*</span>';
+  document.getElementById('lf_attachment').required = true;
+  document.getElementById('lf_currentFileWrap').style.display = 'none';
+  document.getElementById('lf_currentCoverWrap').style.display = 'none';
+  document.getElementById('lf_clearCover').value = '0';
+  document.getElementById('lf_coverPreview').classList.remove('visible');
+  document.getElementById('lf_filePreview').classList.remove('visible');
+  document.getElementById('lf_archive_date').value = '';
+  document.querySelector('#libFormModal [name="archive_policy"][value="default"]').checked = true;
+  document.getElementById('lf_archiveDateRow').classList.remove('visible');
+  document.getElementById('lf_draftBtn').style.display = '';
+  _tagsChips = []; renderTagChips();
+  openModal('libFormModal');
+}
+
+/* ── Edit modal (reads data-* off the card) ── */
+function openEditModal(card) {
+  var d = card.dataset;
+  document.getElementById('libFormTitle').textContent = 'Edit e-Library Item';
+  document.getElementById('libForm').action = d.editUrl;
+  document.getElementById('lf_title').value = d.title;
+  document.getElementById('lf_authors').value = d.authors;
+  document.getElementById('lf_material_type').value = d.materialType;
+  document.getElementById('lf_publisher').value = d.publisher;
+  document.getElementById('lf_year').value = d.year;
+  document.getElementById('lf_edition').value = d.edition;
+  document.getElementById('lf_isbn').value = d.isbn;
+  document.getElementById('lf_call_number').value = d.callNumber;
+  document.getElementById('lf_category').value = d.categoryPk;
+  document.getElementById('lf_description').value = d.description;
+
+  document.getElementById('lf_attachmentLabel').innerHTML = 'Replace File <span style="font-weight:400;color:var(--text-muted);">(optional)</span>';
+  document.getElementById('lf_attachment').required = false;
+  document.getElementById('lf_attachment').value = '';
+  document.getElementById('lf_filePreview').classList.remove('visible');
+
+  var fileWrap = document.getElementById('lf_currentFileWrap');
+  if (d.attachmentUrl) {
+    fileWrap.style.display = '';
+    document.getElementById('lf_currentFileIcon').className = 'fa-solid ' + getFileIcon(d.attachmentName);
+    var link = document.getElementById('lf_currentFileLink');
+    link.href = d.attachmentUrl; link.textContent = d.attachmentName + (d.attachmentSize ? ' (' + d.attachmentSize + ')' : '');
+  } else { fileWrap.style.display = 'none'; }
+
+  document.getElementById('lf_cover').value = '';
+  document.getElementById('lf_coverPreview').classList.remove('visible');
+  document.getElementById('lf_clearCover').value = '0';
+  var coverWrap = document.getElementById('lf_currentCoverWrap');
+  if (d.coverUrl) {
+    coverWrap.style.display = '';
+    document.getElementById('lf_currentCoverImg').src = d.coverUrl;
+  } else { coverWrap.style.display = 'none'; }
+
+  var archMap = { default:'default', on_date:'on_date', never:'never' };
+  var radio = document.querySelector('#libFormModal [name="archive_policy"][value="' + (archMap[d.archivePolicy]||'default') + '"]');
+  if (radio) radio.checked = true;
+  document.getElementById('lf_archiveDateRow').classList.toggle('visible', d.archivePolicy === 'on_date');
+  document.getElementById('lf_archive_date').value = d.archiveDate || '';
+
+  document.getElementById('lf_draftBtn').style.display = d.status === 'archived' ? 'none' : '';
+
+  _tagsChips = d.tags ? d.tags.split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+  renderTagChips();
+
+  openModal('libFormModal');
+}
+
+/* ── Detail modal ── */
+function openDetailModal(card) {
+  var d = card.dataset;
+  document.getElementById('detailTitle').textContent = d.title;
+  document.getElementById('detailSub').textContent = d.materialTypeLabel + ' · ' + (d.categoryPk ? '' : '');
+
+  var bc = { published:'status-badge-published', draft:'status-badge-draft', archived:'status-badge-archived' }[d.status] || '';
+  var h = '<div class="detail-title">' + escHtml(d.title) + '</div>';
+  if (d.authors) h += '<div class="detail-authors">' + escHtml(d.authors) + '</div>';
+  h += '<div class="detail-meta">';
+  h += '<span><span class="status-badge ' + bc + '">' + escHtml(d.statusLabel) + '</span></span>';
+  h += '<span><i class="fa-solid fa-user"></i> Uploaded by ' + escHtml(d.uploadedBy) + '</span>';
+  h += '<span><i class="fa-solid fa-calendar"></i> ' + escHtml(d.createdAt) + '</span>';
+  h += '</div>';
+
+  h += '<div class="detail-cover-row">';
+  if (d.coverUrl) h += '<img src="' + escHtml(d.coverUrl) + '" alt="">';
+  h += '<div class="detail-grid">';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Publisher</span><span class="detail-grid-val">' + escHtml(d.publisher || '—') + '</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Year</span><span class="detail-grid-val">' + escHtml(d.year || '—') + '</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Edition</span><span class="detail-grid-val">' + escHtml(d.edition || '—') + '</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">ISBN / ISSN</span><span class="detail-grid-val">' + escHtml(d.isbn || '—') + '</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Call Number</span><span class="detail-grid-val">' + escHtml(d.callNumber || '—') + '</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Type</span><span class="detail-grid-val">' + escHtml(d.materialTypeLabel) + '</span></div>';
+  h += '</div></div>';
+
+  if (d.tags) {
+    h += '<div class="detail-tags-wrap">';
+    d.tags.split(',').map(function(s){return s.trim();}).filter(Boolean).forEach(function(t){ h += '<span class="tag-pill"><i class="fa-solid fa-hashtag" style="font-size:.6rem;"></i>'+escHtml(t)+'</span>'; });
+    h += '</div>';
+  }
+
+  if (d.description) h += '<div class="detail-desc">' + escHtml(d.description).replace(/\n/g,'<br>') + '</div>';
+
+  if (d.attachmentUrl) {
+    h += '<div class="detail-att-box"><i class="fa-solid ' + getFileIcon(d.attachmentName) + '"></i>';
+    h += '<a href="' + escHtml(d.attachmentUrl) + '" target="_blank" rel="noopener">' + escHtml(d.attachmentName) + '</a>';
+    if (d.attachmentSize) h += '<span style="color:var(--text-muted);font-size:.75rem;">' + escHtml(d.attachmentSize) + '</span>';
+    h += '</div>';
+  }
+
+  if (d.archivePolicy === 'never') {
+    h += '<div class="detail-archive-note"><i class="fa-solid fa-infinity"></i> This item will not be archived automatically.</div>';
+  } else if (d.archivePolicy === 'on_date' && d.archiveDateFmt) {
+    h += '<div class="detail-archive-note"><i class="fa-solid fa-calendar-xmark"></i> Scheduled to archive on <strong>' + escHtml(d.archiveDateFmt) + '</strong>.</div>';
+  }
+
+  document.getElementById('detailBody').innerHTML = h;
+  openModal('libDetailModal');
+}
+
+/* ── Delete modal ── */
+function openDeleteModal(card) {
+  var d = card.dataset;
+  document.getElementById('deleteItemName').textContent = '"' + d.title + '"';
+  document.getElementById('libDeleteForm').action = d.deleteUrl;
+  openModal('libDeleteModal');
+}
+
+/* ── Category modals ── */
+function openCatEditModal(btn) {
+  document.getElementById('catEditForm').action = '/e-library/categories/' + btn.dataset.pk + '/edit/';
+  document.getElementById('ce_name').value = btn.dataset.name;
+  openModal('catEditModal');
+}
+function openCatDeleteModal(btn) {
+  document.getElementById('catDeleteName').textContent = '"' + btn.dataset.name + '"';
+  document.getElementById('catDeleteForm').action = '/e-library/categories/' + btn.dataset.pk + '/delete/';
+  var count = parseInt(btn.dataset.count || '0', 10);
+  var warn = document.getElementById('catDeleteWarning');
+  var submitBtn = document.getElementById('catDeleteSubmit');
+  if (count > 0) {
+    warn.style.display = '';
+    warn.textContent = '⚠ This category has ' + count + ' item' + (count === 1 ? '' : 's') + ' assigned. Reassign or delete them before deleting this category.';
+    submitBtn.disabled = true; submitBtn.style.opacity = '.5'; submitBtn.style.cursor = 'not-allowed';
+  } else {
+    warn.style.display = 'none';
+    submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.cursor = '';
+  }
+  openModal('catDeleteModal');
+}
+
+/* ── Tag modals ── */
+function openTagEditModal(btn) {
+  document.getElementById('tagEditForm').action = '/e-library/tags/' + btn.dataset.pk + '/edit/';
+  document.getElementById('te_name').value = btn.dataset.name;
+  openModal('tagEditModal');
+}
+function openTagDeleteModal(btn) {
+  document.getElementById('tagDeleteName').textContent = '"' + btn.dataset.name + '"';
+  document.getElementById('tagDeleteForm').action = '/e-library/tags/' + btn.dataset.pk + '/delete/';
+  openModal('tagDeleteModal');
+}
+
+/* ── Material Type modals ── */
+function openMtEditModal(btn) {
+  document.getElementById('mtEditForm').action = '/e-library/material-types/' + btn.dataset.pk + '/edit/';
+  document.getElementById('mte_name').value = btn.dataset.name;
+  document.getElementById('mte_icon').value = btn.dataset.icon;
+  openModal('mtEditModal');
+}
+function openMtDeleteModal(btn) {
+  document.getElementById('mtDeleteName').textContent = '"' + btn.dataset.name + '"';
+  document.getElementById('mtDeleteForm').action = '/e-library/material-types/' + btn.dataset.pk + '/delete/';
+  var count = parseInt(btn.dataset.count || '0', 10);
+  var warn = document.getElementById('mtDeleteWarning');
+  var submitBtn = document.getElementById('mtDeleteSubmit');
+  if (count > 0) {
+    warn.style.display = '';
+    warn.textContent = '⚠ This material type has ' + count + ' item' + (count === 1 ? '' : 's') + ' assigned. Reassign or delete them before deleting this type.';
+    submitBtn.disabled = true; submitBtn.style.opacity = '.5'; submitBtn.style.cursor = 'not-allowed';
+  } else {
+    warn.style.display = 'none';
+    submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.cursor = '';
+  }
+  openModal('mtDeleteModal');
+}
+
+/* ── Status toggle (AJAX) ── */
+function toggleStatus(card, action) {
+  fetch(card.dataset.toggleUrl, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=' + encodeURIComponent(action)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){ if (data.success) window.location.reload(); else showToast(data.error || 'Error changing status.', true); })
+  .catch(function(){ showToast('Network error.', true); });
+}
+
+/* ── Toast ── */
+function showToast(msg, isError) {
+  var c = document.getElementById('toastContainer');
+  var t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' toast-error' : '');
+  t.innerHTML = '<i class="fa-solid ' + (isError ? 'fa-circle-exclamation' : 'fa-circle-check') + '"></i>' + escHtml(msg);
+  c.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 4200);
+}
+</script>
+{% endblock %}

@@ -1096,7 +1096,7 @@
 
       {% if request.user.is_superuser or request.user|has_module_access:'e_library' %}
       <div class="nav__item">
-        <a href="" class="nav__link">
+        <a href="{% url 'e_library' %}" class="nav__link">
           <span class="nav__icon"><i class="fa-solid fa-book"></i></span>
           <span class="nav__label">e-Library</span>
         </a>
