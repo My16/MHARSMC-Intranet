@@ -1009,6 +1009,28 @@
     }
     .gm-win__reply-cancel:hover { background: #fca5a5; color: #dc2626; }
 
+    /* ─── Reply quote inside floating chat bubbles ─── */
+    .gm-win__bubble-quote {
+      border-left: 3px solid rgba(255,255,255,.5);
+      padding: 4px 7px; margin-bottom: 4px;
+      border-radius: 0 6px 6px 0;
+      background: rgba(0,0,0,.1);
+      cursor: pointer;
+    }
+    .gm-win__row:not(.mine) .gm-win__bubble-quote {
+      border-left-color: var(--green-accent);
+      background: var(--green-pale);
+    }
+    .gm-win__bubble-quote-name {
+      font-size: .62rem; font-weight: 700; color: var(--green-accent); margin-bottom: 1px;
+    }
+    .gm-win__row:not(.mine) .gm-win__bubble-quote-name { color: var(--green-mid); }
+    .gm-win__bubble-quote-text {
+      font-size: .68rem; opacity: .85;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+    }
+    .gm-win__row:not(.mine) .gm-win__bubble-quote-text { color: var(--text-muted); }
+
   </style>
 
   {% block extra_css %}{% endblock %}
@@ -2563,12 +2585,11 @@
         const hasAtt  = msg.attachment_url;
         const hasBody = msg.body && msg.body.trim();
         const bubble  = document.createElement('div');
-    
+
         let content = '';
-    
+
         if (hasAtt) {
           if (msg.is_image || isImageUrl(msg.attachment_url)) {
-            /* FIX #4: if there's also a body, keep normal bubble class so both render together */
             bubble.className = hasBody ? 'gm-win__bubble' : 'gm-win__bubble img-only';
             content += `<img class="gm-win__bubble-img" src="${msg.attachment_url}" alt=""
               data-url="${msg.attachment_url}" data-name="${msg.attachment_name||'Image'}"
@@ -2591,18 +2612,44 @@
         } else {
           bubble.className = 'gm-win__bubble';
         }
-    
+
+        /* ── Reply quote ── */
+        if (msg.reply_to) {
+          const qt = msg.reply_to;
+          const qtText = qt.body ? esc(qt.body)
+            : qt.is_image ? '📷 Photo'
+            : qt.attachment_name ? `📎 ${esc(qt.attachment_name)}`
+            : 'Message';
+          content += `
+            <div class="gm-win__bubble-quote" data-reply-id="${qt.id}">
+              <div class="gm-win__bubble-quote-name">${esc(qt.sender_name || 'Message')}</div>
+              <div class="gm-win__bubble-quote-text">${qtText}</div>
+            </div>`;
+        }
+
         if (hasBody) content += `<span>${esc(msg.body)}</span>`;
         const tick = mine ? `<span class="gm-win__status" data-status="${msg.status||'sent'}"></span>` : '';
         content += `<span class="gm-win__btime">${fmtT(msg.created_at)}${tick}</span>`;
         bubble.innerHTML = content;
-    
+
         bubble.querySelector('.gm-win__bubble-img')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
         bubble.querySelector('.gm-win__vid-preview')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
         bubble.querySelector('.gm-win__bubble-file')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
 
-        /* ── Hover action bar (reply / forward / remove) ── */
-        bubble._msgRef = null; // will be set by buildWinMsg
+        bubble.querySelector('.gm-win__bubble-quote')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetId = msg.reply_to?.id;
+          if (!targetId) return;
+          const msgsEl = bubble.closest('.gm-win__msgs');
+          const target = msgsEl?.querySelector(`[data-id="${targetId}"]`);
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.style.transition = 'background .2s';
+            target.style.background = 'rgba(82,183,136,.18)';
+            setTimeout(() => target.style.background = '', 1200);
+          }
+        });
+
         return bubble;
       }
     
@@ -3019,33 +3066,45 @@
           }
         });
     
-        /* ── FIX #1 + #4: doSend sends files + body correctly ── */
         const doSend = async () => {
           const body = inputEl.value.trim();
           if (!body && !pendingFiles.length) return;
-    
+
           const conv = allConvs.find(c => String(c.id) === convId);
           if (conv && (conv.blocked_by_me || conv.blocked_by_them)) return;
-    
-          /* Snapshot and clear */
+
           const filesToSend = pendingFiles.slice();
           const bodyToSend  = body;
           inputEl.value = ''; inputEl.style.height = 'auto';
           pendingFiles = [];
           attachPrv.classList.remove('visible');
           thumbWrap.innerHTML = '';
-    
+
           const capturedReply = win._replyingTo || null;
           win._replyingTo = null;
           replyBar.classList.remove('visible');
 
+          let capturedReplyName = 'Them';
+          if (capturedReply) {
+            if (capturedReply.sender_id === ME_ID) {
+              capturedReplyName = 'You';
+            } else {
+              const st = openWins[convId];
+              if (st?.isGroup && st.convData?.members) {
+                const m = st.convData.members.find(m => m.id === capturedReply.sender_id);
+                capturedReplyName = m ? m.name : 'Them';
+              } else if (st?.recipient) {
+                capturedReplyName = st.recipient.name;
+              }
+            }
+          }
+
           const sendOne = async (file, msgBody, includeReply) => {
             const fd = new FormData();
-            if (msgBody)                    fd.append('body', msgBody);
-            if (file)                       fd.append('attachment', file);
+            if (msgBody) fd.append('body', msgBody);
+            if (file)    fd.append('attachment', file);
             if (includeReply && capturedReply) fd.append('reply_to_id', capturedReply.id);
-    
-            /* Optimistic bubble */
+
             const opt = {
               id: 'tmp_' + Date.now() + '_' + Math.random(),
               sender_id: ME_ID,
@@ -3054,9 +3113,16 @@
               attachment_url:  file ? URL.createObjectURL(file) : null,
               attachment_name: file ? file.name : null,
               is_image:        file ? file.type.startsWith('image/') : false,
+              reply_to: (includeReply && capturedReply) ? {
+                id: capturedReply.id,
+                sender_name: capturedReplyName,
+                body: capturedReply.body,
+                is_image: capturedReply.is_image,
+                attachment_name: capturedReply.attachment_name,
+              } : null,
             };
             appendWinMsg(msgsEl, opt, convId, openWins[convId]?.convData);
-    
+
             const res = await fetch(`/messenger/conversations/${convId}/send/`, {
               method:'POST', headers:{'X-CSRFToken':getCsrf()}, body: fd,
             });
@@ -3068,7 +3134,7 @@
               loadConvs();
             }
           };
-    
+
           if (!filesToSend.length) {
               await sendOne(null, bodyToSend, true);
             } else if (filesToSend.length === 1) {
@@ -3079,10 +3145,9 @@
               }
           }
         };
-    
+
         sendEl.addEventListener('click', doSend);
         inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
-    
         return msgsEl;
       }
     
@@ -3524,6 +3589,66 @@
 
     /* Expose globally so floating window forward buttons can call it */
     window.openForwardModal = openModal;
+  })();
+
+
+  // shortcuts: ESC closes modals, dropdowns, and minimizes focused chat window
+  (function () {
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+
+      /* 1. Global lightbox (already closes itself, skip if handled there) */
+      const gmLightbox = document.getElementById('gmLightbox');
+      if (gmLightbox && gmLightbox.classList.contains('open')) return; // handled by its own listener
+
+      /* 2. New-message picker (FAB popup) */
+      const picker = document.getElementById('gmPicker');
+      if (picker && picker.classList.contains('open')) {
+        document.getElementById('gmPickerClose')?.click();
+        return;
+      }
+
+      /* 3. Forward modal */
+      const fwdModal = document.getElementById('gmForwardModal');
+      if (fwdModal && fwdModal.style.display === 'flex') {
+        document.getElementById('gmForwardClose')?.click();
+        return;
+      }
+
+      /* 4. Mute modal */
+      const muteModal = document.getElementById('gmMuteModal');
+      if (muteModal && muteModal.classList.contains('open')) {
+        muteModal.classList.remove('open');
+        return;
+      }
+
+      /* 5. Header user dropdown */
+      const userMenu = document.getElementById('headerUserMenu');
+      if (userMenu && userMenu.classList.contains('open')) {
+        userMenu.classList.remove('open');
+        document.getElementById('headerUserBtn')?.classList.remove('open');
+        return;
+      }
+
+      /* 6. Notification / envelope panels */
+      const notifPanel = document.getElementById('notifPanel');
+      if (notifPanel && notifPanel.style.display === 'block') { notifPanel.style.display = 'none'; return; }
+      const envPanel = document.getElementById('envPanel');
+      if (envPanel && envPanel.classList.contains('open')) { envPanel.classList.remove('open'); return; }
+
+      /* 7. Focused floating chat window — Esc minimizes it (doesn't discard the conversation) */
+      const focusedWin = document.activeElement?.closest('.gm-win');
+      if (focusedWin && focusedWin.dataset.convId) {
+        focusedWin.querySelector('.js-min')?.click();
+        return;
+      }
+
+      /* 8. Fallback: minimize the most recently opened floating window, if any exist */
+      const anyWin = document.querySelector('.gm-wins-row .gm-win:last-child');
+      if (anyWin && anyWin.dataset.convId) {
+        anyWin.querySelector('.js-min')?.click();
+      }
+    });
   })();
   </script>
 
