@@ -156,7 +156,8 @@ def _roles_as_json():
 @login_required
 @user_passes_test(is_admin)
 def user_management(request):
-    search_query = request.GET.get('search', '').strip()
+    search_query  = request.GET.get('search', '').strip()
+    status_filter = request.GET.get('status', '').strip()
 
     profiles_qs = UserProfile.objects.select_related(
         'user', 'role'
@@ -172,24 +173,57 @@ def user_management(request):
             Q(user__email__icontains=search_query)
         )
 
+    if status_filter == 'active':
+        profiles_qs = profiles_qs.filter(user__is_active=True)
+    elif status_filter == 'inactive':
+        profiles_qs = profiles_qs.filter(user__is_active=False, access_reason='')
+    elif status_filter == 'pending':
+        profiles_qs = profiles_qs.filter(user__is_active=False, access_reason__gt='')
+    else:
+        status_filter = ''
+
     base_qs        = UserProfile.objects.filter(user__is_superuser=False)
     total_users    = base_qs.count()
     active_users   = base_qs.filter(user__is_active=True).count()
     inactive_users = base_qs.filter(user__is_active=False).count()
-    pending_users = base_qs.filter(user__is_active=False, access_reason__gt='').count()
+    pending_users  = base_qs.filter(user__is_active=False, access_reason__gt='').count()
+
+    PER_PAGE_CHOICES = [10, 20, 50, 100]
+    try:
+        per_page = int(request.GET.get('per_page', 10))
+    except (TypeError, ValueError):
+        per_page = 10
+    if per_page not in PER_PAGE_CHOICES:
+        per_page = 10
+
+    paginator   = Paginator(profiles_qs, per_page)
+    page_number = request.GET.get('page', '').strip() or 1
+    page_obj    = paginator.get_page(page_number)
+
+    # Querystring minus "page", so pagination links keep the active
+    # search / status filter / per_page selection.
+    qd = request.GET.copy()
+    qd.pop('page', None)
+    base_querystring = qd.urlencode()
 
     roles = Role.objects.all().order_by('name')
 
     return render(request, 'user_management.html', {
-        'profiles':         profiles_qs,
-        'total_users':      total_users,
-        'active_users':     active_users,
-        'inactive_users':   inactive_users,
-        'pending_users':    pending_users,
-        'search_query':     search_query,
-        'module_choices':   MODULE_CHOICES,
-        'roles':            roles,
-        'roles_json':       _roles_as_json(),
+        'profiles':           page_obj,
+        'page_obj':           page_obj,
+        'paginator':          paginator,
+        'per_page':           per_page,
+        'per_page_choices':   PER_PAGE_CHOICES,
+        'base_querystring':   base_querystring,
+        'total_users':        total_users,
+        'active_users':       active_users,
+        'inactive_users':     inactive_users,
+        'pending_users':      pending_users,
+        'search_query':       search_query,
+        'status_filter':      status_filter,
+        'module_choices':     MODULE_CHOICES,
+        'roles':              roles,
+        'roles_json':         _roles_as_json(),
         'department_choices': DEPARTMENT_CHOICES,
     })
 
@@ -239,6 +273,73 @@ def user_add(request):
             return redirect('user_management')
 
     return redirect('user_management')
+
+def _notify_admins_new_registration(new_user, profile):
+    """
+    Notify every administrator (superusers, plus any user whose assigned
+    role has is_administrator=True — the same population is_admin() grants
+    access to) that a new self-registration is awaiting approval. Creates
+    the DB rows (bell dropdown / next page load) and also pushes each one
+    live over the notif_user_{pk} websocket group, same pattern as
+    _notify_pgs_event / _notify_e_library_event.
+    """
+    from asgiref.sync import async_to_sync
+    from channels.layers import get_channel_layer
+    from django.db.models import Count
+    from .models import Notification, Role
+
+    # is_administrator is a computed Python property on Role/UserProfile,
+    # not a DB column, so it can't be used directly in a queryset lookup
+    # (e.g. profile__role__is_administrator). Resolve the matching role
+    # IDs in Python first, then filter on the real role_id column.
+    admin_role_ids = [r.pk for r in Role.objects.all() if r.is_administrator]
+
+    recipients = User.objects.filter(
+        Q(is_superuser=True) | Q(profile__role_id__in=admin_role_ids),
+        is_active=True,
+    ).exclude(pk=new_user.pk).distinct()
+
+    if not recipients.exists():
+        return
+
+    title   = 'New registration pending approval'
+    message = f'{profile.get_full_name_with_middle()} ({profile.department}) requested access.'
+    url     = reverse('user_management') + '?status=pending'
+
+    notifications = Notification.objects.bulk_create([
+        Notification(
+            recipient=r, actor=new_user, notif_type='user_registration_pending',
+            title=title, message=message, url=url,
+        )
+        for r in recipients
+    ])
+
+    recipient_ids = [n.recipient_id for n in notifications]
+    unread_counts = dict(
+        Notification.objects.filter(recipient_id__in=recipient_ids, is_read=False)
+        .values('recipient_id')
+        .annotate(count=Count('id'))
+        .values_list('recipient_id', 'count')
+    )
+
+    channel_layer = get_channel_layer()
+    actor_name = new_user.get_full_name() or new_user.username
+
+    for n in notifications:
+        async_to_sync(channel_layer.group_send)(
+            f'notif_user_{n.recipient_id}',
+            {
+                'type':         'send_notification',
+                'id':           n.pk,
+                'notif_type':   n.notif_type,
+                'title':        n.title,
+                'message':      n.message,
+                'url':          n.url,
+                'actor':        actor_name,
+                'created_at':   n.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'unread_count': unread_counts.get(n.recipient_id, 0),
+            }
+        )
 
 def register(request):
     if request.user.is_authenticated:
@@ -290,7 +391,7 @@ def register(request):
         )
 
         # Create the profile
-        UserProfile.objects.create(
+        profile = UserProfile.objects.create(
             user          = user,
             middle_name   = middle_name,
             department    = department,
@@ -298,6 +399,8 @@ def register(request):
             mobile_number = mobile_number,
             access_reason = reason,
         )
+
+        _notify_admins_new_registration(user, profile)
 
         messages.success(request, 'Your access request has been submitted. The IT Team will activate your account within 1–2 business days.')
         return redirect('login')

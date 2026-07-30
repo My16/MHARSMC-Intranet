@@ -376,6 +376,25 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   .emp-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
   .stat-row { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── Message shortcut button on cards ── */
+.emp-card { position: relative; } /* make sure the card can host an absolute button */
+
+.emp-msg-btn {
+  position: absolute; top: 12px; right: 12px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--green-pale); border: 1px solid var(--green-light);
+  color: var(--green-mid); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: .82rem; transition: background .15s, color .15s, transform .15s;
+}
+.emp-msg-btn:hover { background: var(--green-mid); color: var(--white); transform: scale(1.08); }
+
+/* ── Bio block in the profile modal ── */
+.emp-modal-bio {
+  font-size: .82rem; color: var(--text-primary); line-height: 1.6;
+  background: var(--green-pale); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; width: 100%; text-align: left;
+}
 </style>
 {% endblock %}
 
@@ -487,6 +506,17 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
     {% for profile in employees %}
     <div class="emp-card">
 
+      <!-- Message shortcut -->
+      <button class="emp-msg-btn" title="Message {{ profile.get_full_name_with_middle|escape }}"
+              onclick="startChatWithUser(this)"
+              data-userid="{{ profile.user.pk }}"
+              data-name="{{ profile.get_full_name_with_middle|escape }}"
+              data-avatar="{% if profile.avatar %}{{ profile.avatar.url }}{% endif %}"
+              data-initials="{{ profile.user.first_name|slice:':1'|upper }}{{ profile.user.last_name|slice:':1'|upper }}"
+              data-online="{{ profile.is_online|yesno:'true,false' }}">
+        <i class="fa-solid fa-envelope"></i>
+      </button>
+
       <!-- Avatar -->
       <div class="emp-avatar">
         {% if profile.avatar %}
@@ -505,8 +535,11 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
               data-email="{{ profile.user.email|default:''|escape }}"
               data-mobile="{{ profile.mobile_number|default:''|escape }}"
               data-avatar="{% if profile.avatar %}{{ profile.avatar.url }}{% endif %}"
-              data-initials="{{ profile.user.first_name|slice:':1'|upper }}{{ profile.user.last_name|slice:':1'|upper }}">
-        {{ profile.get_full_name_with_middle }}
+              data-initials="{{ profile.user.first_name|slice:':1'|upper }}{{ profile.user.last_name|slice:':1'|upper }}"
+              data-bio="{{ profile.bio|default:''|escape }}"
+              data-userid="{{ profile.user.pk }}"
+              data-online="{{ profile.is_online|yesno:'true,false' }}">
+          {{ profile.get_full_name_with_middle }}
       </button>
 
       <!-- Position badge -->
@@ -774,11 +807,21 @@ table.off-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
         <i class="fa-solid fa-building"></i>
         <span id="empModalDeptText"></span>
       </div>
+
+      <!-- Bio -->
+      <div class="emp-modal-bio" id="empModalBio" style="display:none;"></div>
+
+      <!-- Contacts -->
+      <div class="emp-modal-contacts" id="empModalContacts"></div>
+
       <!-- Contacts -->
       <div class="emp-modal-contacts" id="empModalContacts"></div>
     </div>
     <!-- Footer -->
     <div class="modal__footer centered-footer" style="padding-bottom: 22px;">
+      <button type="button" class="btn btn-primary" id="empModalMsgBtn">
+        <i class="fa-solid fa-envelope"></i> Message
+      </button>
       <button type="button" class="btn btn-outline" onclick="closeModal('empProfileModal')">Close</button>
     </div>
   </div>
@@ -966,6 +1009,24 @@ function openEmpModal(btn) {
     deptEl.style.display = 'none';
   }
 
+  /* Bio */
+  var bioEl = document.getElementById('empModalBio');
+  var bio   = btn.dataset.bio;
+  if (bio) {
+    bioEl.textContent = bio;
+    bioEl.style.display = '';
+  } else {
+    bioEl.style.display = 'none';
+  }
+
+  /* Wire the modal's Message button to this profile */
+  var msgBtn = document.getElementById('empModalMsgBtn');
+  msgBtn.dataset.userid   = btn.dataset.userid;
+  msgBtn.dataset.name     = name;
+  msgBtn.dataset.avatar   = avatar || '';
+  msgBtn.dataset.initials = initials;
+  msgBtn.dataset.online   = btn.dataset.online;
+
   /* Contacts */
   var contacts = document.getElementById('empModalContacts');
   var html = '';
@@ -1016,5 +1077,46 @@ function openOfficeDelete(btn) {
 (function() {
   switchTab(ACTIVE_TAB);
 })();
+
+/* ── Chat shortcut: envelope → mini chat window ── */
+function getDirCsrf() {
+  var v = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+
+function startChatWithUser(source) {
+  var ds = source.dataset || source;
+  var userId   = ds.userid;
+  var name     = ds.name;
+  var avatar   = ds.avatar || null;
+  var initials = ds.initials || '?';
+  var isOnline = ds.online === 'true';
+
+  if (!userId) return;
+
+  fetch('/messenger/conversations/start/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getDirCsrf() },
+    body: JSON.stringify({ user_id: userId }),
+  })
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    if (window.gmOpenChat) {
+      window.gmOpenChat(data.conversation_id, {
+        id: parseInt(userId, 10),
+        name: name,
+        avatar: avatar,
+        initials: initials,
+        is_online: isOnline,
+      });
+    } else {
+      window.location.href = '/messenger/?conv=' + data.conversation_id;
+    }
+  });
+}
+
+document.getElementById('empModalMsgBtn').addEventListener('click', function () {
+  startChatWithUser(this);
+});
 </script>
 {% endblock %}

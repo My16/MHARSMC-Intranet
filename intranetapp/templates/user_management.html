@@ -82,6 +82,37 @@
   }
   .um-card-actions { display: flex; align-items: center; gap: 10px; }
 
+  .um-stat-card-link { text-decoration: none; color: inherit; display: block; }
+  .um-stat-card-link.is-active-filter .um-stat-card {
+    border-color: var(--green-mid);
+    box-shadow: 0 0 0 3px rgba(82,183,136,.15);
+  }
+
+  .um-per-page-select {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: .82rem;
+    font-family: 'Source Sans 3', sans-serif;
+    color: var(--text-primary); background: var(--white); outline: none;
+    cursor: pointer;
+  }
+
+  .um-pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-top: 1px solid var(--border);
+    font-size: .8rem; color: var(--text-muted); flex-wrap: wrap; gap: 10px;
+  }
+  .um-page-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 30px; height: 30px; padding: 0 8px;
+    border-radius: 7px; border: 1px solid var(--border);
+    background: var(--white); color: var(--text-primary);
+    font-size: .78rem; text-decoration: none; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .um-page-btn:hover { background: var(--green-pale); border-color: var(--green-accent); }
+  .um-page-btn.current { background: var(--green-mid); border-color: var(--green-mid); color: var(--white); font-weight: 600; }
+  .um-page-btn.disabled { opacity: .4; pointer-events: none; }
+
   /* Search */
   .um-search { position: relative; }
   .um-search i {
@@ -475,37 +506,51 @@
 
 <!-- ══ Stat Cards ══════════════════════════════════════════════ -->
 <div class="um-stats">
-  <div class="um-stat-card">
-    <div class="um-stat-icon total"><i class="fa-solid fa-users"></i></div>
-    <div>
-      <div class="um-stat-num">{{ total_users }}</div>
-      <div class="um-stat-label">Total Users</div>
+  <a href="?status=&search={{ search_query|urlencode }}&per_page={{ per_page }}"
+     class="um-stat-card-link{% if not status_filter %} is-active-filter{% endif %}">
+    <div class="um-stat-card">
+      <div class="um-stat-icon total"><i class="fa-solid fa-users"></i></div>
+      <div>
+        <div class="um-stat-num">{{ total_users }}</div>
+        <div class="um-stat-label">Total Users</div>
+      </div>
     </div>
-  </div>
-  <div class="um-stat-card">
-    <div class="um-stat-icon active"><i class="fa-solid fa-user-check"></i></div>
-    <div>
-      <div class="um-stat-num">{{ active_users }}</div>
-      <div class="um-stat-label">Active Users</div>
-    </div>
-  </div>
-  <div class="um-stat-card">
-    <div class="um-stat-icon inactive"><i class="fa-solid fa-user-xmark"></i></div>
-    <div>
-      <div class="um-stat-num">{{ inactive_users }}</div>
-      <div class="um-stat-label">Inactive Users</div>
-    </div>
-  </div>
+  </a>
 
-  <div class="um-stat-card">
-    <div class="um-stat-icon" style="background:#fff8e1; color:#f59e0b;">
-      <i class="fa-solid fa-clock"></i>
+  <a href="?status=active&search={{ search_query|urlencode }}&per_page={{ per_page }}"
+     class="um-stat-card-link{% if status_filter == 'active' %} is-active-filter{% endif %}">
+    <div class="um-stat-card">
+      <div class="um-stat-icon active"><i class="fa-solid fa-user-check"></i></div>
+      <div>
+        <div class="um-stat-num">{{ active_users }}</div>
+        <div class="um-stat-label">Active Users</div>
+      </div>
     </div>
-    <div>
-      <div class="um-stat-num">{{ pending_users }}</div>
-      <div class="um-stat-label">Pending Approval</div>
+  </a>
+
+  <a href="?status=inactive&search={{ search_query|urlencode }}&per_page={{ per_page }}"
+     class="um-stat-card-link{% if status_filter == 'inactive' %} is-active-filter{% endif %}">
+    <div class="um-stat-card">
+      <div class="um-stat-icon inactive"><i class="fa-solid fa-user-xmark"></i></div>
+      <div>
+        <div class="um-stat-num">{{ inactive_users }}</div>
+        <div class="um-stat-label">Inactive Users</div>
+      </div>
     </div>
-  </div>
+  </a>
+
+  <a href="?status=pending&search={{ search_query|urlencode }}&per_page={{ per_page }}"
+     class="um-stat-card-link{% if status_filter == 'pending' %} is-active-filter{% endif %}">
+    <div class="um-stat-card">
+      <div class="um-stat-icon" style="background:#fff8e1; color:#f59e0b;">
+        <i class="fa-solid fa-clock"></i>
+      </div>
+      <div>
+        <div class="um-stat-num">{{ pending_users }}</div>
+        <div class="um-stat-label">Pending Approval</div>
+      </div>
+    </div>
+  </a>
 </div>
 
 <!-- ══ Users Table ═════════════════════════════════════════════ -->
@@ -516,12 +561,24 @@
       <span class="um-badge">{{ total_users }} total</span>
     </div>
     <div class="um-card-actions">
-      <form method="GET" action="">
+      <form method="GET" action="" id="filterForm" style="display:flex; align-items:center; gap:10px;">
+        <input type="hidden" name="status" id="statusInput" value="{{ status_filter }}">
         <div class="um-search">
           <i class="fa-solid fa-magnifying-glass"></i>
           <input type="text" name="search" placeholder="Search users…"
-                 value="{{ search_query }}" autocomplete="off" id="userSearchInput"/>
+                value="{{ search_query }}" autocomplete="off" id="userSearchInput"/>
         </div>
+        <select name="per_page" id="perPageSelect" class="um-per-page-select">
+          {% for n in per_page_choices %}
+            <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} / page</option>
+          {% endfor %}
+        </select>
+        {% if status_filter %}
+          <a href="?search={{ search_query|urlencode }}&per_page={{ per_page }}"
+            class="um-badge" style="text-decoration:none;">
+            <i class="fa-solid fa-xmark"></i> Clear filter
+          </a>
+        {% endif %}
       </form>
       <button class="btn-add" onclick="openAddModal()">
         <i class="fa-solid fa-plus"></i> Add User
@@ -549,7 +606,7 @@
       <tbody>
         {% for profile in profiles %}
         <tr>
-          <td>{{ forloop.counter }}</td>
+          <td>{{ forloop.counter0|add:page_obj.start_index }}</td>
 
           <!-- User -->
           <td>
@@ -733,6 +790,34 @@
       </tbody>
     </table>
   </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="um-pagination">
+    <div>
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} user{{ page_obj.paginator.count|pluralize }}
+    </div>
+    <div style="display:flex; align-items:center; gap:6px;">
+      {% if page_obj.has_previous %}
+        <a href="?{{ base_querystring }}&page={{ page_obj.previous_page_number }}" class="um-page-btn"><i class="fa-solid fa-chevron-left"></i></a>
+      {% else %}
+        <span class="um-page-btn disabled"><i class="fa-solid fa-chevron-left"></i></span>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        {% if num == page_obj.number %}
+          <span class="um-page-btn current">{{ num }}</span>
+        {% elif num == 1 or num == page_obj.paginator.num_pages or num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+          <a href="?{{ base_querystring }}&page={{ num }}" class="um-page-btn">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+        <a href="?{{ base_querystring }}&page={{ page_obj.next_page_number }}" class="um-page-btn"><i class="fa-solid fa-chevron-right"></i></a>
+      {% else %}
+        <span class="um-page-btn disabled"><i class="fa-solid fa-chevron-right"></i></span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 
@@ -810,13 +895,57 @@
           <select name="department" class="form-control" required>
             <option value="">— Select a department —</option>
             <optgroup label="Office of the Medical Center Chief">
+              <option value="Office of the Medical Center Chief">Office of the Medical Center Chief (Head Office)</option>
               <option value="Office of the Medical Center Chief — Legal Unit">Legal Unit</option>
               <option value="Office of the Medical Center Chief — Public Health Unit">Public Health Unit</option>
               <option value="Office of the Medical Center Chief — Planning and Management Unit">Planning and Management Unit</option>
-              <option value="Office of the Medical Center Chief — Office of Strategic Management">Office of Strategic Management</option>
+              <option value="Office of the Medical Center Chief — Office for Strategic Management">Office for Strategic Management</option>
               <option value="Office of the Medical Center Chief — Professional Education, Training and Research">Professional Education, Training and Research</option>
-                <option value="Office of the Medical Center Chief — Health Emergency and Disaster Management Unit">Health Emergency and Disaster Management Unit</option>
-                <option value="Office of the Medical Center Chief — Infection Precention and Control Unit">Infection Precention and Control Unit</option>
+              <option value="Office of the Medical Center Chief — Health Emergency and Disaster Management Unit">Health Emergency and Disaster Management Unit</option>
+              <option value="Office of the Medical Center Chief — Infection Prevention and Control Unit">Infection Prevention and Control Unit</option>
+            </optgroup>
+            <optgroup label="Medical Service">
+              <option value="Medical Service">Office of the Chief of Medical Professional Staff (Head Office)</option>
+              <option value="Medical Service — Clinical Department Section">Clinical Department Section</option>
+              <option value="Medical Service — Emergency Medicine Department">Emergency Medicine Department</option>
+              <option value="Medical Service — Department of Physical Medicine and Rehabilitation">Department of Physical Medicine and Rehabilitation</option>
+              <option value="Medical Service — Operating Room Department">Operating Room Department</option>
+              <option value="Medical Service — Basic Lung Care Specialty Center">Basic Lung Care Specialty Center</option>
+              <option value="Medical Service — Respiratory Unit">Respiratory Unit</option>
+              <option value="Medical Service — Basic Infectious Disease and Tropical Medicine Specialty Center">Basic Infectious Disease and Tropical Medicine Specialty Center</option>
+              <option value="Medical Service — Dental Department">Dental Department</option>
+              <option value="Medical Service — Woman and Child Protection Unit">Woman and Child Protection Unit</option>
+              <option value="Medical Service — Out-Patient Department">Out-Patient Department</option>
+              <option value="Medical Service — Psychology Unit">Psychology Unit</option>
+              <option value="Medical Service — TB-Dots Clinic">TB-Dots Clinic</option>
+              <option value="Medical Service — E-Konsulta">E-Konsulta</option>
+              <option value="Medical Service — Animal Bite and Treatment Center">Animal Bite and Treatment Center</option>
+              <option value="Medical Service — Internal Medicine Department">Internal Medicine Department</option>
+              <option value="Medical Service — Cardiology Unit">Cardiology Unit</option>
+              <option value="Medical Service — Nephrology Unit">Nephrology Unit</option>
+              <option value="Medical Service — Medical Intensive Care Unit">Medical Intensive Care Unit</option>
+              <option value="Medical Service — Oncology Unit">Oncology Unit</option>
+              <option value="Medical Service — Acute Stroke Unit">Acute Stroke Unit</option>
+              <option value="Medical Service — Pediatrics Department">Pediatrics Department</option>
+              <option value="Medical Service — Pediatric Intensive Care Unit">Pediatric Intensive Care Unit</option>
+              <option value="Medical Service — Neonatal Intensive Care Unit">Neonatal Intensive Care Unit</option>
+              <option value="Medical Service — Newborn Screening Unit">Newborn Screening Unit</option>
+              <option value="Medical Service — Obstetrics and Gynecology Department">Obstetrics and Gynecology Department</option>
+              <option value="Medical Service — High-Risk Pregnancy Unit">High-Risk Pregnancy Unit</option>
+              <option value="Medical Service — Family Planning">Family Planning</option>
+              <option value="Medical Service — Orthopedics Department">Orthopedics Department</option>
+              <option value="Medical Service — Department of Radiology">Department of Radiology</option>
+              <option value="Medical Service — Magnetic Resonance Imaging">Magnetic Resonance Imaging</option>
+              <option value="Medical Service — Department of Pathology">Department of Pathology</option>
+              <option value="Medical Service — Blood Bank">Blood Bank</option>
+              <option value="Medical Service — Anatomic Laboratory (Histopathology)">Anatomic Laboratory (Histopathology)</option>
+              <option value="Medical Service — Clinical Laboratory">Clinical Laboratory</option>
+              <option value="Medical Service — Molecular Biology">Molecular Biology</option>
+              <option value="Medical Service — Family and Community Medicine Department">Family and Community Medicine Department</option>
+              <option value="Medical Service — Wellness">Wellness</option>
+              <option value="Medical Service — Palliative Care">Palliative Care</option>
+              <option value="Medical Service — Surgery Department">Surgery Department</option>
+              <option value="Medical Service — Anesthesia Department">Anesthesia Department</option>
             </optgroup>
             <optgroup label="Allied Health Professional Service">
               <option value="Allied Health Professional Service — Nutrition and Dietetics Department">Nutrition and Dietetics Department</option>
@@ -1512,6 +1641,23 @@
     searchInput.addEventListener('input', function() {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => this.closest('form').submit(), 500);
+    });
+
+    // Re-focus the field (with cursor at the end) after the page reloads
+    // from a search submit, so typing feels uninterrupted.
+    if (searchInput.value) {
+      searchInput.focus();
+      const val = searchInput.value;
+      searchInput.value = '';
+      searchInput.value = val; // re-assigning moves the caret to the end
+    }
+  }
+
+  /* ── Per-page selector (auto-submit, no button needed) ──────── */
+  const perPageSelect = document.getElementById('perPageSelect');
+  if (perPageSelect) {
+    perPageSelect.addEventListener('change', function() {
+      this.closest('form').submit();
     });
   }
 
