@@ -85,7 +85,7 @@ DEPARTMENT_CHOICES = [
     ("Office of the Medical Center Chief — Legal Unit",                              "Legal Unit (MCC Office)"),
     ("Office of the Medical Center Chief — Public Health Unit",                      "Public Health Unit (MCC Office)"),
     ("Office of the Medical Center Chief — Planning and Management Unit",            "Planning and Management Unit (MCC Office)"),
-    ("Office of the Medical Center Chief — Office for Strategic Management",          "Office for Strategic Management (MCC Office)"),
+    ("Office of the Medical Center Chief — Office for Strategy Management",          "Office for Strategy Management (MCC Office)"),
     ("Office of the Medical Center Chief — Professional Education, Training and Research", "Professional Education, Training and Research (MCC Office)"),
     ("Office of the Medical Center Chief — Health Emergency and Disaster Management Unit", "Health Emergency and Disaster Management Unit (MCC Office)"),
     ("Office of the Medical Center Chief — Infection Prevention and Control Unit", "Infection Prevention and Control Unit (MCC Office)"),
