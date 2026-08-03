@@ -1725,6 +1725,7 @@ def issuances(request):
         'all_categories':     all_categories,
         'cat_search':         cat_search,
         'all_taggable_users': all_taggable_users,
+        'department_choices': DEPARTMENT_CHOICES,
     })
  
 # ── Create ─────────────────────────────────────────────────────────────────────
@@ -1782,7 +1783,7 @@ def issuance_create(request):
         issuance.save()
 
         tagged_ids = request.POST.getlist('tagged_users')
-        tagged = User.objects.filter(pk__in=tagged_ids, is_active=True) if tagged_ids else User.objects.none()
+        tagged = _resolve_tagged_recipients(tagged_ids)
         if tagged_ids:
             issuance.tagged_users.set(tagged)
 
@@ -1862,7 +1863,7 @@ def issuance_edit(request, pk):
         # users who were already tagged on a previous edit.
         tagged_ids = request.POST.getlist('tagged_users')
         previously_tagged_ids = set(issuance.tagged_users.values_list('pk', flat=True))
-        new_tagged = User.objects.filter(pk__in=tagged_ids, is_active=True)
+        new_tagged = _resolve_tagged_recipients(tagged_ids)
         issuance.tagged_users.set(new_tagged)
 
         if status == 'published':
@@ -4835,6 +4836,32 @@ def _notify_issuance_tagged(actor, issuance, tagged_users):
                 'unread_count': unread_counts.get(n.recipient_id, 0),
             }
         )
+
+def _resolve_tagged_recipients(tagged_ids):
+    """
+    tagged_ids comes straight from request.POST.getlist('tagged_users') and
+    may contain plain user PKs and/or 'office:<department_code>' values (the
+    "Whole Office" option in the tag picker). Expands any office picks into
+    every active, non-superuser user in that department, merges them with
+    any individually-picked users, and returns one deduplicated queryset.
+
+    Note: this expands the office into its current members at save time —
+    the issuance stores individual tagged_users, not "this department" as
+    a live group. If someone joins the department later, they won't
+    retroactively be tagged on older issuances (same as if you'd picked
+    people one by one).
+    """
+    user_ids     = [v for v in tagged_ids if not v.startswith('office:')]
+    office_codes = [v.split(':', 1)[1] for v in tagged_ids if v.startswith('office:')]
+
+    if not user_ids and not office_codes:
+        return User.objects.none()
+
+    q = Q(pk__in=user_ids)
+    if office_codes:
+        q |= Q(profile__department__in=office_codes)
+
+    return User.objects.filter(q, is_active=True, is_superuser=False).distinct()
 
 
 def _notify_issuance_broadcast(actor, issuance, created):
