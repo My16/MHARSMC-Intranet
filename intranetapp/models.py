@@ -683,6 +683,14 @@ class Issuance(models.Model):
         blank=True,
         null=True,
     )
+
+    tagged_users  = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='tagged_issuances',
+        verbose_name='Tagged Users/Offices',
+        help_text='Concerned users or offices flagged on this issuance — they get notified.',
+    )
  
     # ── Status / lifecycle ────────────────────────────────────────────────────
     status        = models.CharField(
@@ -766,6 +774,12 @@ class Issuance(models.Model):
                 return f'{size:.0f} {unit}'
             size /= 1024.0
         return f'{size:.1f} TB'
+
+    @property
+    def tagged_users_display(self):
+        return ', '.join(
+            u.get_full_name() or u.username for u in self.tagged_users.all()
+        )
     
 
 class WikiTag(models.Model):

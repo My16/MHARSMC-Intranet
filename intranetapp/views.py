@@ -1701,6 +1701,10 @@ def issuances(request):
         request.user.profile.has_module_access('issuances')
     )
 
+    all_taggable_users = User.objects.filter(
+        is_active=True, is_superuser=False
+    ).select_related('profile').order_by('first_name', 'last_name')
+
     return render(request, 'issuances.html', {
         'active_tab':         active_tab,
         'can_manage':         can_manage,
@@ -1720,7 +1724,8 @@ def issuances(request):
         'categories':         categories_qs,
         'all_categories':     all_categories,
         'cat_search':         cat_search,
-    }) 
+        'all_taggable_users': all_taggable_users,
+    })
  
 # ── Create ─────────────────────────────────────────────────────────────────────
  
@@ -1775,7 +1780,18 @@ def issuance_create(request):
         if attachment:
             issuance.attachment = attachment
         issuance.save()
- 
+
+        tagged_ids = request.POST.getlist('tagged_users')
+        tagged = User.objects.filter(pk__in=tagged_ids, is_active=True) if tagged_ids else User.objects.none()
+        if tagged_ids:
+            issuance.tagged_users.set(tagged)
+
+        if status == 'published':
+            if tagged.exists():
+                _notify_issuance_tagged(request.user, issuance, tagged)
+            else:
+                _notify_issuance_broadcast(request.user, issuance, created=True)
+
         verb = 'published' if status == 'published' else 'saved as draft'
         messages.success(request, f'Issuance "{issuance_no}" has been {verb}.')
  
@@ -1841,6 +1857,22 @@ def issuance_edit(request, pk):
             issuance.attachment = attachment
  
         issuance.save()
+
+        # Only newly-added tags get notified, so re-saving doesn't re-spam
+        # users who were already tagged on a previous edit.
+        tagged_ids = request.POST.getlist('tagged_users')
+        previously_tagged_ids = set(issuance.tagged_users.values_list('pk', flat=True))
+        new_tagged = User.objects.filter(pk__in=tagged_ids, is_active=True)
+        issuance.tagged_users.set(new_tagged)
+
+        if status == 'published':
+            if new_tagged.exists():
+                newly_added = new_tagged.exclude(pk__in=previously_tagged_ids)
+                if newly_added.exists():
+                    _notify_issuance_tagged(request.user, issuance, newly_added)
+            else:
+                _notify_issuance_broadcast(request.user, issuance, created=False)
+
         messages.success(request, f'Issuance "{issuance_no}" has been updated.')
  
     return redirect('issuances')
@@ -4750,6 +4782,116 @@ def _notify_pgs_event(actor, notif_type, title, message, url):
 
 
 
+def _notify_issuance_tagged(actor, issuance, tagged_users):
+    """
+    Notify specific users tagged on an issuance (e.g. a concerned office).
+    Unlike _notify_pgs_event / _notify_e_library_event this is targeted,
+    not org-wide — only the people explicitly tagged get pinged.
+    """
+    from asgiref.sync import async_to_sync
+    from channels.layers import get_channel_layer
+    from django.db.models import Count
+    from .models import Notification
+
+    recipients = tagged_users.filter(is_active=True).exclude(pk=actor.pk)
+    if not recipients.exists():
+        return
+
+    title   = 'You were tagged on an issuance'
+    message = f'{_actor_display_name(actor)} tagged you on "{issuance.issuance_no}".'
+    url     = reverse('issuances')
+
+    notifications = Notification.objects.bulk_create([
+        Notification(
+            recipient=r, actor=actor, notif_type='issuance_tagged',
+            title=title, message=message, url=url,
+        )
+        for r in recipients
+    ])
+
+    recipient_ids = [n.recipient_id for n in notifications]
+    unread_counts = dict(
+        Notification.objects.filter(recipient_id__in=recipient_ids, is_read=False)
+        .values('recipient_id')
+        .annotate(count=Count('id'))
+        .values_list('recipient_id', 'count')
+    )
+
+    channel_layer = get_channel_layer()
+    actor_name = _actor_display_name(actor)
+
+    for n in notifications:
+        async_to_sync(channel_layer.group_send)(
+            f'notif_user_{n.recipient_id}',
+            {
+                'type':         'send_notification',
+                'id':           n.pk,
+                'notif_type':   n.notif_type,
+                'title':        n.title,
+                'message':      n.message,
+                'url':          n.url,
+                'actor':        actor_name,
+                'created_at':   n.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'unread_count': unread_counts.get(n.recipient_id, 0),
+            }
+        )
+
+
+def _notify_issuance_broadcast(actor, issuance, created):
+    """
+    Broadcast an issuance notification to every other active user.
+    Used only when the issuance has NO tagged users — if specific
+    users/offices are tagged, only they are notified via
+    _notify_issuance_tagged() instead of the whole organization.
+    """
+    from asgiref.sync import async_to_sync
+    from channels.layers import get_channel_layer
+    from django.db.models import Count
+    from .models import Notification
+
+    recipients = User.objects.filter(is_active=True).exclude(pk=actor.pk)
+    if not recipients.exists():
+        return
+
+    verb    = 'issued a new' if created else 'updated an'
+    title   = f'{_actor_display_name(actor)} {verb} issuance'
+    message = issuance.issuance_no
+    url     = reverse('issuances')
+
+    notifications = Notification.objects.bulk_create([
+        Notification(
+            recipient=r, actor=actor, notif_type=Notification.TYPE_ISSUANCE,
+            title=title, message=message, url=url,
+        )
+        for r in recipients
+    ])
+
+    recipient_ids = [n.recipient_id for n in notifications]
+    unread_counts = dict(
+        Notification.objects.filter(recipient_id__in=recipient_ids, is_read=False)
+        .values('recipient_id')
+        .annotate(count=Count('id'))
+        .values_list('recipient_id', 'count')
+    )
+
+    channel_layer = get_channel_layer()
+    actor_name = _actor_display_name(actor)
+
+    for n in notifications:
+        async_to_sync(channel_layer.group_send)(
+            f'notif_user_{n.recipient_id}',
+            {
+                'type':         'send_notification',
+                'id':           n.pk,
+                'notif_type':   n.notif_type,
+                'title':        n.title,
+                'message':      n.message,
+                'url':          n.url,
+                'actor':        actor_name,
+                'created_at':   n.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'unread_count': unread_counts.get(n.recipient_id, 0),
+            }
+        )
 
 
 def _can_manage_e_library(user):

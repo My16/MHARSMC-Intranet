@@ -313,6 +313,50 @@
 .form-control:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
 textarea.form-control { resize: vertical; min-height: 100px; line-height: 1.6; }
 
+/* ── Searchable tag select (users/offices) ── */
+.tag-select__native { display: none !important; }
+.tag-select {
+  border: 1px solid var(--border); border-radius: 8px; background: var(--white);
+  padding: 6px; display: flex; flex-direction: column; gap: 2px; position: relative;
+  transition: border-color .18s, box-shadow .18s;
+}
+.tag-select:focus-within { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
+.tag-select__chips { display: none; flex-wrap: wrap; gap: 6px; padding: 4px 4px 2px; }
+.tag-select__chips.has-chips { display: flex; }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px;
+  background: var(--green-pale); border: 1px solid rgba(45,106,79,.22);
+  color: var(--green-dark); border-radius: 20px; font-size: .77rem; font-weight: 500;
+  line-height: 1.3; max-width: 100%;
+}
+.tag-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-chip i {
+  font-size: .62rem; cursor: pointer; opacity: .6; padding: 3px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: opacity .15s, background .15s;
+}
+.tag-chip i:hover { opacity: 1; background: rgba(192,57,43,.12); color: #c0392b; }
+.tag-select__search { display: flex; align-items: center; gap: 8px; padding: 5px 8px; }
+.tag-select__search i.fa-magnifying-glass { color: var(--text-muted); font-size: .8rem; flex-shrink: 0; }
+.tag-select__search input {
+  border: none; outline: none; flex: 1; font-size: .85rem; font-family: inherit;
+  color: var(--text-primary); background: transparent; padding: 4px 0; min-width: 0;
+}
+.tag-select__dropdown {
+  display: none; max-height: 190px; overflow-y: auto;
+  border-top: 1px solid var(--border); margin-top: 2px; padding-top: 4px;
+}
+.tag-select__dropdown.open { display: block; }
+.tag-select__item {
+  display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+  font-size: .83rem; color: var(--text-primary); cursor: pointer;
+  border-radius: 6px; transition: background .12s;
+}
+.tag-select__item:hover, .tag-select__item.active { background: var(--green-pale); }
+.tag-select__item i { color: var(--green-mid); font-size: .78rem; width: 14px; text-align: center; flex-shrink: 0; }
+.tag-select__item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-select__empty { padding: 12px 10px; font-size: .8rem; color: var(--text-muted); text-align: center; }
+
 /* ── File upload ── */
 .file-upload-zone {
   border: 2px dashed var(--border); border-radius: 10px; padding: 18px;
@@ -556,7 +600,14 @@ textarea.form-control { resize: vertical; min-height: 100px; line-height: 1.6; }
           <td class="date-cell">
             <strong>{{ item.issuance_date|date:"M d, Y" }}</strong>
           </td>
-          <td><div class="issuance-summary-cell">{{ item.summary }}</div></td>
+          <td>
+            <div class="issuance-summary-cell">{{ item.summary }}</div>
+            {% if item.tagged_users.all %}
+            <div style="font-size:.7rem;color:var(--green-mid);margin-top:4px;">
+              <i class="fa-solid fa-at" style="font-size:.65rem;"></i> {{ item.tagged_users_display }}
+            </div>
+            {% endif %}
+          </td>
           <td>
             <span class="status-badge status-badge-{{ item.status }}">
               {% if item.status == 'published' %}<i class="fa-solid fa-circle-check"></i>
@@ -744,6 +795,26 @@ textarea.form-control { resize: vertical; min-height: 100px; line-height: 1.6; }
         <div class="form-group">
           <label for="ic_issuance_date">Issuance Date <span class="req">*</span></label>
           <input type="date" id="ic_issuance_date" name="issuance_date" class="form-control" required>
+
+          <div class="form-group">
+            <label for="ic_tagSearchInput">Tag Concerned Users/Offices <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+            <div class="tag-select" id="ic_tagSelectWrap">
+              <div class="tag-select__chips" id="ic_tagChips"></div>
+              <div class="tag-select__search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="ic_tagSearchInput" placeholder="Search users or offices…" autocomplete="off">
+              </div>
+              <div class="tag-select__dropdown" id="ic_tagDropdown"></div>
+            </div>
+            <select id="ic_tagged_users" name="tagged_users" multiple class="tag-select__native">
+              {% for u in all_taggable_users %}
+              <option value="{{ u.pk }}">
+                {{ u.get_full_name|default:u.username }}{% if u.profile.department %} — {{ u.profile.department }}{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+            <span style="font-size:.74rem;color:var(--text-muted);">Search and click to add. Tagged users will be notified.</span>
+          </div>
         </div>
 
         <div class="form-group">
@@ -853,6 +924,26 @@ textarea.form-control { resize: vertical; min-height: 100px; line-height: 1.6; }
         <div class="form-group">
           <label for="ie_summary">Summary <span class="req">*</span></label>
           <textarea id="ie_summary" name="summary" class="form-control" required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="ie_tagSearchInput">Tag Concerned Users/Offices <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+          <div class="tag-select" id="ie_tagSelectWrap">
+            <div class="tag-select__chips" id="ie_tagChips"></div>
+            <div class="tag-select__search">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="ie_tagSearchInput" placeholder="Search users or offices…" autocomplete="off">
+            </div>
+            <div class="tag-select__dropdown" id="ie_tagDropdown"></div>
+          </div>
+          <select id="ie_tagged_users" name="tagged_users" multiple class="tag-select__native">
+            {% for u in all_taggable_users %}
+            <option value="{{ u.pk }}">
+              {{ u.get_full_name|default:u.username }}{% if u.profile.department %} — {{ u.profile.department }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <span style="font-size:.74rem;color:var(--text-muted);">Newly-tagged users will be notified.</span>
         </div>
 
         <!-- Current attachment display -->
@@ -1061,6 +1152,10 @@ var ISSUANCE_DATA = [
     attachment_url:  "{% if item.attachment %}{{ item.attachment.url }}{% endif %}",
     attachment_size: "{{ item.file_size_display|escapejs }}",
     edit_url:   "{% url 'issuance_edit'   item.pk %}",
+    attachment_size: "{{ item.file_size_display|escapejs }}",
+    tagged_user_ids: [{% for u in item.tagged_users.all %}{{ u.pk }}{% if not forloop.last %},{% endif %}{% endfor %}],
+    tagged_users_display: "{{ item.tagged_users_display|escapejs }}",
+    edit_url:   "{% url 'issuance_edit'   item.pk %}",
     delete_url: "{% url 'issuance_delete' item.pk %}",
     toggle_url: "{% url 'issuance_toggle_status' item.pk %}"
   }{% if not forloop.last %},{% endif %}
@@ -1192,6 +1287,10 @@ function openDetailModal(pk) {
   h += '</div>';
   h += '<div class="detail-section-label">Summary</div>';
   h += '<div class="detail-body">' + escHtml(item.summary) + '</div>';
+  if (item.tagged_users_display) {
+    h += '<div class="detail-section-label">Tagged Users/Offices</div>';
+    h += '<div class="detail-body">' + escHtml(item.tagged_users_display) + '</div>';
+  }
   if (item.attachment_url) {
     h += '<div class="detail-section-label"><i class="fa-solid fa-paperclip" style="margin-right:4px;"></i>Attachment</div>';
     h += '<div class="detail-att-box"><i class="fa-solid ' + getFileIcon(item.attachment_name) + '"></i>';
@@ -1219,6 +1318,13 @@ function openEditModal(pk) {
   document.getElementById('ie_issuance_date').value  = item.issuance_date;
   document.getElementById('ie_summary').value        = item.summary;
   document.getElementById('ie_status').value         = item.status;
+
+  // Pre-select tagged users
+  var tagSelect = document.getElementById('ie_tagged_users');
+  Array.from(tagSelect.options).forEach(function(opt) {
+    opt.selected = item.tagged_user_ids.includes(parseInt(opt.value, 10));
+  });
+  refreshTagSelect('ie');
 
   // Archive policy
   var archMap = {default:'ie_archDefault', on_date:'ie_archOnDate', never:'ie_archNever'};
@@ -1324,5 +1430,104 @@ function showToast(msg, isError) {
   c.appendChild(t);
   setTimeout(function() { t.remove(); }, 4200);
 }
+
+/* ════════════════════════════════════════
+   SEARCHABLE TAG SELECT (Tag Users/Offices)
+   Enhances a hidden <select multiple> into a
+   search box + checkbox-style dropdown + chips.
+   Works for both "ic_" (create) and "ie_" (edit) prefixes.
+   ════════════════════════════════════════ */
+var TAG_SELECT_REGISTRY = {};
+
+function initTagSelect(prefix) {
+  var native   = document.getElementById(prefix + '_tagged_users');
+  var wrap     = document.getElementById(prefix + '_tagSelectWrap');
+  var chips    = document.getElementById(prefix + '_tagChips');
+  var search   = document.getElementById(prefix + '_tagSearchInput');
+  var dropdown = document.getElementById(prefix + '_tagDropdown');
+  if (!native || !wrap) return;
+
+  var options = Array.from(native.options).map(function (opt) {
+    return { value: opt.value, label: opt.textContent.trim(), el: opt };
+  });
+
+  function renderDropdown(filter) {
+    var f = (filter || '').trim().toLowerCase();
+    var items = options.filter(function (o) {
+      return !o.el.selected && o.label.toLowerCase().indexOf(f) !== -1;
+    });
+    if (!items.length) {
+      dropdown.innerHTML = '<div class="tag-select__empty">No matching users or offices</div>';
+    } else {
+      dropdown.innerHTML = items.map(function (o) {
+        return '<div class="tag-select__item" data-value="' + escHtml(o.value) + '">' +
+                 '<i class="fa-solid fa-user"></i><span>' + escHtml(o.label) + '</span>' +
+               '</div>';
+      }).join('');
+    }
+  }
+
+  function renderChips() {
+    var selected = options.filter(function (o) { return o.el.selected; });
+    chips.innerHTML = selected.map(function (o) {
+      return '<span class="tag-chip" data-value="' + escHtml(o.value) + '">' +
+               '<span>' + escHtml(o.label) + '</span>' +
+               '<i class="fa-solid fa-xmark"></i>' +
+             '</span>';
+    }).join('');
+    chips.classList.toggle('has-chips', selected.length > 0);
+  }
+
+  function openDropdown() {
+    renderDropdown(search.value);
+    dropdown.classList.add('open');
+  }
+  function closeDropdown() { dropdown.classList.remove('open'); }
+
+  search.addEventListener('focus', openDropdown);
+  search.addEventListener('input', function () { openDropdown(); });
+
+  dropdown.addEventListener('click', function (e) {
+    var itemEl = e.target.closest('.tag-select__item');
+    if (!itemEl) return;
+    var val = itemEl.getAttribute('data-value');
+    var opt = options.find(function (o) { return o.value === val; });
+    if (opt) opt.el.selected = true;
+    search.value = '';
+    renderChips();
+    renderDropdown('');
+    search.focus();
+  });
+
+  chips.addEventListener('click', function (e) {
+    var chipEl = e.target.closest('.tag-chip');
+    if (!chipEl) return;
+    var val = chipEl.getAttribute('data-value');
+    var opt = options.find(function (o) { return o.value === val; });
+    if (opt) opt.el.selected = false;
+    renderChips();
+    if (dropdown.classList.contains('open')) renderDropdown(search.value);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!wrap.contains(e.target)) closeDropdown();
+  });
+
+  renderChips();
+
+  TAG_SELECT_REGISTRY[prefix] = { renderChips: renderChips, renderDropdown: renderDropdown, search: search };
+}
+
+// Call externally (e.g. after programmatically pre-selecting options in openEditModal)
+function refreshTagSelect(prefix) {
+  var reg = TAG_SELECT_REGISTRY[prefix];
+  if (!reg) return;
+  if (reg.search) reg.search.value = '';
+  reg.renderChips();
+  reg.renderDropdown('');
+}
+
+initTagSelect('ic');
+initTagSelect('ie');
 </script>
 {% endblock %}

@@ -90,16 +90,7 @@ def on_training_save(sender, instance, created, **kwargs):
 # ── Issuances ──────────────────────────────────────────────────────────────────
 @receiver(post_save, sender='intranetapp.Issuance')
 def on_issuance_save(sender, instance, created, **kwargs):
-    if instance.status == 'published':
-        verb = 'issued a new' if created else 'updated an'
-        actor = instance.author
-        _broadcast(
-            actor=actor,
-            notif_type=Notification.TYPE_ISSUANCE,
-            title=f'{actor.get_full_name() or actor.username} {verb} issuance',
-            message=instance.issuance_no,
-            url='/issuances/',
-        )
+    pass
 
 
 # ── Wiki ───────────────────────────────────────────────────────────────────────
