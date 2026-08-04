@@ -173,6 +173,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'sender_id':  event['sender_id'],
         }))
 
+    async def message_edited(self, event):
+        await self.send(text_data=json.dumps({
+            'type':       'message_edited',
+            'message_id': event['message_id'],
+            'body':       event['body'],
+            'edited_at':  event['edited_at'],
+        }))
+
+    async def message_reaction(self, event):
+        await self.send(text_data=json.dumps({
+            'type':       'message_reaction',
+            'message_id': event['message_id'],
+            'summary':    event['summary'],
+        }))
+
     @database_sync_to_async
     def save_message(self, user, body):
         from .models import Conversation, Message

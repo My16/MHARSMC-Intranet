@@ -178,6 +178,8 @@ GENDER_CHOICES = [
     ('self_describe',  'Let me describe'),
 ]
 
+def default_quick_reactions():
+    return ['👍', '❤️', '😂', '😮', '😢', '🙏']
 
 class UserProfile(models.Model):
     user = models.OneToOneField(
@@ -250,6 +252,8 @@ class UserProfile(models.Model):
     )
 
     is_online = models.BooleanField(default=False)
+
+    quick_reactions = models.JSONField(default=default_quick_reactions)
 
     def __str__(self):
         role_name = self.role.name if self.role else 'No Role'
@@ -1289,6 +1293,9 @@ class Message(models.Model):
         blank=True
     )
 
+    is_edited = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
+
     @property
     def is_image(self):
         if not self.attachment:
@@ -1301,6 +1308,19 @@ class Message(models.Model):
         if self.attachment:
             return self.attachment.name.split('.')[-1].lower()
         return ''
+
+class MessageReaction(models.Model):
+    """One emoji reaction per user per message (tapping the same emoji again removes it)."""
+    message    = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='reactions')
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='message_reactions')
+    emoji      = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('message', 'user')
+
+    def __str__(self):
+        return f'{self.user.username} reacted {self.emoji} to msg {self.message_id}'
 
 
 

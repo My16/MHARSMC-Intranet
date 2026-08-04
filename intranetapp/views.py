@@ -3542,6 +3542,21 @@ def download_tag_delete(request, pk):
 
 
 
+def _serialize_reactions(message):
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for r in message.reactions.select_related('user').all():
+        grouped[r.emoji].append(r.user)
+    return [
+        {
+            'emoji': e,
+            'count': len(users),
+            'user_ids': [u.pk for u in users],
+            'user_names': [u.get_full_name() or u.username for u in users],
+        }
+        for e, users in grouped.items()
+    ]
+
 
 @login_required
 def messenger(request):
@@ -3728,7 +3743,10 @@ def messenger_messages(request, conv_id):
         'is_image':        m.is_image,
         'is_system':       m.is_system,
         'is_unsent':       m.is_unsent,
+        'is_edited':         m.is_edited,
+        'edited_at':       m.edited_at.isoformat() if m.edited_at else None,
         'status':          m.status,
+        'reactions':        _serialize_reactions(m),
         'reply_to': {
             'id':              m.reply_to.pk,
             'body':            m.reply_to.body,
@@ -3830,6 +3848,8 @@ def messenger_send(request, conv_id):
             'attachment_url':  msg.attachment.url if msg.attachment else None,
             'attachment_name': msg.attachment_name,
             'is_image':        msg.is_image,
+            'is_edited':       False,
+            'reactions':        [],
             'status':          msg.status,
             'reply_to': {
                 'id':          msg.reply_to.pk,
@@ -4207,6 +4227,131 @@ def messenger_unsend(request, conv_id, msg_id):
         msg.unsent_for.add(request.user)
 
     return JsonResponse({'success': True, 'scope': scope})
+
+
+
+
+@login_required
+def messenger_edit(request, conv_id, msg_id):
+    """POST {body} → edit a message you sent. Only text content is editable."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    import json as _json
+    from .models import Conversation, Message
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    msg  = get_object_or_404(Message, pk=msg_id, conversation=conv, sender=request.user)
+
+    if msg.is_unsent:
+        return JsonResponse({'success': False, 'error': 'Cannot edit an unsent message.'}, status=400)
+    if msg.is_system:
+        return JsonResponse({'success': False, 'error': 'System messages cannot be edited.'}, status=400)
+
+    data     = _json.loads(request.body or '{}')
+    new_body = data.get('body', '').strip()
+
+    if not new_body and not msg.attachment:
+        return JsonResponse({'success': False, 'error': 'Message cannot be empty.'}, status=400)
+
+    msg.body      = new_body
+    msg.is_edited = True
+    msg.edited_at = timezone.now()
+    msg.save()
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'chat_{conv_id}',
+        {
+            'type':       'message_edited',
+            'message_id': msg.pk,
+            'body':       msg.body,
+            'edited_at':  msg.edited_at.isoformat(),
+        }
+    )
+
+    return JsonResponse({'success': True, 'body': msg.body, 'edited_at': msg.edited_at.isoformat()})
+
+
+
+@login_required
+def messenger_react(request, conv_id, msg_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    import json as _json
+    from django.db import transaction
+    from .models import Conversation, Message, MessageReaction
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    msg  = get_object_or_404(Message, pk=msg_id, conversation=conv)
+
+    data  = _json.loads(request.body or '{}')
+    emoji = (data.get('emoji') or '').strip()
+    if not emoji:
+        return JsonResponse({'success': False, 'error': 'Emoji is required.'}, status=400)
+
+    with transaction.atomic():
+        # Lock this user's reaction row(s) on this message so a double-tap
+        # can't create two rows — exactly one reaction per user, ever.
+        existing_qs = (MessageReaction.objects
+                       .select_for_update()
+                       .filter(message=msg, user=request.user))
+        existing = existing_qs.first()
+
+        if existing:
+            dup_ids = list(existing_qs.exclude(pk=existing.pk).values_list('pk', flat=True))
+            if dup_ids:
+                MessageReaction.objects.filter(pk__in=dup_ids).delete()
+
+            if existing.emoji == emoji:
+                existing.delete()                     # tap same emoji again → unreact
+            else:
+                existing.emoji = emoji                # tap a different emoji → switch
+                existing.save(update_fields=['emoji'])
+        else:
+            MessageReaction.objects.create(message=msg, user=request.user, emoji=emoji)
+
+    summary = _serialize_reactions(msg)
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'chat_{conv_id}',
+        {'type': 'message_reaction', 'message_id': msg.pk, 'summary': summary}
+    )
+
+    return JsonResponse({'success': True, 'summary': summary})
+
+DEFAULT_QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+
+@login_required
+def messenger_get_reaction_prefs(request):
+    profile = request.user.profile
+    prefs = profile.quick_reactions or DEFAULT_QUICK_REACTIONS
+    return JsonResponse({'success': True, 'reactions': prefs})
+
+
+@login_required
+def messenger_save_reaction_prefs(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    import json as _json
+    data = _json.loads(request.body or '{}')
+    reactions = data.get('reactions', [])
+
+    if not isinstance(reactions, list) or len(reactions) != 6 or not all(isinstance(e, str) and e for e in reactions):
+        return JsonResponse({'success': False, 'error': 'Must provide exactly 6 emoji.'}, status=400)
+
+    profile = request.user.profile
+    profile.quick_reactions = reactions
+    profile.save(update_fields=['quick_reactions'])
+    return JsonResponse({'success': True, 'reactions': reactions})
+
 
 
 def _can_manage_pgs(user):

@@ -152,6 +152,11 @@ urlpatterns = [
     path('messenger/conversations/<int:conv_id>/send/',     views.messenger_send,      name='messenger_send'),
     path('messenger/conversations/<int:conv_id>/read/', views.messenger_read,           name='messenger_read'),
     path('messenger/conversations/<int:conv_id>/delete/', views.messenger_delete_conversation, name='messenger_delete_conversation'),
+    path('messenger/conversations/<int:conv_id>/messages/<int:msg_id>/edit/',  views.messenger_edit,  name='messenger_edit'),
+    path('messenger/conversations/<int:conv_id>/messages/<int:msg_id>/react/', views.messenger_react, name='messenger_react'),
+
+    path('messenger/reactions/prefs/', views.messenger_get_reaction_prefs, name='messenger_get_reaction_prefs'),
+    path('messenger/reactions/prefs/save/', views.messenger_save_reaction_prefs, name='messenger_save_reaction_prefs'),
 
     # Group Messenger
     path('messenger/conversations/create-group/',                   views.messenger_create_group,        name='messenger_create_group'),

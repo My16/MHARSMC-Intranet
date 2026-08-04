@@ -1031,6 +1031,90 @@
     }
     .gm-win__row:not(.mine) .gm-win__bubble-quote-text { color: var(--text-muted); }
 
+
+    /* ─── REACTIONS (floating chat) ─── */
+    .gm-win__reactions-row {
+      position: absolute; bottom: -9px;
+      display: flex; flex-wrap: wrap; gap: 3px; z-index: 3;
+    }
+    .gm-win__row.mine .gm-win__bubble .gm-win__reactions-row { right: 6px; }
+    .gm-win__row:not(.mine) .gm-win__bubble .gm-win__reactions-row { left: 6px; }
+    .gm-win__reaction-pill {
+      display: flex; align-items: center; gap: 3px;
+      padding: 1px 6px; border-radius: 10px;
+      background: var(--white); border: 1px solid var(--border);
+      font-size: .66rem; cursor: pointer; transition: background .12s;
+    }
+    .gm-win__reaction-pill:hover { background: var(--green-pale); }
+    .gm-win__reaction-pill.mine { border-color: var(--green-mid); background: var(--green-pale); }
+    .gm-win__reaction-count { color: var(--text-muted); font-weight: 600; }
+
+    .gm-win__emoji-picker {
+      position: fixed; z-index: 9700; display: flex; gap: 3px; padding: 5px 7px;
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,.15);
+    }
+    .gm-win__emoji-picker button {
+      border: none; background: transparent; font-size: 1rem;
+      cursor: pointer; padding: 2px 3px; border-radius: 50%; transition: transform .1s, background .12s;
+    }
+    .gm-win__emoji-picker button:hover { background: var(--green-pale); transform: scale(1.2); }
+
+    .gm-win__full-picker {
+      position: fixed; z-index: 9800; width: 260px; max-height: 320px;
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.18);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .gm-win__full-picker-search { padding: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .gm-win__full-picker-search input {
+      width: 100%; padding: 6px 10px; border: 1px solid var(--border);
+      border-radius: 14px; background: var(--green-pale); font-size: .78rem; outline: none;
+    }
+    .gm-win__full-picker-grid {
+      flex: 1; overflow-y: auto; padding: 6px 8px; display: grid;
+      grid-template-columns: repeat(7, 1fr); gap: 2px;
+    }
+    .gm-win__full-picker-grid button {
+      border: none; background: transparent; font-size: 1.05rem; cursor: pointer;
+      padding: 3px; border-radius: 8px; transition: background .12s;
+    }
+    .gm-win__full-picker-grid button:hover { background: var(--green-pale); }
+
+    .gm-win__attach-btn.emoji { font-size: .95rem; }
+
+    /* ── Small popup menu for per-message actions (separate from header dropdown) ── */
+    .gm-win__msg-more-menu {
+      position: fixed; z-index: 9700;
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,.13);
+      min-width: 170px; padding: 4px 0;
+    }
+    .gm-win__msg-more-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 12px; font-size: .78rem; color: var(--text-primary);
+      cursor: pointer; transition: background .12s; white-space: nowrap;
+    }
+    .gm-win__msg-more-item:hover { background: var(--green-pale); }
+    .gm-win__msg-more-item i { width: 14px; text-align: center; color: var(--text-muted); font-size: .78rem; }
+    .gm-win__msg-more-item.danger { color: #dc2626; }
+    .gm-win__msg-more-item.danger i { color: #dc2626; }
+
+    /* ── Inline edit mode inside a floating-chat bubble ── */
+    .gm-win__edit-textarea {
+      width: 100%; min-width: 140px; border: none; background: transparent;
+      resize: none; outline: none; font-family: inherit; font-size: .79rem;
+      color: inherit; line-height: 1.4;
+    }
+    .gm-win__edit-actions { display: flex; gap: 5px; justify-content: flex-end; margin-top: 4px; }
+    .gm-win__edit-save {
+      border: none; background: var(--green-dark); color: #fff; border-radius: 7px;
+      padding: 3px 10px; font-size: .68rem; font-weight: 600; cursor: pointer;
+    }
+    .gm-win__edit-cancel {
+      border: none; background: rgba(120,120,120,.25); color: inherit; border-radius: 7px;
+      padding: 3px 10px; font-size: .68rem; font-weight: 600; cursor: pointer;
+    }
   </style>
 
   {% block extra_css %}{% endblock %}
@@ -1843,6 +1927,129 @@
       let pickerOpen = false;
       let pickerTab  = 'dm';
       let groupSelectedIds = new Set();
+
+      const EMOJI_SET = ['👍','❤️','😂','😮','😢','🙏'];
+      const EMOJI_CATALOG = [
+        ['😀','happy'],['😄','happy'],['😆','laugh'],['😂','joy'],['🙂','smile'],
+        ['😉','wink'],['😊','blush'],['😍','love'],['🥰','love'],['😘','kiss'],
+        ['😎','cool'],['🤔','thinking'],['😐','neutral'],['🙄','eyeroll'],['😢','cry'],
+        ['😭','sob'],['😡','angry'],['😱','scream'],['👍','thumbsup'],['👎','thumbsdown'],
+        ['👏','clap'],['🙌','celebrate'],['🙏','pray'],['👋','wave'],['🔥','fire'],
+        ['✨','sparkle'],['🎉','party'],['💯','hundred'],['❤️','heart'],['💔','brokenheart'],
+      ];
+
+      let winEmojiPickerEl = null, winFullPickerEl = null;
+      function closeWinEmojiPicker() { winEmojiPickerEl?.remove(); winEmojiPickerEl = null; }
+      function closeWinFullPicker()  { winFullPickerEl?.remove();  winFullPickerEl  = null; }
+      document.addEventListener('click', () => { closeWinEmojiPicker(); closeWinFullPicker(); });
+
+      function sendReactionWin(convId, msgId, emoji) {
+        fetch(`/messenger/conversations/${convId}/messages/${msgId}/react/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({ emoji }),
+        }).then(r => r.json()).then(data => {
+          if (data.success) applyWinReactionUpdate(convId, msgId, data.summary);
+        });
+      }
+
+      function applyWinReactionUpdate(convId, msgId, summary) {
+        const state = openWins[convId]; if (!state) return;
+        const row = state.msgsEl.querySelector(`[data-id="${msgId}"]`);
+        if (!row) return;
+        const bubble = row.querySelector('.gm-win__bubble') || row.querySelector('[class^="gm-win__bubble"]');
+        if (!bubble) return;
+        bubble.querySelector('.gm-win__reactions-row')?.remove();
+        const rowEl = buildWinReactionsRow(convId, msgId, summary);
+        if (rowEl) { bubble.appendChild(rowEl); bubble.style.marginBottom = '10px'; }
+        else { bubble.style.marginBottom = ''; }
+      }
+
+      function buildWinReactionsRow(convId, msgId, reactions) {
+        if (!reactions || !reactions.length) return null;
+        const rowEl = document.createElement('div');
+        rowEl.className = 'gm-win__reactions-row';
+        reactions.forEach(r => {
+          const isMine = r.user_ids.includes(ME_ID);
+          const pill = document.createElement('button');
+          pill.className = 'gm-win__reaction-pill' + (isMine ? ' mine' : '');
+          pill.innerHTML = `<span>${r.emoji}</span><span class="gm-win__reaction-count">${r.count}</span>`;
+          pill.title = r.user_names.map((n,i)=>r.user_ids[i]===ME_ID?'You':n).join(', ');
+          pill.addEventListener('click', e => { e.stopPropagation(); sendReactionWin(convId, msgId, r.emoji); });
+          rowEl.appendChild(pill);
+        });
+        return rowEl;
+      }
+
+      function openWinReactPicker(convId, msg, anchorEl) {
+        closeWinEmojiPicker(); closeWinFullPicker();
+        const rect = anchorEl.getBoundingClientRect();
+        const picker = document.createElement('div');
+        picker.className = 'gm-win__emoji-picker';
+        EMOJI_SET.forEach(em => {
+          const b = document.createElement('button');
+          b.textContent = em;
+          b.addEventListener('click', e => { e.stopPropagation(); sendReactionWin(convId, msg.id, em); closeWinEmojiPicker(); });
+          picker.appendChild(b);
+        });
+        const plus = document.createElement('button');
+        plus.innerHTML = '<i class="fa-solid fa-plus" style="font-size:.7rem;"></i>';
+        plus.addEventListener('click', e => {
+          e.stopPropagation();
+          const r2 = e.currentTarget.getBoundingClientRect();
+          closeWinEmojiPicker();
+          openWinFullPicker(r2, em => sendReactionWin(convId, msg.id, em));
+        });
+        picker.appendChild(plus);
+        picker.style.visibility = 'hidden';
+        document.body.appendChild(picker);
+        const w = picker.offsetWidth, h = picker.offsetHeight;
+        picker.style.top = Math.max(8, rect.top - h - 6) + 'px';
+        picker.style.left = Math.max(8, Math.min(rect.left - w/2 + rect.width/2, window.innerWidth - w - 8)) + 'px';
+        picker.style.visibility = 'visible';
+        winEmojiPickerEl = picker;
+      }
+
+      function openWinFullPicker(rect, onPick) {
+        closeWinFullPicker();
+        const box = document.createElement('div');
+        box.className = 'gm-win__full-picker';
+        box.innerHTML = `<div class="gm-win__full-picker-search"><input type="text" placeholder="Search emoji"></div><div class="gm-win__full-picker-grid"></div>`;
+        document.body.appendChild(box);
+        const grid = box.querySelector('.gm-win__full-picker-grid');
+        function render(f) {
+          const q = (f||'').toLowerCase();
+          grid.innerHTML = '';
+          EMOJI_CATALOG.filter(([,k]) => !q || k.includes(q)).forEach(([em]) => {
+            const b = document.createElement('button');
+            b.textContent = em;
+            b.addEventListener('click', e => { e.stopPropagation(); onPick(em); closeWinFullPicker(); });
+            grid.appendChild(b);
+          });
+        }
+        render('');
+        const input = box.querySelector('input');
+        input.addEventListener('input', () => render(input.value));
+        input.addEventListener('click', e => e.stopPropagation());
+        box.addEventListener('click', e => e.stopPropagation());
+        box.style.visibility = 'hidden';
+        requestAnimationFrame(() => {
+          const w = box.offsetWidth, h = box.offsetHeight;
+          box.style.top = Math.max(8, rect.top - h - 6) + 'px';
+          box.style.left = Math.max(8, Math.min(rect.left - w/2 + rect.width/2, window.innerWidth - w - 8)) + 'px';
+          box.style.visibility = 'visible';
+          input.focus();
+        });
+        winFullPickerEl = box;
+      }
+
+      function insertEmojiIntoWinInput(inputEl, emoji) {
+        const start = inputEl.selectionStart, end = inputEl.selectionEnd, text = inputEl.value;
+        inputEl.value = text.slice(0,start) + emoji + text.slice(end);
+        inputEl.focus();
+        inputEl.setSelectionRange(start+emoji.length, start+emoji.length);
+        inputEl.dispatchEvent(new Event('input'));
+      }
     
       /* ── Helpers ── */
       const getCsrf = () => { const v = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; };
@@ -2313,30 +2520,118 @@
         return { name: m.name, avatar: m.avatar, initials: m.initials };
       }
 
-      /* ── Message hover actions (reply / forward / remove) ── */
+      function startWinEditMessage(convId, msg, bubble) {
+        if (bubble.dataset.editing === '1') return;
+        bubble.dataset.editing = '1';
+        const original = bubble.innerHTML;
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'gm-win__edit-textarea';
+        textarea.value = msg.body || '';
+        textarea.rows = Math.min(4, Math.max(1, (msg.body || '').split('\n').length));
+
+        const actionsRow = document.createElement('div');
+        actionsRow.className = 'gm-win__edit-actions';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'gm-win__edit-cancel'; cancelBtn.textContent = 'Cancel';
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'gm-win__edit-save'; saveBtn.textContent = 'Save';
+        actionsRow.appendChild(cancelBtn);
+        actionsRow.appendChild(saveBtn);
+
+        bubble.innerHTML = '';
+        bubble.appendChild(textarea);
+        bubble.appendChild(actionsRow);
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+        cancelBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          bubble.innerHTML = original;
+          bubble.dataset.editing = '';
+        });
+
+        function doSave() {
+          const newBody = textarea.value.trim();
+          if (!newBody && !msg.attachment_url) return;
+          fetch(`/messenger/conversations/${convId}/messages/${msg.id}/edit/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+            body: JSON.stringify({ body: newBody }),
+          }).then(r => r.json()).then(data => {
+            if (!data.success) { bubble.innerHTML = original; bubble.dataset.editing = ''; return; }
+            msg.body = data.body;
+            msg.is_edited = true;
+            msg.edited_at = data.edited_at;
+            const row = bubble.closest('.gm-win__row');
+            const state = openWins[convId];
+            const newRow = buildWinMsg(msg, convId, state ? state.convData : null);
+            if (row) row.replaceWith(newRow);
+          });
+        }
+        saveBtn.addEventListener('click', (e) => { e.stopPropagation(); doSave(); });
+        textarea.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSave(); }
+          if (e.key === 'Escape') cancelBtn.click();
+        });
+      }
+
       function _attachWinMsgActions(row, bubble, msg, convId, isMine) {
         const actions = document.createElement('div');
         actions.className = 'gm-win__msg-actions';
-        actions.innerHTML = `
-          <button class="gm-win__msg-action-btn" title="Reply" data-action="reply">
-            <i class="fa-solid fa-reply"></i>
-          </button>
-          <button class="gm-win__msg-action-btn" title="Forward" data-action="forward">
-            <i class="fa-solid fa-share"></i>
-          </button>
-          ${isMine
-            ? `<button class="gm-win__msg-action-btn danger" title="Remove" data-action="unsend">
-                <i class="fa-solid fa-trash-can"></i>
-              </button>`
-            : `<button class="gm-win__msg-action-btn" title="Remove for you" data-action="remove-for-you">
-                <i class="fa-solid fa-trash-can"></i>
-              </button>`
-          }`;
 
-        /* Reply */
-        actions.querySelector('[data-action="reply"]').addEventListener('click', (e) => {
+        const replyBtn = document.createElement('button');
+        replyBtn.className = 'gm-win__msg-action-btn';
+        replyBtn.title = 'Reply';
+        replyBtn.innerHTML = '<i class="fa-solid fa-reply"></i>';
+
+        const reactBtn = document.createElement('button');
+        reactBtn.className = 'gm-win__msg-action-btn';
+        reactBtn.title = 'React';
+        reactBtn.innerHTML = '<i class="fa-regular fa-face-smile"></i>';
+        reactBtn.addEventListener('click', e => { e.stopPropagation(); openWinReactPicker(convId, msg, e.currentTarget); });
+
+        const moreBtn = document.createElement('button');
+        moreBtn.className = 'gm-win__msg-action-btn';
+        moreBtn.title = 'More';
+        moreBtn.innerHTML = '<i class="fa-solid fa-ellipsis"></i>';
+        moreBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          /* Find the win and its reply bar */
+          document.querySelectorAll('.gm-win__msg-more-menu').forEach(m => m.remove());
+          const menu = document.createElement('div');
+          menu.className = 'gm-win__msg-more-menu';
+
+          const hasBody = msg.body && msg.body.trim();
+          const canEdit = isMine && !msg.is_system && !msg.is_unsent && (hasBody || !msg.attachment_url);
+
+          const items = [];
+          if (canEdit) {
+            items.push({ label: 'Edit', icon: 'fa-pen', action: () => startWinEditMessage(convId, msg, bubble) });
+          }
+          items.push({ label: 'Forward', icon: 'fa-share', action: () => window.openForwardModal ? window.openForwardModal(msg, null) : (window.location.href = `/messenger/?conv=${convId}`) });
+          items.push(
+            isMine
+              ? { label: 'Remove', icon: 'fa-trash-can', danger: true, action: () => _openWinUnsendModal(msg.id, convId, row) }
+              : { label: 'Remove for you', icon: 'fa-trash-can', danger: true, action: () => _winConfirm('Remove for you','This message will be removed for you. Other chat members will still be able to see it.','Remove', () => _doWinUnsend(msg.id, convId, 'you', row)) }
+          );
+
+          items.forEach(it => {
+            const div = document.createElement('div');
+            div.className = 'gm-win__msg-more-item' + (it.danger ? ' danger' : '');
+            div.innerHTML = `<i class="fa-solid ${it.icon}"></i> ${it.label}`;
+            div.addEventListener('click', ev => { ev.stopPropagation(); menu.remove(); it.action(); });
+            menu.appendChild(div);
+          });
+          document.body.appendChild(menu);
+          const rect = e.currentTarget.getBoundingClientRect();
+          const menuH = items.length * 34 + 8;
+          menu.style.top = Math.min(window.innerHeight - menuH - 8, rect.bottom + 4) + 'px';
+          menu.style.left = Math.max(8, rect.left - 130) + 'px';
+          document.addEventListener('click', function close(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click', close); } });
+        });
+
+        replyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const win       = row.closest('.gm-win');
           const rBar      = win?.querySelector('.js-reply-bar');
           const rName     = win?.querySelector('.js-reply-name');
@@ -2344,61 +2639,19 @@
           const rCancel   = win?.querySelector('.js-reply-cancel');
           const inputEl   = win?.querySelector('.js-input');
           if (!rBar) return;
-
-          /* Store replyingTo on the win element so doSend can read it */
           win._replyingTo = msg;
-
           rName.textContent = isMine ? 'You' : (msg.sender_name || 'Them');
-          rText.textContent = msg.body
-            ? msg.body
-            : msg.is_image ? '📷 Photo'
-            : msg.attachment_name ? `📎 ${msg.attachment_name}`
-            : 'Message';
+          rText.textContent = msg.body ? msg.body : msg.is_image ? '📷 Photo' : msg.attachment_name ? `📎 ${msg.attachment_name}` : 'Message';
           rBar.classList.add('visible');
           inputEl?.focus();
-
-          /* Cancel wires once */
           if (!rCancel.dataset.wired) {
             rCancel.dataset.wired = '1';
-            rCancel.addEventListener('click', () => {
-              win._replyingTo = null;
-              rBar.classList.remove('visible');
-            });
+            rCancel.addEventListener('click', () => { win._replyingTo = null; rBar.classList.remove('visible'); });
           }
         });
 
-        /* Forward — reuse messenger page forward modal if available, else open full messenger */
-        actions.querySelector('[data-action="forward"]').addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (window.openForwardModal) {
-            window.openForwardModal(msg, null);
-          } else {
-            window.location.href = `/messenger/?conv=${convId}`;
-          }
-        });
-
-        /* Unsend / Remove */
-        const unsendBtn = actions.querySelector('[data-action="unsend"]');
-        const removeBtn = actions.querySelector('[data-action="remove-for-you"]');
-
-        if (unsendBtn) {
-          unsendBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            _openWinUnsendModal(msg.id, convId, row);
-          });
-        }
-
-        if (removeBtn) {
-          removeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            _winConfirm(
-              'Remove for you',
-              'This message will be removed for you. Other chat members will still be able to see it.',
-              'Remove',
-              () => _doWinUnsend(msg.id, convId, 'you', row)
-            );
-          });
-        }
+        if (isMine) { actions.appendChild(moreBtn); actions.appendChild(replyBtn); actions.appendChild(reactBtn); }
+        else        { actions.appendChild(replyBtn); actions.appendChild(reactBtn); actions.appendChild(moreBtn); }
 
         bubble.style.position = 'relative';
         bubble.appendChild(actions);
@@ -2629,7 +2882,8 @@
 
         if (hasBody) content += `<span>${esc(msg.body)}</span>`;
         const tick = mine ? `<span class="gm-win__status" data-status="${msg.status||'sent'}"></span>` : '';
-        content += `<span class="gm-win__btime">${fmtT(msg.created_at)}${tick}</span>`;
+        const editedTag = msg.is_edited ? ' · edited' : '';
+        content += `<span class="gm-win__btime">${fmtT(msg.created_at)}${editedTag}${tick}</span>`;
         bubble.innerHTML = content;
 
         bubble.querySelector('.gm-win__bubble-img')?.addEventListener('click', e => openLightbox(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
@@ -2649,6 +2903,9 @@
             setTimeout(() => target.style.background = '', 1200);
           }
         });
+
+        const rrow = buildWinReactionsRow(convId, msg.id, msg.reactions);
+        if (rrow) { bubble.appendChild(rrow); bubble.style.marginBottom = '10px'; }
 
         return bubble;
       }
@@ -2924,6 +3181,7 @@
           </div>
           <div class="gm-win__foot js-foot">
             <button class="gm-win__attach-btn js-attach-btn" title="Attach files"><i class="fa-solid fa-paperclip"></i></button>
+            <button class="gm-win__attach-btn emoji js-emoji-btn" title="Emoji" type="button"><i class="fa-regular fa-face-smile"></i></button>
             <input type="file" class="js-file-input" style="display:none;"
               multiple
               accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
@@ -2939,6 +3197,7 @@
         const inputEl   = win.querySelector('.js-input');
         const sendEl    = win.querySelector('.js-send');
         const attachBtn = win.querySelector('.js-attach-btn');
+        const emojiBtn = win.querySelector('.js-emoji-btn');
         const fileInput = win.querySelector('.js-file-input');
         const attachPrv = win.querySelector('.js-attach-preview');
         const thumbWrap = win.querySelector('.js-attach-thumb');  /* now a flex container */
@@ -2987,6 +3246,30 @@
     
         /* ── File picker ── */
         attachBtn.addEventListener('click', () => fileInput.click());
+
+        emojiBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeWinEmojiPicker();
+          const rect = emojiBtn.getBoundingClientRect();
+          openWinFullPicker(rect, em => insertEmojiIntoWinInput(inputEl, em));
+        });
+
+        inputEl.addEventListener('paste', (e) => {
+          const items = e.clipboardData && e.clipboardData.items;
+          if (!items) return;
+          for (const item of items) {
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+              e.preventDefault();
+              const file = item.getAsFile();
+              if (!file) continue;
+              const ext = (file.type.split('/')[1] || 'png').toLowerCase();
+              const named = new File([file], `pasted-image-${Date.now()}.${ext}`, { type: file.type });
+              pendingFiles.push(named);
+              _renderThumbWrap();
+              attachPrv.classList.add('visible');
+            }
+          }
+        });
     
         function _renderThumbWrap() {
           thumbWrap.innerHTML = '';
@@ -3281,6 +3564,31 @@
                   bubble.innerHTML = `<span style="font-style:italic;font-size:.74rem;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-ban" style="opacity:.4;font-size:.68rem;"></i>${isMine ? 'You unsent a message.' : 'This message was unsent.'}</span>`;
                 }
                 targetRow.querySelector('.gm-win__msg-actions')?.remove();
+              }
+            }
+          } else if (data.type === 'message_reaction') {
+            applyWinReactionUpdate(convId, data.message_id, data.summary);
+          } else if (data.type === 'message_edited') {
+            const row = msgsEl.querySelector(`[data-id="${data.message_id}"]`);
+            if (row) {
+              const bubble = row.querySelector('.gm-win__bubble');
+              if (bubble && bubble.dataset.editing !== '1') {
+                const btimeEl = bubble.querySelector('.gm-win__btime');
+                let textSpan = Array.from(bubble.children).find(
+                  el => el.tagName === 'SPAN' && el !== btimeEl && !el.classList.contains('gm-win__bubble-quote')
+                );
+                if (textSpan) {
+                  textSpan.textContent = data.body;
+                } else if (btimeEl) {
+                  const s = document.createElement('span');
+                  s.textContent = data.body;
+                  bubble.insertBefore(s, btimeEl);
+                }
+                if (btimeEl && !btimeEl.textContent.includes('edited')) {
+                  const tickEl = btimeEl.querySelector('.gm-win__status');
+                  btimeEl.textContent = btimeEl.textContent.replace(/\s*$/, '') + ' · edited';
+                  if (tickEl) btimeEl.appendChild(tickEl);
+                }
               }
             }
           } else if (data.type === 'kicked_from_group') {
