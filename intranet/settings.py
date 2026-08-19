@@ -147,3 +147,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ── Email ────────────────────────────────────────────────────────────────────
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'do-not-reply@mharsmc.doh.gov.ph'          # the Gmail address sending mail
+EMAIL_HOST_PASSWORD = 'zkthsnmkhmqeivrb'            # the 16-char App Password, no spaces
+DEFAULT_FROM_EMAIL = 'MHARSMC Intranet <do-not-reply@mharsmc.doh.gov.ph>'
+
+# Used to build absolute links inside emails (e.g. "View Issuance" button)
+SITE_URL = 'http://intranet.mharsmc.local'   # change to your real domain once deployed

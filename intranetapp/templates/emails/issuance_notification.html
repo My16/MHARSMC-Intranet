@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="x-apple-disable-message-reformatting">
+<title>New Issuance Published</title>
+</head>
+<body style="margin:0; padding:0; background:#f0f7f2; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
+  <!-- Preheader -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+    {{ issuance.issuance_no }} was just published on the MHARSMC Intranet.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f7f2;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0"
+               style="width:480px; max-width:100%; background:#ffffff; border-radius:10px; overflow:hidden; border:1px solid #d4e8da;">
+
+          <!-- Top bar -->
+          <tr>
+            <td style="background:#1a4731; padding:16px 32px;">
+              <span style="font-family:Arial, Helvetica, sans-serif; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:#ffffff; font-weight:700;">
+                MHARSMC Intranet
+              </span>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 32px 6px; font-family:Arial, Helvetica, sans-serif;">
+              <h1 style="margin:0 0 18px; font-size:18px; font-weight:700; color:#1a2e22; line-height:1.35;">
+                New Issuance Published
+              </h1>
+              <p style="margin:0 0 12px; font-size:14px; color:#1a2e22; line-height:1.65;">
+                Hi {{ user.first_name|default:user.username }},
+              </p>
+              <p style="margin:0 0 20px; font-size:14px; color:#3f5748; line-height:1.65;">
+                {{ actor_name }} published a new issuance you're tagged on:
+              </p>
+            </td>
+          </tr>
+
+          <!-- Issuance card -->
+          <tr>
+            <td style="padding:0 32px 6px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#f0f7f2; border:1px solid #d4e8da; border-radius:6px;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <div style="font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; color:#1a4731; margin-bottom:5px;">
+                      {{ issuance.issuance_no }}
+                    </div>
+                    <div style="font-family:Arial, Helvetica, sans-serif; font-size:12.5px; color:#5b7568; line-height:1.6;">
+                      {{ issuance.summary|truncatewords:40 }}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA button -->
+          <tr>
+            <td style="padding:22px 32px 8px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ link }}" style="height:40px;v-text-anchor:middle;width:150px;" arcsize="10%" fillcolor="#2d6a4f" stroke="f">
+              <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;">View Issuance</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <a href="{{ link }}"
+                 style="display:inline-block; background:#2d6a4f; color:#ffffff; font-family:Arial, Helvetica, sans-serif;
+                        font-size:13px; font-weight:700; text-decoration:none; padding:10px 24px; border-radius:6px;">
+                View Issuance
+              </a>
+              <!--<![endif]-->
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:14px 32px 0;"><div style="border-top:1px solid #d4e8da;"></div></td></tr>
+
+          <!-- Note -->
+          <tr>
+            <td style="padding:16px 32px 4px; font-family:Arial, Helvetica, sans-serif;">
+              <p style="margin:0; font-size:12px; color:#6b8577; line-height:1.6;">
+                Note: This link only opens while connected to the MHARSMC hospital network (on-site).
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px 32px 24px; font-family:Arial, Helvetica, sans-serif;">
+              <p style="margin:0; font-size:12px; color:#6b8577; line-height:1.6;">
+                You're receiving this because you were tagged, or you're the head of a tagged office, on this issuance.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f0f7f2; padding:16px 32px; border-top:1px solid #d4e8da;">
+              <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:11px; color:#8aab97; line-height:1.6;">
+                Mayor Hilarion A. Ramiro Sr. Medical Center — Intranet Portal<br>
+                This is an automated message. Please do not reply.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

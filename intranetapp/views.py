@@ -1,5 +1,6 @@
 import json
 import datetime
+import os
 
 from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
@@ -252,6 +253,8 @@ def user_add(request):
             user.is_active = True
             user.save()
 
+            profile.is_head_of_office = request.POST.get('is_head_of_office') == 'on'
+
             profile      = form_profile.save(commit=False)
             profile.user = user
 
@@ -357,6 +360,7 @@ def register(request):
         username         = request.POST.get('username', '').strip()
         password         = request.POST.get('password', '')
         confirm_password = request.POST.get('confirm_password', '')
+        is_head_of_office    = request.POST.get('is_head_of_office') == 'on'
 
         errors = []
 
@@ -398,6 +402,7 @@ def register(request):
             position      = position,
             mobile_number = mobile_number,
             access_reason = reason,
+            is_head_of_office = is_head_of_office,
         )
 
         _notify_admins_new_registration(user, profile)
@@ -422,6 +427,8 @@ def user_edit(request, pk):
             messages.error(request, 'Passwords do not match.')
             return redirect('user_management')
 
+        was_active = user.is_active
+
         form_user    = UserEditForm(request.POST, instance=user)
         form_profile = UserProfileForm(request.POST, request.FILES, instance=profile)
 
@@ -431,10 +438,12 @@ def user_edit(request, pk):
             if new_password:
                 user_obj.set_password(new_password)
 
-            user_obj.is_active = 'is_active' in request.POST
+            user_obj.is_active = was_active
             user_obj.save()
 
             profile_obj = form_profile.save(commit=False)
+
+            profile_obj.is_head_of_office = 'is_head_of_office' in request.POST
 
             role_pk = request.POST.get('role')
             if role_pk:
@@ -444,6 +453,7 @@ def user_edit(request, pk):
                     profile_obj.role = None
             else:
                 profile_obj.role = None
+
 
             profile_obj.save()
 
@@ -634,16 +644,23 @@ def user_approve(request, pk):
         profile = get_object_or_404(UserProfile, user__pk=pk, user__is_superuser=False)
         user = profile.user
 
+        was_inactive = not user.is_active
         user.is_active = True
         user.save()
+
+        profile.is_head_of_office = 'is_head_of_office' in request.POST
 
         role_pk = request.POST.get('role')
         if role_pk:
             try:
                 profile.role = Role.objects.get(pk=role_pk)
-                profile.save()
             except Role.DoesNotExist:
                 pass
+
+        profile.save()
+
+        if was_inactive:
+            _send_account_activated_email(user)
 
         messages.success(request, f'"{profile.get_full_name_with_middle()}" has been approved and activated.')
     return redirect('user_management')
@@ -1793,6 +1810,9 @@ def issuance_create(request):
             else:
                 _notify_issuance_broadcast(request.user, issuance, created=True)
 
+            if tagged_ids:
+                _send_issuance_email_notifications(request.user, issuance, tagged_ids)
+
         verb = 'published' if status == 'published' else 'saved as draft'
         messages.success(request, f'Issuance "{issuance_no}" has been {verb}.')
  
@@ -1873,6 +1893,9 @@ def issuance_edit(request, pk):
                     _notify_issuance_tagged(request.user, issuance, newly_added)
             else:
                 _notify_issuance_broadcast(request.user, issuance, created=False)
+
+            if tagged_ids:
+                _send_issuance_email_notifications(request.user, issuance, tagged_ids)
 
         messages.success(request, f'Issuance "{issuance_no}" has been updated.')
  
@@ -5064,6 +5087,125 @@ def _notify_issuance_broadcast(actor, issuance, created):
                 'unread_count': unread_counts.get(n.recipient_id, 0),
             }
         )
+
+import logging
+import threading
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
+from django.db import connections
+
+logger = logging.getLogger(__name__)
+
+
+
+
+def run_in_background(func):
+    """
+    Decorator that runs `func` in a daemon thread instead of blocking the
+    request. Used for slow, non-critical side effects (emails) that the
+    user shouldn't have to wait on. The view calling a decorated function
+    gets control back immediately.
+    """
+    def wrapper(*args, **kwargs):
+        def target():
+            try:
+                func(*args, **kwargs)
+            finally:
+                connections.close_all()
+        threading.Thread(target=target, daemon=True).start()
+    return wrapper
+
+
+def _resolve_email_recipients(tagged_ids):
+    """
+    Builds the email recipient set from raw tagged_ids (a mix of plain user
+    PKs and 'office:<department_code>' entries). Individually-tagged users
+    are emailed directly; office-tagged entries resolve to ONLY that
+    office/unit's head (exact department match, no parent fallback) — not
+    every member of the department.
+    """
+    from .models import get_head_of_office
+
+    user_ids     = [v for v in tagged_ids if not v.startswith('office:')]
+    office_codes = [v.split(':', 1)[1] for v in tagged_ids if v.startswith('office:')]
+
+    individual_qs = User.objects.filter(
+        pk__in=user_ids, is_active=True, is_superuser=False,
+    )
+
+    head_user_ids = []
+    for code in office_codes:
+        head_user_ids.extend(p.user_id for p in get_head_of_office(code))
+
+    heads_qs = User.objects.filter(pk__in=head_user_ids, is_active=True, is_superuser=False)
+
+    return (individual_qs | heads_qs).exclude(email='').distinct()
+
+
+
+@run_in_background
+def _send_issuance_email_notifications(actor, issuance, tagged_ids):
+    """
+    Emails everyone resolved by _resolve_email_recipients for this issuance.
+    Sent automatically whenever an issuance with any tagged users/offices
+    is published. Recipients with no email on file are silently skipped;
+    a failed send never blocks the publish action itself.
+    """
+    recipients = _resolve_email_recipients(tagged_ids).exclude(pk=actor.pk)
+    if not recipients.exists():
+        return
+
+    link       = f'{settings.SITE_URL}{reverse("issuances")}'
+    actor_name = actor.get_full_name() or actor.username
+
+    for user in recipients:
+        ctx = {
+            'user':       user,
+            'actor_name': actor_name,
+            'issuance':   issuance,
+            'link':       link,
+        }
+        try:
+            send_mail(
+                subject=f'New Issuance: {issuance.issuance_no}',
+                message=render_to_string('emails/issuance_notification.txt', ctx),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                html_message=render_to_string('emails/issuance_notification.html', ctx),
+                fail_silently=True,
+            )
+        except Exception:
+            logger.exception('Failed to email issuance notice to %s', user.email)
+
+
+@run_in_background
+def _send_account_activated_email(user):
+    """
+    Emails the user once their account has been activated by an admin/IT,
+    letting them know they can now log in. Fails silently — a failed send
+    should never block the activation action itself.
+    """
+    if not user.email:
+        return
+
+    login_link = f'{settings.SITE_URL}{reverse("login")}'
+    ctx = {
+        'user': user,
+        'login_link': login_link,
+    }
+    try:
+        send_mail(
+            subject='Your MHARSMC Intranet account has been activated',
+            message=render_to_string('emails/account_activated.txt', ctx),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=render_to_string('emails/account_activated.html', ctx),
+            fail_silently=True,
+        )
+    except Exception:
+        logger.exception('Failed to email account activation notice to %s', user.email)
+
 
 
 def _can_manage_e_library(user):

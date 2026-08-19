@@ -214,6 +214,13 @@ class UserProfile(models.Model):
         verbose_name='Department',
     )
 
+    is_head_of_office = models.BooleanField(
+        default=False,
+        verbose_name='Head of Office',
+        help_text='Marks this person as the head of their department/office. '
+                   'Used to route email notifications (e.g. issuances) to office heads.',
+    )
+
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
 
     mobile_number = models.CharField(
@@ -1397,6 +1404,22 @@ def get_grouped_department_choices():
             groups.append(current)
         current[1].append((value, label))
     return groups
+
+def get_head_of_office(department_code):
+    """
+    Returns the UserProfile(s) marked as head of office for the given
+    department code. If a sub-unit code is passed (e.g.
+    'HOPSS — Procurement Section'), resolves up to its top-level parent
+    office ('HOPSS') first, since heads are only ever assigned at the
+    top level.
+    """
+    top_level = department_code.split(' — ')[0]
+    return UserProfile.objects.filter(
+        department=top_level,
+        is_head_of_office=True,
+        user__is_active=True,
+        user__is_superuser=False,
+    ).select_related('user')
 
 
 class PGSIndicator(models.Model):

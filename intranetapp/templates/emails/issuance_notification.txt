@@ -1,0 +1,12 @@
+Hi {{ user.first_name|default:user.username }},
+
+{{ actor_name }} published a new issuance: {{ issuance.issuance_no }}
+
+Summary: {{ issuance.summary|truncatewords:40 }}
+
+View it here: {{ link }}
+
+Note: This link only works while connected to the MHARSMC hospital network
+(on-site). It will not open from outside the network.
+
+— MHARSMC Intranet
