@@ -5147,26 +5147,26 @@ def _resolve_email_recipients(tagged_ids):
 @run_in_background
 def _send_issuance_email_notifications(actor, issuance, tagged_ids):
     """
-    Emails everyone resolved by _resolve_email_recipients for this issuance.
-    Sent automatically whenever an issuance with any tagged users/offices
-    is published. Recipients with no email on file are silently skipped;
-    a failed send never blocks the publish action itself.
+    Emails everyone resolved by _resolve_email_recipients for this issuance,
+    excluding the actor (no need to notify yourself about your own post).
+    Recipients with no email on file are silently skipped; a failed send
+    never blocks the publish action itself.
     """
-    recipients = _resolve_email_recipients(tagged_ids).exclude(pk=actor.pk)
-    if not recipients.exists():
-        return
+    try:
+        recipients = _resolve_email_recipients(tagged_ids).exclude(pk=actor.pk)
+        if not recipients.exists():
+            return
 
-    link       = f'{settings.SITE_URL}{reverse("issuances")}'
-    actor_name = actor.get_full_name() or actor.username
+        link       = f'{settings.SITE_URL}{reverse("issuances")}'
+        actor_name = actor.get_full_name() or actor.username
 
-    for user in recipients:
-        ctx = {
-            'user':       user,
-            'actor_name': actor_name,
-            'issuance':   issuance,
-            'link':       link,
-        }
-        try:
+        for user in recipients:
+            ctx = {
+                'user':       user,
+                'actor_name': actor_name,
+                'issuance':   issuance,
+                'link':       link,
+            }
             send_mail(
                 subject=f'New Issuance: {issuance.issuance_no}',
                 message=render_to_string('emails/issuance_notification.txt', ctx),
@@ -5175,8 +5175,8 @@ def _send_issuance_email_notifications(actor, issuance, tagged_ids):
                 html_message=render_to_string('emails/issuance_notification.html', ctx),
                 fail_silently=True,
             )
-        except Exception:
-            logger.exception('Failed to email issuance notice to %s', user.email)
+    except Exception:
+        logger.exception('Failed to send issuance email notifications')
 
 
 @run_in_background
@@ -5186,15 +5186,15 @@ def _send_account_activated_email(user):
     letting them know they can now log in. Fails silently — a failed send
     should never block the activation action itself.
     """
-    if not user.email:
-        return
-
-    login_link = f'{settings.SITE_URL}{reverse("login")}'
-    ctx = {
-        'user': user,
-        'login_link': login_link,
-    }
     try:
+        if not user.email:
+            return
+
+        login_link = f'{settings.SITE_URL}{reverse("login")}'
+        ctx = {
+            'user': user,
+            'login_link': login_link,
+        }
         send_mail(
             subject='Your MHARSMC Intranet account has been activated',
             message=render_to_string('emails/account_activated.txt', ctx),
@@ -5204,7 +5204,7 @@ def _send_account_activated_email(user):
             fail_silently=True,
         )
     except Exception:
-        logger.exception('Failed to email account activation notice to %s', user.email)
+        logger.exception('Failed to send account activation email')
 
 
 
