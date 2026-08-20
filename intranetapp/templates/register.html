@@ -672,6 +672,281 @@
             border-radius: 2px;
             padding: 0 1px;
         }
+
+        /* ── Office role toggle (Staff / Head of Office) ──────────── */
+        .role-toggle {
+            display: flex;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .role-toggle input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+            pointer-events: none;
+        }
+
+        .role-option {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            background: #fafcfe;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .role-option i { font-size: 14px; }
+
+        .role-option:hover {
+            border-color: var(--teal);
+            color: var(--teal-dark);
+        }
+
+        #role_staff:checked + .role-option {
+            border-color: var(--teal);
+            background: var(--teal-light);
+            color: var(--teal-dark);
+            box-shadow: 0 0 0 3px var(--teal-glow);
+        }
+
+        #role_staff:focus-visible + .role-option {
+            outline: 2px solid var(--teal);
+            outline-offset: 2px;
+        }
+
+        /* "Head of Office" gets its own accent color (not the default teal)
+           so it visually stands out — this is the option people are most
+           likely to overlook, so it shouldn't look like a lesser version
+           of the same state as "Staff Member". */
+        .role-option-head {
+            border-color: #f0d9a6;
+            background: #fffaf0;
+            color: #9a6b12;
+        }
+
+        .role-option-head:hover {
+            border-color: #e0ac3f;
+            color: #7a5410;
+        }
+
+        #role_head:checked + .role-option-head {
+            border-color: #e0ac3f;
+            background: #fdf1d8;
+            color: #7a5410;
+            box-shadow: 0 0 0 3px rgba(224, 172, 63, 0.25);
+        }
+
+        #role_head:focus-visible + .role-option-head {
+            outline: 2px solid #e0ac3f;
+            outline-offset: 2px;
+        }
+
+        .role-hint {
+            font-size: 11.5px;
+            color: var(--muted);
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+
+        .role-hint.role-hint-head {
+            color: #9a6b12;
+            font-weight: 600;
+        }
+
+        @media (max-width: 480px) {
+            .role-toggle { flex-direction: column; }
+        }
+
+        /* ── Terms & Conditions agreement row ─────────────── */
+        .terms-agree {
+            display: flex;
+            align-items: flex-start;
+            gap: 9px;
+            font-size: 12.5px;
+            color: var(--text);
+            line-height: 1.55;
+            margin-top: 18px;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            background: #fafcfe;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .terms-agree input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            margin-top: 2px;
+            accent-color: var(--teal);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .terms-agree label {
+            cursor: pointer;
+            text-transform: none;
+            letter-spacing: normal;
+            font-weight: 400;
+        }
+
+        .terms-agree a {
+            color: var(--teal-dark);
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            cursor: pointer;
+        }
+
+        .terms-agree a:hover { color: var(--teal); }
+
+        .terms-agree.field-error {
+            border-color: var(--error);
+            background: var(--error-bg);
+        }
+
+        .terms-agree.field-error label { color: var(--error); }
+
+        /* ── Terms & Conditions modal ──────────────────────── */
+        #termsModalOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 20, 25, 0.55);
+            backdrop-filter: blur(3px);
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 24px;
+        }
+
+        .terms-modal {
+            width: 640px;
+            max-width: 100%;
+            max-height: 85vh;
+            background: var(--white);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .terms-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--teal-light);
+            flex-shrink: 0;
+        }
+
+        .terms-modal-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--green-dark);
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .terms-modal-close {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(0,0,0,0.06);
+            color: var(--muted);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, color 0.2s;
+            flex-shrink: 0;
+        }
+
+        .terms-modal-close:hover { background: rgba(192,57,43,0.12); color: var(--error); }
+
+        .terms-modal-body {
+            padding: 22px 26px;
+            overflow-y: auto;
+            font-size: 13px;
+            color: var(--text);
+            line-height: 1.7;
+        }
+
+        .terms-modal-body h4 {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--teal-dark);
+            margin: 18px 0 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .terms-modal-body h4:first-child { margin-top: 0; }
+
+        .terms-modal-body p { margin-bottom: 8px; color: var(--muted); }
+
+        .terms-modal-body ul { margin: 6px 0 10px 20px; color: var(--muted); }
+
+        .terms-modal-body ul li { margin-bottom: 4px; }
+
+        .terms-modal-body .terms-updated {
+            font-size: 11px;
+            color: var(--muted);
+            font-style: italic;
+            margin-top: 18px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border);
+        }
+
+        .terms-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .terms-modal-footer .btn-secondary {
+            padding: 10px 18px;
+            background: var(--white);
+            border: 1.5px solid var(--border);
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .terms-modal-footer .btn-secondary:hover { border-color: var(--teal); color: var(--teal-dark); }
+
+        .terms-modal-footer .btn-primary {
+            padding: 10px 20px;
+        }
+
+        @media (max-width: 680px) {
+            .terms-modal { max-height: 90vh; }
+            .terms-modal-body { padding: 18px; }
+        }
     </style>
 </head>
 
@@ -715,7 +990,7 @@
 
             <div class="notice">
                 <i class="fa fa-circle-info"></i>
-                <span>Access is restricted to MHARSMC staff. Use your official hospital email address. Your account will be activated within <strong>1–2 business days</strong> after IT review.</span>
+                <span>Access is restricted to MHARSMC staff. Use your official hospital email address. You'll receive an email confirmation once your account is activated, usually within <strong>1–2 business days</strong> after IT review.</span>
             </div>
 
             {% if messages %}
@@ -810,15 +1085,22 @@
                 </div>
 
                 <div class="field">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; letter-spacing:normal;">
-                        <input type="checkbox" name="is_head_of_office" id="is_head_of_office"
-                            style="width:16px; height:16px; accent-color:var(--teal); cursor:pointer;">
-                        <i class="fa fa-user-tie" style="color:var(--muted); font-size:12px;"></i>
-                        I am the Head of Office for the department selected above
-                    </label>
-                    <p style="font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:5px; padding-left:24px;">
-                        Only check this if you head the office or unit selected above (e.g. Chief, Section Head).
-    Unsure? Leave it unchecked — IT will confirm during approval.
+                    <label>Office Role <span class="required-star">*</span></label>
+                    <div class="role-toggle" id="roleToggle">
+                        <input type="radio" name="is_head_of_office" id="role_staff" value="staff" checked>
+                        <label for="role_staff" class="role-option">
+                            <i class="fa fa-user"></i>
+                            <span>Staff Member</span>
+                        </label>
+
+                        <input type="radio" name="is_head_of_office" id="role_head" value="on">
+                        <label for="role_head" class="role-option role-option-head">
+                            <i class="fa fa-crown"></i>
+                            <span>Head of Office</span>
+                        </label>
+                    </div>
+                    <p class="role-hint" id="roleHint">
+                        Only choose "Head of Office" if you head the office/unit selected above (e.g. Chief, Section Head). Unsure? Leave "Staff Member" selected — IT will confirm during approval.
                     </p>
                 </div>
 
@@ -874,6 +1156,14 @@
                     </div>
                 </div>
 
+                <!-- Terms and Conditions agreement -->
+                <div class="terms-agree" id="termsAgree">
+                    <input type="checkbox" name="agree_terms" id="agree_terms">
+                    <label for="agree_terms">
+                        I have read and agree to the <a id="openTermsLink">Terms and Conditions</a> governing use of the MHARSMC Intranet.
+                    </label>
+                </div>
+
                 <div class="submit-row">
                     <a href="{% url 'login' %}" class="back-link">
                         <i class="fa fa-arrow-left"></i> Back to Sign In
@@ -883,6 +1173,76 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Terms and Conditions Modal -->
+    <div id="termsModalOverlay">
+        <div class="terms-modal" role="dialog" aria-modal="true" aria-labelledby="termsModalTitle">
+            <div class="terms-modal-header">
+                <h3 id="termsModalTitle"><i class="fa fa-file-contract"></i> Terms and Conditions</h3>
+                <button type="button" class="terms-modal-close" id="closeTermsModal" aria-label="Close">
+                    <i class="fa fa-xmark"></i>
+                </button>
+            </div>
+            <div class="terms-modal-body">
+                <p>Please read the following Terms and Conditions carefully before requesting access to the Mayor Hilarion A. Ramiro Sr. Medical Center (MHARSMC) Intranet. By checking the agreement box and submitting your access request, you agree to be bound by these terms.</p>
+
+                <h4>1. Eligibility</h4>
+                <p>Access to the MHARSMC Intranet is granted exclusively to active MHARSMC staff, medical professional staff, and other authorized personnel. You must provide accurate, complete, and up-to-date personal and employment information when requesting access. Providing false or misleading information may result in denial or revocation of access.</p>
+
+                <h4>2. Account Responsibility</h4>
+                <ul>
+                    <li>You are responsible for keeping your username and password confidential.</li>
+                    <li>You must not share your login credentials with any other person.</li>
+                    <li>You are responsible for all activity that occurs under your account.</li>
+                    <li>You must notify the IT Team immediately if you suspect unauthorized use of your account.</li>
+                </ul>
+
+                <h4>3. Acceptable Use</h4>
+                <p>The Intranet is provided solely for legitimate hospital operations, communication, and administrative purposes. You agree not to:</p>
+                <ul>
+                    <li>Use the portal to harass, defame, or discriminate against any colleague or patient.</li>
+                    <li>Upload, post, or transmit unlawful, obscene, or otherwise harmful content.</li>
+                    <li>Attempt to gain unauthorized access to other accounts, systems, or data.</li>
+                    <li>Use the platform for personal commercial activity or solicitation.</li>
+                    <li>Introduce viruses, malware, or code intended to disrupt the system.</li>
+                </ul>
+
+                <h4>4. Confidentiality and Data Privacy</h4>
+                <p>Information accessed through the Intranet — including patient data, employee records, issuances, and internal communications — is confidential. In compliance with the Data Privacy Act of 2012 (RA 10173), you agree to:</p>
+                <ul>
+                    <li>Access only the information necessary to perform your official duties.</li>
+                    <li>Never disclose confidential hospital or patient information to unauthorized parties.</li>
+                    <li>Handle any personal data you encounter with appropriate care and discretion.</li>
+                </ul>
+
+                <h4>5. Content Ownership and Conduct</h4>
+                <p>Any content you post, upload, or share on the Intranet (messages, files, wiki articles, posts, etc.) remains subject to hospital policy and may be reviewed by administrators for compliance purposes. You remain responsible for the accuracy and appropriateness of content you submit.</p>
+
+                <h4>6. Account Review and Activation</h4>
+                <p>New access requests are reviewed by the IT Team before activation, typically within 1–2 business days. You will receive an email notification once your account has been activated. MHARSMC reserves the right to deny, delay, or revoke access at its discretion, including for accounts found to be inactive, misused, or associated with separated employees.</p>
+
+                <h4>7. Suspension and Termination</h4>
+                <p>MHARSMC may suspend or terminate your access at any time, without prior notice, if these Terms are violated, if your employment with the hospital ends, or as required for security or operational reasons.</p>
+
+                <h4>8. Limitation of Liability</h4>
+                <p>The Intranet is provided on an "as-is" basis. MHARSMC and its IT Team are not liable for any loss, damage, or disruption arising from your use of, or inability to use, the portal.</p>
+
+                <h4>9. Changes to These Terms</h4>
+                <p>These Terms and Conditions may be updated from time to time. Continued use of the Intranet after changes are posted constitutes acceptance of the revised terms.</p>
+
+                <h4>10. Acknowledgment</h4>
+                <p>By checking the agreement box and submitting your access request, you confirm that you have read, understood, and agree to be bound by these Terms and Conditions.</p>
+
+                <p class="terms-updated">Last updated: August 2026 · MHARSMC IT Team</p>
+            </div>
+            <div class="terms-modal-footer">
+                <button type="button" class="btn-secondary" id="closeTermsModalBtn">Close</button>
+                <button type="button" class="btn-primary" id="acceptTermsModalBtn">
+                    <i class="fa fa-check"></i> I Agree
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1177,11 +1537,79 @@
             };
         })();
 
+        // ── Office role toggle (Staff / Head of Office) ─────────────
+        (function () {
+            const roleStaff = document.getElementById('role_staff');
+            const roleHead  = document.getElementById('role_head');
+            const roleHint  = document.getElementById('roleHint');
+            const deptInput = document.getElementById('department-input');
+
+            function updateRoleHint() {
+                if (roleHead.checked) {
+                    const deptName = deptInput.value.trim();
+                    roleHint.textContent = deptName
+                        ? `You've indicated you are the Head of Office for "${deptName}". IT will confirm this during approval.`
+                        : `You've indicated you are the Head of Office. IT will confirm this during approval.`;
+                    roleHint.classList.add('role-hint-head');
+                } else {
+                    roleHint.textContent = 'Only choose "Head of Office" if you head the office/unit selected above (e.g. Chief, Section Head). Unsure? Leave "Staff Member" selected — IT will confirm during approval.';
+                    roleHint.classList.remove('role-hint-head');
+                }
+            }
+
+            roleStaff.addEventListener('change', updateRoleHint);
+            roleHead.addEventListener('change', updateRoleHint);
+            deptInput.addEventListener('change', updateRoleHint);
+            updateRoleHint();
+        })();
+
+        // ── Terms and Conditions modal ─────────────────
+        const termsOverlay       = document.getElementById('termsModalOverlay');
+        const openTermsLink      = document.getElementById('openTermsLink');
+        const closeTermsModal    = document.getElementById('closeTermsModal');
+        const closeTermsModalBtn = document.getElementById('closeTermsModalBtn');
+        const acceptTermsModalBtn= document.getElementById('acceptTermsModalBtn');
+        const termsAgreeWrap     = document.getElementById('termsAgree');
+        const agreeCheckbox      = document.getElementById('agree_terms');
+
+        function openTerms(e) {
+            if (e) e.preventDefault();
+            termsOverlay.style.display = 'flex';
+        }
+        function closeTerms() {
+            termsOverlay.style.display = 'none';
+        }
+
+        openTermsLink.addEventListener('click', openTerms);
+        closeTermsModal.addEventListener('click', closeTerms);
+        closeTermsModalBtn.addEventListener('click', closeTerms);
+        acceptTermsModalBtn.addEventListener('click', () => {
+            agreeCheckbox.checked = true;
+            termsAgreeWrap.classList.remove('field-error');
+            closeTerms();
+        });
+        termsOverlay.addEventListener('click', (e) => {
+            if (e.target === termsOverlay) closeTerms();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && termsOverlay.style.display === 'flex') closeTerms();
+        });
+
+        agreeCheckbox.addEventListener('change', () => {
+            if (agreeCheckbox.checked) termsAgreeWrap.classList.remove('field-error');
+        });
+
         // ── Form guard (no mismatched submit) ─────────
         const loader = document.getElementById('loaderOverlay');
         document.getElementById('regForm').addEventListener('submit', e => {
             if (!window.__validateDepartment()) {
                 e.preventDefault();
+                return;
+            }
+            if (!agreeCheckbox.checked) {
+                e.preventDefault();
+                termsAgreeWrap.classList.add('field-error');
+                termsAgreeWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
             if (passInput.value !== confirmInput.value) {

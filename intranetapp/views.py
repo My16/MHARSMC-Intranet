@@ -407,7 +407,11 @@ def register(request):
 
         _notify_admins_new_registration(user, profile)
 
-        messages.success(request, 'Your access request has been submitted. The IT Team will activate your account within 1–2 business days.')
+        messages.success(
+                request,
+                'Your access request has been submitted. You will receive an email once the IT Team '
+                'activates your account — usually within 1–2 business days.'
+            )
         return redirect('login')
 
     return render(request, 'register.html', {'department_choices': DEPARTMENT_CHOICES,})
