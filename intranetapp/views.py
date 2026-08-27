@@ -1642,6 +1642,7 @@ def issuances(request):
     status_filter   = request.GET.get('status', '')
     category_filter = request.GET.get('category', '')
     month_filter    = request.GET.get('month', '')
+    tagged_filter   = request.GET.get('tagged', '') == 'me'
 
     try:
         per_page = int(request.GET.get('per_page', 10))
@@ -1672,6 +1673,9 @@ def issuances(request):
 
     if category_filter:
         qs = qs.filter(category_id=category_filter)
+
+    if tagged_filter:
+        qs = qs.filter(tagged_users=request.user)
 
     month_filter_label = ''
     if month_filter:
@@ -1734,6 +1738,7 @@ def issuances(request):
         'search_query':       search_query,
         'status_filter':      status_filter,
         'category_filter':    category_filter,
+        'tagged_filter':      tagged_filter,
         'month_filter':       month_filter,
         'month_filter_label': month_filter_label,
         'available_months':   available_months,

@@ -115,6 +115,15 @@
 .toolbar-select:focus { border-color: var(--green-accent); box-shadow: 0 0 0 3px rgba(82,183,136,.12); }
 .toolbar-select.has-value { border-color: var(--green-accent); background-color: var(--green-pale); color: var(--green-dark); font-weight: 500; }
 
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px;
+  border-radius: 8px; font-size: .82rem; font-weight: 500; font-family: inherit;
+  border: 1px solid var(--border); background: var(--white); color: var(--text-primary);
+  cursor: pointer; transition: background .18s, border-color .18s, color .18s; white-space: nowrap;
+}
+.filter-chip:hover  { background: var(--green-pale); border-color: var(--green-accent); }
+.filter-chip.active { background: var(--green-pale); border-color: var(--green-accent); color: var(--green-dark); font-weight: 600; }
+
 /* ── Buttons ── */
 .btn {
   display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px;
@@ -531,6 +540,7 @@ textarea.form-control { resize: vertical; min-height: 100px; line-height: 1.6; }
   <form method="get" id="issuanceFilterForm">
     <input type="hidden" name="tab"    value="issuances">
     <input type="hidden" name="status" id="statusHidden" value="{{ status_filter }}">
+    <input type="hidden" name="tagged" id="taggedHidden" value="{% if tagged_filter %}me{% endif %}">
     <div class="toolbar">
       <div class="search-box">
         <i class="fa-solid fa-magnifying-glass"></i>
@@ -560,8 +570,14 @@ textarea.form-control { resize: vertical; min-height: 100px; line-height: 1.6; }
         <option value="40"  {% if per_page == 40  %}selected{% endif %}>40 per page</option>
         <option value="100" {% if per_page == 100 %}selected{% endif %}>100 per page</option>
       </select>
-      {% if search_query or status_filter or category_filter or month_filter or per_page != 10 %}
-      <a href="?tab=issuances" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+
+      <button type="button" class="filter-chip {% if tagged_filter %}active{% endif %}" onclick="toggleTaggedFilter()">
+        <i class="fa-solid fa-at"></i> Tagged to me
+      </button>
+
+
+      {% if search_query or status_filter or category_filter or month_filter or per_page != 10 or tagged_filter %}
+        <a href="?tab=issuances" class="btn btn-outline btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
       {% endif %}
     </div>
   </form>
@@ -609,6 +625,11 @@ textarea.form-control { resize: vertical; min-height: 100px; line-height: 1.6; }
             {% if item.tagged_users.all %}
             <div style="font-size:.7rem;color:var(--green-mid);margin-top:4px;">
               <i class="fa-solid fa-at" style="font-size:.65rem;"></i> {{ item.tagged_users_display }}
+            </div>
+            {% endif %}
+            {% if tagged_filter %}
+            <div style="font-size:.7rem;color:#2874a6;margin-top:4px;">
+              <i class="fa-solid fa-at" style="font-size:.65rem;"></i> You're tagged on this
             </div>
             {% endif %}
           </td>
@@ -1241,6 +1262,13 @@ function switchTab(tab) {
    ════════════════════════════════════════ */
 function filterByStatus(val) {
   document.getElementById('statusHidden').value = val;
+  document.getElementById('issuanceFilterForm').submit();
+}
+
+// Toggle "Tagged to Me" filter
+function toggleTaggedFilter() {
+  var hidden = document.getElementById('taggedHidden');
+  hidden.value = hidden.value === 'me' ? '' : 'me';
   document.getElementById('issuanceFilterForm').submit();
 }
 
