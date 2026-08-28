@@ -499,6 +499,78 @@
     .um-search input { width: 140px; }
     .form-row { grid-template-columns: 1fr; }
   }
+
+  /* ── Header title + search cluster ─────────────────── */
+  .um-card-title-group { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+
+  /* ── Compact department combobox (filter bar) ──────── */
+  .um-dept-combobox { position: relative; width: 220px; }
+  .um-dept-combobox input[type="text"] {
+    width: 100%;
+    padding: 7px 30px 7px 30px;
+    font-size: .82rem;
+    font-family: 'Source Sans 3', sans-serif;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  .um-dept-combobox input[type="text"]::placeholder { color: var(--text-muted); }
+  .um-dept-combobox input[type="text"]:focus {
+    border-color: var(--green-accent);
+    box-shadow: 0 0 0 3px rgba(82,183,136,.15);
+  }
+  .um-dept-combobox .icon-left {
+    position:absolute; left:9px; top:50%; transform:translateY(-50%);
+    color: var(--text-muted); font-size:.78rem; pointer-events:none;
+  }
+  .um-dept-combobox:focus-within .icon-left { color: var(--green-accent); }
+  .um-dept-combobox .select-arrow {
+    position:absolute; right:9px; top:50%; transform:translateY(-50%);
+    color: var(--text-muted); font-size:.7rem; pointer-events:none;
+    transition: transform .18s, color .18s;
+  }
+  .um-dept-combobox.open .select-arrow { color: var(--green-accent); transform:translateY(-50%) rotate(180deg); }
+
+  .um-dept-combobox .dept-panel {
+    position:absolute; z-index:60; top:calc(100% + 6px); left:0;
+    width:max-content; min-width:100%; max-width:320px; max-height:280px;
+    overflow-y:auto; background:var(--white); border:1px solid var(--border);
+    border-radius:9px; box-shadow: var(--shadow-md); display:none; padding:6px;
+  }
+  .um-dept-combobox.open .dept-panel { display:block; }
+  .um-dept-combobox .dept-group-label {
+    font-size:.65rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color: var(--green-dark); background: var(--green-pale); border-radius:5px;
+    padding:5px 8px; margin:4px 0 2px;
+  }
+  .um-dept-combobox .dept-option {
+    padding:7px 9px; border-radius:6px; font-size:.8rem; color:var(--text-primary);
+    cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  .um-dept-combobox .dept-option:hover, .um-dept-combobox .dept-option.active {
+    background: var(--green-pale); color: var(--green-dark);
+  }
+  .um-dept-combobox .dept-option .head-tag {
+    font-size:.6rem; font-weight:700; color: var(--green-dark); background: var(--green-pale);
+    border-radius:4px; padding:1px 5px; margin-left:auto; flex-shrink:0;
+  }
+  .um-dept-combobox .dept-empty { padding:12px 8px; font-size:.78rem; color:var(--text-muted); text-align:center; }
+  .um-dept-combobox mark { background:#ffe8a3; color:inherit; border-radius:2px; padding:0 1px; }
+
+  /* ── Head of Office segmented toggle ───────────────── */
+  .head-filter-toggle { display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0; }
+  .head-toggle-btn {
+    border:none; background:var(--white); color:var(--text-muted);
+    font-size:.78rem; font-weight:600; padding:7px 11px; cursor:pointer;
+    font-family:'Source Sans 3', sans-serif; white-space:nowrap;
+    border-right:1px solid var(--border); transition: background .15s, color .15s;
+  }
+  .head-toggle-btn:last-of-type { border-right:none; }
+  .head-toggle-btn:hover { background: var(--green-pale); color: var(--green-dark); }
+  .head-toggle-btn.active { background: var(--green-mid); color: var(--white); }
 </style>
 {% endblock %}
 
@@ -506,7 +578,7 @@
 
 <!-- ══ Stat Cards ══════════════════════════════════════════════ -->
 <div class="um-stats">
-  <a href="?status=&search={{ search_query|urlencode }}&per_page={{ per_page }}"
+  <a href="?status=&{{ extra_querystring }}"
      class="um-stat-card-link{% if not status_filter %} is-active-filter{% endif %}">
     <div class="um-stat-card">
       <div class="um-stat-icon total"><i class="fa-solid fa-users"></i></div>
@@ -517,7 +589,7 @@
     </div>
   </a>
 
-  <a href="?status=active&search={{ search_query|urlencode }}&per_page={{ per_page }}"
+  <a href="?status=active&{{ extra_querystring }}"
      class="um-stat-card-link{% if status_filter == 'active' %} is-active-filter{% endif %}">
     <div class="um-stat-card">
       <div class="um-stat-icon active"><i class="fa-solid fa-user-check"></i></div>
@@ -528,7 +600,7 @@
     </div>
   </a>
 
-  <a href="?status=inactive&search={{ search_query|urlencode }}&per_page={{ per_page }}"
+  <a href="?status=inactive&{{ extra_querystring }}"
      class="um-stat-card-link{% if status_filter == 'inactive' %} is-active-filter{% endif %}">
     <div class="um-stat-card">
       <div class="um-stat-icon inactive"><i class="fa-solid fa-user-xmark"></i></div>
@@ -539,7 +611,7 @@
     </div>
   </a>
 
-  <a href="?status=pending&search={{ search_query|urlencode }}&per_page={{ per_page }}"
+  <a href="?status=pending&{{ extra_querystring }}"
      class="um-stat-card-link{% if status_filter == 'pending' %} is-active-filter{% endif %}">
     <div class="um-stat-card">
       <div class="um-stat-icon" style="background:#fff8e1; color:#f59e0b;">
@@ -555,35 +627,69 @@
 
 <!-- ══ Users Table ═════════════════════════════════════════════ -->
 <div class="um-card">
-  <div class="um-card-header">
-    <div class="um-card-title">
-      System Users
-      <span class="um-badge">{{ total_users }} total</span>
-    </div>
-    <div class="um-card-actions">
-      <form method="GET" action="" id="filterForm" style="display:flex; align-items:center; gap:10px;">
-        <input type="hidden" name="status" id="statusInput" value="{{ status_filter }}">
-        <div class="um-search">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" name="search" placeholder="Search users…"
-                value="{{ search_query }}" autocomplete="off" id="userSearchInput"/>
+  <div class="um-card-header" style="align-items:center;">
+    <form method="GET" action="" id="filterForm" style="display:flex; align-items:center; gap:14px; flex:1; flex-wrap:wrap; min-width:0;">
+      <input type="hidden" name="status" id="statusInput" value="{{ status_filter }}">
+
+      <span class="um-card-title" style="white-space:nowrap;">System Users</span>
+
+      <div class="um-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="search" placeholder="Search users…"
+              value="{{ search_query }}" autocomplete="off" id="userSearchInput"/>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px; margin-left:auto; flex-wrap:wrap;">
+
+        <div class="um-dept-combobox" id="dept-filter-combobox">
+          <i class="fa-solid fa-building icon-left"></i>
+          <input
+            type="text"
+            id="department-filter-input"
+            placeholder="All departments"
+            autocomplete="off"
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="dept-filter-panel"
+            aria-autocomplete="list"
+          >
+          <i class="fa-solid fa-chevron-down select-arrow"></i>
+          <input type="hidden" name="department" id="department-filter-value" value="{{ department_filter }}">
+          <div class="dept-panel" id="dept-filter-panel" role="listbox"></div>
         </div>
+
+        <select name="role" id="roleFilterSelect" class="um-per-page-select">
+          <option value="">All Roles</option>
+          <option value="none" {% if role_filter == 'none' %}selected{% endif %}>No Role</option>
+          {% for role in roles %}
+            <option value="{{ role.pk }}" {% if role_filter == role.pk|stringformat:"s" %}selected{% endif %}>{{ role.name }}</option>
+          {% endfor %}
+        </select>
+
+        <div class="head-filter-toggle" id="headFilterToggle">
+          <button type="button" class="head-toggle-btn{% if not head_filter %} active{% endif %}" data-value="">Any</button>
+          <button type="button" class="head-toggle-btn{% if head_filter == 'yes' %} active{% endif %}" data-value="yes">Head of Office</button>
+          <button type="button" class="head-toggle-btn{% if head_filter == 'no' %} active{% endif %}" data-value="no">Non-Head</button>
+          <input type="hidden" name="head" id="headFilterInput" value="{{ head_filter }}">
+        </div>
+
         <select name="per_page" id="perPageSelect" class="um-per-page-select">
           {% for n in per_page_choices %}
             <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} / page</option>
           {% endfor %}
         </select>
-        {% if status_filter %}
-          <a href="?search={{ search_query|urlencode }}&per_page={{ per_page }}"
-            class="um-badge" style="text-decoration:none;">
-            <i class="fa-solid fa-xmark"></i> Clear filter
+
+        {% if any_extra_filter %}
+          <a href="?" class="um-badge" style="text-decoration:none;">
+            <i class="fa-solid fa-xmark"></i> Clear all
           </a>
         {% endif %}
-      </form>
-      <button class="btn-add" onclick="openAddModal()">
-        <i class="fa-solid fa-plus"></i> Add User
-      </button>
-    </div>
+      </div>
+    </form>
+
+    <button class="btn-add" onclick="openAddModal()" style="flex-shrink:0; margin-left:12px;">
+      <i class="fa-solid fa-plus"></i> Add User
+    </button>
   </div>
 
   <div class="um-table-wrap">
@@ -794,7 +900,7 @@
           <td colspan="11">
             <div class="um-empty">
               <i class="fa-solid fa-users-slash"></i>
-              No users found{% if search_query %} for "<strong>{{ search_query }}</strong>"{% endif %}.
+              No users found{% if search_query %} for "<strong>{{ search_query }}</strong>"{% endif %}{% if department_filter or role_filter or head_filter %} with the current filters{% endif %}.
             </div>
           </td>
         </tr>
@@ -1738,6 +1844,231 @@
       this.closest('form').submit();
     });
   }
+
+  /* ── Filter selects (auto-submit, no button needed) ─────────── */
+  ['roleFilterSelect'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', function() { this.closest('form').submit(); });
+  });
+
+  /* ── Department filter combobox (search-as-you-type) ────────── */
+  (function () {
+    const DEPARTMENT_DATA = [
+      { group: "Office of the Medical Center Chief", options: [
+        ["Office of the Medical Center Chief", "Office of the Medical Center Chief (Head Office)"],
+        ["Office of the Medical Center Chief — Legal Unit", "Legal Unit"],
+        ["Office of the Medical Center Chief — Public Health Unit", "Public Health Unit"],
+        ["Office of the Medical Center Chief — Planning and Management Unit", "Planning and Management Unit"],
+        ["Office of the Medical Center Chief — Office for Strategy Management", "Office for Strategy Management"],
+        ["Office of the Medical Center Chief — Professional Education, Training and Research", "Professional Education, Training and Research"],
+        ["Office of the Medical Center Chief — Health Emergency and Disaster Management Unit", "Health Emergency and Disaster Management Unit"],
+        ["Office of the Medical Center Chief — Infection Prevention and Control Unit", "Infection Prevention and Control Unit"],
+      ]},
+      { group: "Medical Service", options: [
+        ["Medical Service", "Office of the Chief of Medical Professional Staff (Head Office)"],
+        ["Medical Service — Clinical Department Section", "Clinical Department Section"],
+        ["Medical Service — Emergency Medicine Department", "Emergency Medicine Department"],
+        ["Medical Service — Department of Physical Medicine and Rehabilitation", "Department of Physical Medicine and Rehabilitation"],
+        ["Medical Service — Operating Room Department", "Operating Room Department"],
+        ["Medical Service — Basic Lung Care Specialty Center", "Basic Lung Care Specialty Center"],
+        ["Medical Service — Respiratory Unit", "Respiratory Unit"],
+        ["Medical Service — Basic Infectious Disease and Tropical Medicine Specialty Center", "Basic Infectious Disease and Tropical Medicine Specialty Center"],
+        ["Medical Service — Dental Department", "Dental Department"],
+        ["Medical Service — Woman and Child Protection Unit", "Woman and Child Protection Unit"],
+        ["Medical Service — Out-Patient Department", "Out-Patient Department"],
+        ["Medical Service — Psychology Unit", "Psychology Unit"],
+        ["Medical Service — TB-Dots Clinic", "TB-Dots Clinic"],
+        ["Medical Service — E-Konsulta", "E-Konsulta"],
+        ["Medical Service — Animal Bite and Treatment Center", "Animal Bite and Treatment Center"],
+        ["Medical Service — Internal Medicine Department", "Internal Medicine Department"],
+        ["Medical Service — Cardiology Unit", "Cardiology Unit"],
+        ["Medical Service — Nephrology Unit", "Nephrology Unit"],
+        ["Medical Service — Medical Intensive Care Unit", "Medical Intensive Care Unit"],
+        ["Medical Service — Oncology Unit", "Oncology Unit"],
+        ["Medical Service — Acute Stroke Unit", "Acute Stroke Unit"],
+        ["Medical Service — Pediatrics Department", "Pediatrics Department"],
+        ["Medical Service — Pediatric Intensive Care Unit", "Pediatric Intensive Care Unit"],
+        ["Medical Service — Neonatal Intensive Care Unit", "Neonatal Intensive Care Unit"],
+        ["Medical Service — Newborn Screening Unit", "Newborn Screening Unit"],
+        ["Medical Service — Obstetrics and Gynecology Department", "Obstetrics and Gynecology Department"],
+        ["Medical Service — High-Risk Pregnancy Unit", "High-Risk Pregnancy Unit"],
+        ["Medical Service — Family Planning", "Family Planning"],
+        ["Medical Service — Orthopedics Department", "Orthopedics Department"],
+        ["Medical Service — Department of Radiology", "Department of Radiology"],
+        ["Medical Service — Magnetic Resonance Imaging", "Magnetic Resonance Imaging"],
+        ["Medical Service — Department of Pathology", "Department of Pathology"],
+        ["Medical Service — Blood Bank", "Blood Bank"],
+        ["Medical Service — Anatomic Laboratory (Histopathology)", "Anatomic Laboratory (Histopathology)"],
+        ["Medical Service — Clinical Laboratory", "Clinical Laboratory"],
+        ["Medical Service — Molecular Biology", "Molecular Biology"],
+        ["Medical Service — Family and Community Medicine Department", "Family and Community Medicine Department"],
+        ["Medical Service — Wellness", "Wellness"],
+        ["Medical Service — Palliative Care", "Palliative Care"],
+        ["Medical Service — Surgery Department", "Surgery Department"],
+        ["Medical Service — Anesthesia Department", "Anesthesia Department"],
+      ]},
+      { group: "Allied Health Professional Service", options: [
+        ["Allied Health Professional Service", "Office of the Chief Allied Health Professional Service (Head Office)"],
+        ["Allied Health Professional Service — Nutrition and Dietetics Department", "Nutrition and Dietetics Department"],
+        ["Allied Health Professional Service — Pharmacy Department", "Pharmacy Department"],
+        ["Allied Health Professional Service — Medical Social Work Department", "Medical Social Work Department"],
+        ["Allied Health Professional Service — Health Information Management Department", "Health Information Management Department"],
+      ]},
+      { group: "Nursing Service", options: [
+        ["Nursing Service", "Office of the Chief Nurse (Head Office)"],
+        ["Nursing Service — Clinical Nursing Units", "Clinical Nursing Units"],
+        ["Nursing Service — Operating Room", "Operating Room"],
+        ["Nursing Service — Special Care Areas", "Special Care Areas"],
+        ["Nursing Service — Obstetric Complex", "Obstetric Complex"],
+        ["Nursing Service — Emergency Room", "Emergency Room"],
+        ["Nursing Service — Outpatient Department", "Outpatient Department"],
+        ["Nursing Service — Dialysis Unit", "Dialysis Unit"],
+      ]},
+      { group: "Hospital Operations and Patient Support Service (HOPSS)", options: [
+        ["HOPSS", "Office of the Chief Administrative Officer (Head Office)"],
+        ["HOPSS — Human Resource Management Section", "Human Resource Management Section"],
+        ["HOPSS — Procurement Section", "Procurement Section"],
+        ["HOPSS — Materials Management Section", "Materials Management Section"],
+        ["HOPSS — Integrated Management Information System Section", "Integrated Management Information System Section"],
+        ["HOPSS — Security", "Security"],
+        ["HOPSS — Engineering and Facilities Management Section", "Engineering and Facilities Management Section"],
+        ["HOPSS — Housekeeping, Linen, and Laundry", "Housekeeping, Linen, and Laundry"],
+      ]},
+      { group: "Finance Service", options: [
+        ["Finance Service", "Office of the Chief Finance Officer (Head Office)"],
+        ["Finance Service — Billing and Claims Section", "Billing and Claims Section"],
+        ["Finance Service — Accounting Section", "Accounting Section"],
+        ["Finance Service — Budget Section", "Budget Section"],
+        ["Finance Service — Cash Operations Section", "Cash Operations Section"],
+        ["Finance Service — Health Insurance Medical Evaluation Unit", "Health Insurance Medical Evaluation Unit"],
+      ]},
+    ];
+
+    const wrapper = document.getElementById("dept-filter-combobox");
+    const input   = document.getElementById("department-filter-input");
+    const hidden  = document.getElementById("department-filter-value");
+    const panel   = document.getElementById("dept-filter-panel");
+    if (!wrapper) return;
+
+    const FLAT = [];
+    DEPARTMENT_DATA.forEach(g => g.options.forEach(([value, label]) =>
+      FLAT.push({ value, label, group: g.group })
+    ));
+
+    let activeIndex = -1;
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
+    function highlight(label, query) {
+      if (!query) return escapeHtml(label);
+      const idx = label.toLowerCase().indexOf(query.toLowerCase());
+      if (idx === -1) return escapeHtml(label);
+      return escapeHtml(label.slice(0, idx))
+        + "<mark>" + escapeHtml(label.slice(idx, idx + query.length)) + "</mark>"
+        + escapeHtml(label.slice(idx + query.length));
+    }
+
+    function render(query) {
+      const q = (query || "").trim().toLowerCase();
+      const groups = DEPARTMENT_DATA.map(g => ({
+        group: g.group,
+        options: g.options.filter(([, label]) => label.toLowerCase().includes(q))
+      })).filter(g => g.options.length);
+
+      let html = '<div class="dept-option" data-value="" style="font-weight:600;">All departments</div>';
+
+      if (!groups.length) {
+        panel.innerHTML = html + '<div class="dept-empty">No departments match "' + escapeHtml(query) + '"</div>';
+        activeIndex = -1;
+        return;
+      }
+
+      groups.forEach(g => {
+        html += '<div class="dept-group-label">' + escapeHtml(g.group) + '</div>';
+        g.options.forEach(([value, label]) => {
+          const isHead = !value.includes("—");
+          html += '<div class="dept-option" role="option" data-value="' + escapeHtml(value) + '">'
+                + highlight(label, query)
+                + (isHead ? '<span class="head-tag">HEAD</span>' : '')
+                + '</div>';
+        });
+      });
+      panel.innerHTML = html;
+      activeIndex = -1;
+    }
+
+    function selectedLabel() {
+      if (!hidden.value) return "";
+      const found = FLAT.find(o => o.value === hidden.value);
+      return found ? found.label : "";
+    }
+
+    function open() {
+      wrapper.classList.add("open");
+      input.setAttribute("aria-expanded", "true");
+      render("");
+    }
+
+    function close() {
+      wrapper.classList.remove("open");
+      input.setAttribute("aria-expanded", "false");
+      input.value = selectedLabel();
+    }
+
+    function selectOption(el) {
+      const value = el.getAttribute("data-value");
+      if (!value) {
+        hidden.value = "";
+        input.value = "";
+      } else {
+        const found = FLAT.find(o => o.value === value);
+        if (!found) return;
+        hidden.value = found.value;
+        input.value = found.label;
+      }
+      close();
+      wrapper.closest('form').submit();
+    }
+
+    input.value = selectedLabel();
+
+    input.addEventListener("focus", open);
+    input.addEventListener("click", open);
+    input.addEventListener("input", () => {
+      if (!wrapper.classList.contains("open")) open();
+      render(input.value);
+    });
+
+    panel.addEventListener("mousedown", (e) => {
+      const opt = e.target.closest(".dept-option");
+      if (opt) {
+        e.preventDefault();
+        selectOption(opt);
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!wrapper.contains(e.target)) close();
+    });
+  })();
+
+  /* ── Head of Office segmented toggle ─────────────────────────── */
+  (function () {
+    const toggle = document.getElementById('headFilterToggle');
+    if (!toggle) return;
+    const hidden = document.getElementById('headFilterInput');
+
+    toggle.querySelectorAll('.head-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        hidden.value = btn.dataset.value;
+        toggle.closest('form').submit();
+      });
+    });
+  })();
 
   /* ── Approve Modal ───────────────────────────────────────────── */
   function openApproveModal(btn) {

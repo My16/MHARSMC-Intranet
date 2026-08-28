@@ -157,8 +157,11 @@ def _roles_as_json():
 @login_required
 @user_passes_test(is_admin)
 def user_management(request):
-    search_query  = request.GET.get('search', '').strip()
-    status_filter = request.GET.get('status', '').strip()
+    search_query      = request.GET.get('search', '').strip()
+    status_filter     = request.GET.get('status', '').strip()
+    department_filter = request.GET.get('department', '').strip()
+    role_filter        = request.GET.get('role', '').strip()
+    head_filter         = request.GET.get('head', '').strip()   # 'yes' / 'no' / ''
 
     profiles_qs = UserProfile.objects.select_related(
         'user', 'role'
@@ -183,6 +186,23 @@ def user_management(request):
     else:
         status_filter = ''
 
+    if department_filter:
+        profiles_qs = profiles_qs.filter(department=department_filter)
+
+    if role_filter == 'none':
+        profiles_qs = profiles_qs.filter(role__isnull=True)
+    elif role_filter:
+        profiles_qs = profiles_qs.filter(role__pk=role_filter)
+    else:
+        role_filter = ''
+
+    if head_filter == 'yes':
+        profiles_qs = profiles_qs.filter(is_head_of_office=True)
+    elif head_filter == 'no':
+        profiles_qs = profiles_qs.filter(is_head_of_office=False)
+    else:
+        head_filter = ''
+
     base_qs        = UserProfile.objects.filter(user__is_superuser=False)
     total_users    = base_qs.count()
     active_users   = base_qs.filter(user__is_active=True).count()
@@ -201,13 +221,22 @@ def user_management(request):
     page_number = request.GET.get('page', '').strip() or 1
     page_obj    = paginator.get_page(page_number)
 
-    # Querystring minus "page", so pagination links keep the active
-    # search / status filter / per_page selection.
+    # Querystring minus "page", so pagination links keep every active filter.
     qd = request.GET.copy()
     qd.pop('page', None)
     base_querystring = qd.urlencode()
 
+    # Querystring minus "page" AND "status" — used by the stat cards, which
+    # each set their own status value while preserving every other filter
+    # (search, department, role, head, per_page).
+    qd_no_status = request.GET.copy()
+    qd_no_status.pop('page', None)
+    qd_no_status.pop('status', None)
+    extra_querystring = qd_no_status.urlencode()
+
     roles = Role.objects.all().order_by('name')
+
+    any_extra_filter = bool(search_query or status_filter or department_filter or role_filter or head_filter)
 
     return render(request, 'user_management.html', {
         'profiles':           page_obj,
@@ -216,12 +245,17 @@ def user_management(request):
         'per_page':           per_page,
         'per_page_choices':   PER_PAGE_CHOICES,
         'base_querystring':   base_querystring,
+        'extra_querystring':  extra_querystring,
         'total_users':        total_users,
         'active_users':       active_users,
         'inactive_users':     inactive_users,
         'pending_users':      pending_users,
         'search_query':       search_query,
         'status_filter':      status_filter,
+        'department_filter':  department_filter,
+        'role_filter':        role_filter,
+        'head_filter':        head_filter,
+        'any_extra_filter':   any_extra_filter,
         'module_choices':     MODULE_CHOICES,
         'roles':              roles,
         'roles_json':         _roles_as_json(),
