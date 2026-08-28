@@ -781,7 +781,8 @@ def home(request):
         is_online=True,
         user__is_superuser=False,
         user__is_active=True,
-    ).exclude(user=user).select_related('user')[:6]
+    ).exclude(user=user).select_related('user')[:50]
+    ctx['online_staff_count'] = ctx['online_staff'].count() if hasattr(ctx['online_staff'], 'count') else len(ctx['online_staff'])
  
     return render(request, 'home.html', ctx)
 

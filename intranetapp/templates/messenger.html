@@ -3946,30 +3946,91 @@
   }
   window.msngRenderNewUsers = renderNewMsgUsers;
 
-  function renderNewMsgUsers(filter) {
-    const lower = filter.toLowerCase();
-    const filtered = allUsers.filter(u => !lower || u.name.toLowerCase().includes(lower));
-    if (!filtered.length) {
-      newMsgList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">No users found</div>';
-      return;
-    }
-    newMsgList.innerHTML = '';
-    filtered.forEach(u => {
-      const div = document.createElement('div');
-      div.className = 'msng__new-user';
-      div.innerHTML = `<div class="msng__new-user-av">${u.avatar ? `<img src="${u.avatar}" alt="">` : `<span>${u.initials||'?'}</span>`}</div><div><div class="msng__new-user-name">${u.name}</div><div class="msng__new-user-pos">${u.position||u.department||''}</div></div>`;
-      div.addEventListener('click', () => {
-        newMsgModal.classList.remove('open');
-        fetch('/messenger/conversations/start/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-          body: JSON.stringify({ user_id: u.id }),
-        }).then(r => r.json()).then(data => {
-          loadConversations(() => openConversation(data.conversation_id, u));
-        });
+  function _mkNewMsgUserItem(u) {
+    const div = document.createElement('div');
+    div.className = 'msng__new-user';
+    div.innerHTML = `<div class="msng__new-user-av">${u.avatar ? `<img src="${u.avatar}" alt="">` : `<span>${u.initials||'?'}</span>`}</div><div><div class="msng__new-user-name">${escapeHTML(u.name)}</div><div class="msng__new-user-pos">${escapeHTML(u.position||u.department||'')}</div></div>`;
+    div.addEventListener('click', () => {
+      newMsgModal.classList.remove('open');
+      fetch('/messenger/conversations/start/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ user_id: u.id }),
+      }).then(r => r.json()).then(data => {
+        loadConversations(() => openConversation(data.conversation_id, u));
       });
-      newMsgList.appendChild(div);
     });
+    return div;
+  }
+
+  function _mkNewMsgUserItem(u) {
+    const div = document.createElement('div');
+    div.className = 'msng__new-user';
+    div.innerHTML = `
+      <div class="msng__new-user-av" style="position:relative;">
+        ${u.avatar ? `<img src="${u.avatar}" alt="">` : `<span>${u.initials||'?'}</span>`}
+        ${u.is_online ? '<span class="msng__online-dot"></span>' : ''}
+      </div>
+      <div><div class="msng__new-user-name">${escapeHTML(u.name)}</div><div class="msng__new-user-pos">${escapeHTML(u.position||u.department||'')}</div></div>`;
+    div.addEventListener('click', () => {
+      newMsgModal.classList.remove('open');
+      fetch('/messenger/conversations/start/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ user_id: u.id }),
+      }).then(r => r.json()).then(data => {
+        loadConversations(() => openConversation(data.conversation_id, u));
+      });
+    });
+    return div;
+  }
+
+  function _newMsgSectionLabel(text) {
+    const s = document.createElement('div');
+    s.style.cssText = 'padding:9px 16px 4px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);';
+    s.textContent = text;
+    return s;
+  }
+
+  function renderNewMsgUsers(filter) {
+    const lower = (filter || '').toLowerCase();
+    newMsgList.innerHTML = '';
+
+    // Recent: same capped-to-5 logic as base.html's floating picker
+    let convs = allConvs.filter(c => {
+      if (c.is_archived || c.is_group || !c.recipient) return false;
+      return !lower || c.recipient.name.toLowerCase().includes(lower);
+    });
+    if (!lower) convs = convs.slice(0, 5);
+
+    if (convs.length) {
+      if (!lower) newMsgList.appendChild(_newMsgSectionLabel('Recent'));
+      convs.forEach(c => newMsgList.appendChild(_mkNewMsgUserItem(c.recipient)));
+    }
+
+    if (!lower) {
+      // Online: exclude only people already shown under Recent (capped list)
+      const recentIds = new Set(convs.map(c => c.recipient.id));
+      const online = allUsers.filter(u => u.is_online && !recentIds.has(u.id));
+      if (online.length) {
+        newMsgList.appendChild(_newMsgSectionLabel('Online'));
+        online.forEach(u => newMsgList.appendChild(_mkNewMsgUserItem(u)));
+      }
+    }
+
+    if (lower) {
+      // People: everyone else matching the search that isn't already in Recent
+      const ids = new Set(allConvs.filter(c => !c.is_group && c.recipient).map(c => c.recipient.id));
+      const others = allUsers.filter(u => u.name.toLowerCase().includes(lower) && !ids.has(u.id));
+      if (others.length) {
+        newMsgList.appendChild(_newMsgSectionLabel('People'));
+        others.forEach(u => newMsgList.appendChild(_mkNewMsgUserItem(u)));
+      }
+    }
+
+    if (!newMsgList.children.length) {
+      newMsgList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.82rem;">No users found</div>';
+    }
   }
 
   newMsgSearch.addEventListener('input', () => renderNewMsgUsers(newMsgSearch.value));

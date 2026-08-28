@@ -229,11 +229,22 @@
   .qlink span { font-size: .7rem; font-weight: 600; color: var(--dash-muted); line-height: 1.2; }
 
   /* ── Online now ── */
-  .online-list { padding: 6px 16px 14px; }
+  .online-list {
+    padding: 6px 16px 14px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .online-list::-webkit-scrollbar { width: 4px; }
+  .online-list::-webkit-scrollbar-thumb { background: var(--dash-border); border-radius: 4px; }
   .online-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 8px 0; border-bottom: 1px solid var(--dash-border);
+    padding: 8px 6px; margin: 0 -6px;
+    border-bottom: 1px solid var(--dash-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s;
   }
+  .online-item:hover { background: var(--dash-green-pale); }
   .online-item:last-child { border-bottom: none; }
   .online-av {
     width: 34px; height: 34px; border-radius: 50%;
@@ -547,9 +558,13 @@
           </div>
           <span style="font-size:.72rem;color:var(--dash-muted);">{{ online_staff|length }} active</span>
         </div>
-        <div class="online-list">
-          {% for member in online_staff|slice:":6" %}
-          <div class="online-item">
+        <div class="online-list" id="onlineNowList">
+          {% for member in online_staff %}
+          <div class="online-item"
+               data-user-id="{{ member.user.pk }}"
+               data-user-name="{{ member.user.get_full_name }}"
+               data-user-initials="{{ member.user.first_name|slice:':1'|upper }}{{ member.user.last_name|slice:':1'|upper }}"
+               data-user-avatar="{% if member.avatar %}{{ member.avatar.url }}{% endif %}">
             <div class="online-av">
               {% if member.avatar %}
                 <img src="{{ member.avatar.url }}" alt="{{ member.user.get_full_name }}">
@@ -606,7 +621,7 @@
     document.getElementById('heroYear').textContent  = d.getFullYear();
   })();
 
-  /* ── Active nav: mark Home ── */
+    /* ── Active nav: mark Home ── */
   document.querySelectorAll('.nav__link').forEach(l => {
     l.classList.remove('active');
     if (l.getAttribute('href') === '/') {
@@ -614,6 +629,35 @@
       l.setAttribute('aria-current','page');
     }
   });
+
+  /* ── Online Now: click a row to open a floating chat ── */
+  (function () {
+    const getCsrf = () => { const v = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; };
+
+    document.querySelectorAll('#onlineNowList .online-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const user = {
+          id: item.dataset.userId,
+          name: item.dataset.userName,
+          initials: item.dataset.userInitials,
+          avatar: item.dataset.userAvatar || null,
+          is_online: true,
+        };
+        if (!window.gmOpenChat) {
+          window.location.href = '{% url "messenger" %}';
+          return;
+        }
+        fetch('/messenger/conversations/start/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({ user_id: user.id }),
+        })
+          .then(r => r.json())
+          .then(d => window.gmOpenChat(d.conversation_id, user))
+          .catch(() => { window.location.href = '{% url "messenger" %}'; });
+      });
+    });
+  })();
 </script>
 
 {% endwith %}

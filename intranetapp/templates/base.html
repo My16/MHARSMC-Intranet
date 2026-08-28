@@ -413,6 +413,17 @@
     }
     .gm-fab__badge.show { display: flex; }
 
+    .gm-fab__online-dot {
+      position: absolute;
+      bottom: 2px; right: 2px;
+      width: 12px; height: 12px;
+      background: #22c55e;
+      border: 2px solid var(--white);
+      border-radius: 50%;
+      display: none;
+    }
+    .gm-fab__online-dot.show { display: block; }
+
     .gm-picker {
       position: fixed; bottom: 82px; right: 24px;
       width: 296px; background: var(--white);
@@ -1528,6 +1539,7 @@
   <button class="gm-fab" id="gmFab" title="New Message">
     <i class="fa-solid fa-pen-to-square"></i>
     <span class="gm-fab__badge" id="gmFabBadge"></span>
+    <span class="gm-fab__online-dot" id="gmFabOnlineDot"></span>
   </button>
 
   <div class="gm-picker" id="gmPicker">
@@ -2135,6 +2147,13 @@
         fabBadge.textContent = n > 99 ? '99+' : n;
         fabBadge.classList.toggle('show', n > 0);
       }
+
+      const fabOnlineDot = document.getElementById('gmFabOnlineDot');
+      function updateFabOnlineIndicator() {
+        const online = allUsers.filter(u => u.is_online);
+        fabOnlineDot.classList.toggle('show', online.length > 0);
+        fab.title = online.length > 0 ? `New Message — ${online.length} online` : 'New Message';
+      }
     
       /* ════════════════════════════════════════════════════════════
         DATA
@@ -2152,6 +2171,7 @@
       function loadUsers(cb) {
         fetch('/messenger/users/').then(r => r.json()).then(data => {
           allUsers = data.users || [];
+          updateFabOnlineIndicator();
           if (cb) cb();
         }).catch(() => {});
       }
@@ -2216,11 +2236,13 @@
         _ensurePickerTabs();
         _syncTabUI();
     
-        const convs = allConvs.filter(c => {
+        let convs = allConvs.filter(c => {
           if (c.is_archived) return false;
           const n = c.is_group ? (c.name || 'Group Chat') : (c.recipient ? c.recipient.name : '');
           return !lo || n.toLowerCase().includes(lo);
         });
+
+        if (!lo) convs = convs.slice(0, 5);
     
         if (convs.length) {
           if (!lo) {
@@ -2229,6 +2251,17 @@
             pickerList.appendChild(s);
           }
           convs.forEach(c => pickerList.appendChild(c.is_group ? _mkGroupItem(c) : _mkDmItem(c, null)));
+        }
+
+        if (!lo) {
+          const recentIds = new Set(allConvs.filter(c => !c.is_group && c.recipient).map(c => c.recipient.id));
+          const online = allUsers.filter(u => u.is_online && !recentIds.has(u.id));
+          if (online.length) {
+            const s = document.createElement('div');
+            s.className = 'gm-picker__sec'; s.textContent = 'Online';
+            pickerList.appendChild(s);
+            online.forEach(u => pickerList.appendChild(_mkDmItem(null, u)));
+          }
         }
     
         if (lo) {
@@ -3714,6 +3747,10 @@
       };
     
       window.gmHandlePresence = function(data) {
+        const u = allUsers.find(u => u.id === data.user_id);
+        if (u) u.is_online = data.is_online;
+        updateFabOnlineIndicator();
+        if (pickerOpen && pickerTab === 'dm') renderPicker(pickerSearch.value);
         Object.values(openWins).forEach(state => {
           if (!state.isGroup && state.recipient && state.recipient.id === data.user_id) {
             state.recipient.is_online = data.is_online;
@@ -3760,7 +3797,7 @@
       /* ════════════════════════════════════════════════════════════
         INIT
       ════════════════════════════════════════════════════════════ */
-      loadConvs(() => { loadUsers(); loadSavedState(); });
+      loadConvs(() => { loadUsers(updateFabOnlineIndicator); loadSavedState(); });
       setInterval(loadConvs, 60000);
   
     })();
