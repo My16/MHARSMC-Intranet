@@ -213,10 +213,14 @@
     }
     .header__icon-btn:hover { background: var(--green-pale); color: var(--green-dark); }
     .header__icon-btn .badge {
-      position: absolute; top: 6px; right: 6px;
-      width: 7px; height: 7px; background: #e63946;
-      border-radius: 50%; border: 1.5px solid var(--white);
+      position: absolute; top: 2px; right: 2px;
+      min-width: 16px; height: 16px; border-radius: 8px;
+      background: #e63946; border: 1.5px solid var(--white);
+      display: none; align-items: center; justify-content: center;
+      font-size: .58rem; font-weight: 700; color: #fff;
+      padding: 0 3px; line-height: 1; box-sizing: border-box;
     }
+    .header__icon-btn .badge.show { display: flex; }
 
     .header__divider { width: 1px; height: 28px; background: var(--border); margin: 0 6px; }
 
@@ -1352,7 +1356,7 @@
       <div style="position:relative;">
         <button class="header__icon-btn" id="bellBtn" aria-label="Notifications">
           <i class="fa-solid fa-bell"></i>
-          <span class="badge" id="notifBadge" style="display:none;"></span>
+          <span class="badge" id="notifBadge"></span>
         </button>
 
         <div id="notifPanel" style="
@@ -1382,7 +1386,7 @@
       <div style="position:relative;" id="envBtnWrap">
         <button class="header__icon-btn" id="envBtn" aria-label="Messages">
           <i class="fa-solid fa-envelope"></i>
-          <span class="badge" id="msgBadge" style="display:none;"></span>
+          <span class="badge" id="msgBadge"></span>
         </button>
         <div class="msng__env-panel" id="envPanel">
           <div class="msng__env-head">
@@ -1659,12 +1663,13 @@
       const msgBadge   = document.getElementById('msgBadge');
 
       function setNotifCount(n) {
-        badge.style.display = n > 0 ? 'block' : 'none';
-        badge.textContent   = n > 99 ? '99+' : (n > 9 ? '' : n);
+        badge.classList.toggle('show', n > 0);
+        badge.textContent = n > 99 ? '99+' : n;
       }
 
       window.setMsgBadge = function (n) {
-        msgBadge.style.display = n > 0 ? 'block' : 'none';
+        msgBadge.classList.toggle('show', n > 0);
+        msgBadge.textContent = n > 99 ? '99+' : n;
       };
 
       function showNotifToast(notif) {
