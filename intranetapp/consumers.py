@@ -216,6 +216,15 @@ class PresenceConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
+        # Resolve the lazy user proxy to a plain int ONCE, here, while the
+        # connection/session context is still fresh. Everything else
+        # (including disconnect(), which can run after the scope/session is
+        # already torn down) uses this plain int instead of touching
+        # self.user again, which is what previously caused:
+        #   TypeError: Field 'id' expected a number but got
+        #   <channels.auth.UserLazyObject object at ...>
+        self.user_id = self.user.pk
+
         self.room = 'presence'
         await self.channel_layer.group_add(self.room, self.channel_name)
         await self.accept()
@@ -223,15 +232,21 @@ class PresenceConsumer(AsyncWebsocketConsumer):
         await self.set_online(True)
         await self.channel_layer.group_send(self.room, {
             'type': 'presence_update',
-            'user_id': self.user.pk,
+            'user_id': self.user_id,
             'is_online': True,
         })
 
     async def disconnect(self, code):
+        # Guard in case disconnect() fires before connect() finished setting
+        # self.user_id (e.g. the socket closed immediately on an
+        # unauthenticated attempt above).
+        if not hasattr(self, 'user_id'):
+            return
+
         await self.set_online(False)
         await self.channel_layer.group_send(self.room, {
             'type': 'presence_update',
-            'user_id': self.user.pk,
+            'user_id': self.user_id,
             'is_online': False,
         })
         await self.channel_layer.group_discard(self.room, self.channel_name)
@@ -246,4 +261,6 @@ class PresenceConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def set_online(self, status):
         from .models import UserProfile
-        UserProfile.objects.filter(user=self.user).update(is_online=status)
+        # Filter by the plain int user_id, never by the lazy self.user
+        # object directly — that's what triggered the TypeError.
+        UserProfile.objects.filter(user_id=self.user_id).update(is_online=status)
