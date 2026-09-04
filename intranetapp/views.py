@@ -3501,7 +3501,7 @@ def download_category_add(request):
             DownloadCategory.objects.create(name=name, tab=tab)
             messages.success(request, f'Category "{name}" has been created.')
 
-    return redirect('/downloads/?tab=categories')
+    return redirect('/downloads/?manage=categories')
 
 
 @login_required
@@ -3527,7 +3527,7 @@ def download_category_edit(request, pk):
             cat.save()
             messages.success(request, f'Category updated to "{name}".')
 
-    return redirect('/downloads/?tab=categories')
+    return redirect('/downloads/?manage=categories')
 
 
 @login_required
@@ -3546,7 +3546,7 @@ def download_category_delete(request, pk):
             cat.delete()
             messages.success(request, f'Category "{name}" has been deleted.')
 
-    return redirect('/downloads/?tab=categories')
+    return redirect('/downloads/?manage=categories')
 
 
 # ── Tag CRUD ───────────────────────────────────────────────────────────────────
@@ -3567,7 +3567,7 @@ def download_tag_add(request):
             DownloadTag.objects.create(name=name)
             messages.success(request, f'Tag "{name}" has been created.')
 
-    return redirect('/downloads/?tab=tags')
+    return redirect('/downloads/?manage=tags')
 
 
 @login_required
@@ -3589,7 +3589,7 @@ def download_tag_edit(request, pk):
             tag.save()
             messages.success(request, f'Tag updated to "{name}".')
 
-    return redirect('/downloads/?tab=tags')
+    return redirect('/downloads/?manage=tags')
 
 
 @login_required
@@ -3605,7 +3605,7 @@ def download_tag_delete(request, pk):
         tag.delete()
         messages.success(request, f'Tag "{name}" has been deleted.')
 
-    return redirect('/downloads/?tab=tags')
+    return redirect('/downloads/?manage=tags')
 
 
 
