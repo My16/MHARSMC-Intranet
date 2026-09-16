@@ -464,6 +464,15 @@ textarea.form-control { resize: vertical; min-height: 100px; line-height: 1.6; }
   background: rgba(45,106,79,.14);
   border-color: rgba(45,106,79,.35);
 }
+
+@keyframes issuanceHighlightPulse {
+  0%   { background: rgba(82,183,136,.35); box-shadow: inset 0 0 0 2px var(--green-accent); }
+  50%  { background: rgba(82,183,136,.12); }
+  100% { background: transparent; box-shadow: inset 0 0 0 0 transparent; }
+}
+.issuance-highlight {
+  animation: issuanceHighlightPulse 1.3s ease-in-out 2;
+}
 </style>
 {% endblock %}
 
@@ -1576,6 +1585,26 @@ function refreshTagSelect(prefix) {
   reg.renderChips();
   reg.renderDropdown('');
 }
+
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var highlightPk = params.get('highlight');
+  if (!highlightPk) return;
+
+  var row = document.getElementById('issuanceRow' + highlightPk);
+  if (row) {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('issuance-highlight');
+    setTimeout(function () { row.classList.remove('issuance-highlight'); }, 2600);
+  }
+
+  openDetailModal(parseInt(highlightPk, 10));
+
+  // Clean the URL so a refresh/back-button doesn't replay the animation
+  params.delete('highlight');
+  var qs = params.toString();
+  window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
+})();
 
 initTagSelect('ic');
 initTagSelect('ie');

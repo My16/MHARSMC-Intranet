@@ -1678,6 +1678,7 @@ def issuances(request):
     category_filter = request.GET.get('category', '')
     month_filter    = request.GET.get('month', '')
     tagged_filter   = request.GET.get('tagged', '') == 'me'
+    highlight_id    = request.GET.get('highlight', '').strip()
 
     try:
         per_page = int(request.GET.get('per_page', 10))
@@ -1696,31 +1697,38 @@ def issuances(request):
         qs = qs.filter(status='published')
         status_filter = ''
 
-    if search_query:
-        qs = qs.filter(
-            Q(issuance_no__icontains=search_query) |
-            Q(summary__icontains=search_query) |
-            Q(category__name__icontains=search_query)
-        )
-
-    if can_manage and status_filter in ('draft', 'published', 'archived'):
-        qs = qs.filter(status=status_filter)
-
-    if category_filter:
-        qs = qs.filter(category_id=category_filter)
-
-    if tagged_filter:
-        qs = qs.filter(tagged_users=request.user)
-
     month_filter_label = ''
-    if month_filter:
-        try:
-            year, month = month_filter.split('-')
-            qs = qs.filter(issuance_date__year=int(year), issuance_date__month=int(month))
-            import datetime
-            month_filter_label = datetime.date(int(year), int(month), 1).strftime('%B %Y')
-        except (ValueError, AttributeError):
-            month_filter = ''
+
+    if highlight_id:
+        # Came from a "you were tagged" email link — show just that one
+        # issuance, ignoring every other filter, so it's always findable
+        # on page 1 regardless of search/category/month/tagged state.
+        qs = qs.filter(pk=highlight_id)
+        month_filter = ''
+    else:
+        if search_query:
+            qs = qs.filter(
+                Q(issuance_no__icontains=search_query) |
+                Q(summary__icontains=search_query) |
+                Q(category__name__icontains=search_query)
+            )
+
+        if can_manage and status_filter in ('draft', 'published', 'archived'):
+            qs = qs.filter(status=status_filter)
+
+        if category_filter:
+            qs = qs.filter(category_id=category_filter)
+
+        if tagged_filter:
+            qs = qs.filter(tagged_users=request.user)
+
+        if month_filter:
+            try:
+                year, month = month_filter.split('-')
+                qs = qs.filter(issuance_date__year=int(year), issuance_date__month=int(month))
+                month_filter_label = datetime.date(int(year), int(month), 1).strftime('%B %Y')
+            except (ValueError, AttributeError):
+                month_filter = ''
 
     all_dates = Issuance.objects.dates('issuance_date', 'month', order='DESC')
     available_months = [
@@ -5201,7 +5209,7 @@ def _send_issuance_email_notifications(actor, issuance, tagged_ids):
         if not recipients.exists():
             return
 
-        link       = f'{settings.SITE_URL}{reverse("issuances")}'
+        link = f'{settings.SITE_URL}{reverse("issuances")}?highlight={issuance.pk}'
         actor_name = actor.get_full_name() or actor.username
 
         for user in recipients:
