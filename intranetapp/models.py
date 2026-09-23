@@ -791,6 +791,23 @@ class Issuance(models.Model):
         return ', '.join(
             u.get_full_name() or u.username for u in self.tagged_users.all()
         )
+
+class IssuanceView(models.Model):
+    """One row per issuance detail-view — mirrors DownloadLog's pattern so
+    view counts/'seen by' bubbles work the same way as download tracking."""
+    issuance  = models.ForeignKey(Issuance, on_delete=models.CASCADE, related_name='views')
+    user      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='issuance_views')
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering            = ['-viewed_at']
+        verbose_name        = 'Issuance View'
+        verbose_name_plural = 'Issuance Views'
+        indexes = [models.Index(fields=['issuance', '-viewed_at'])]
+
+    def __str__(self):
+        who = self.user.get_full_name() or self.user.username if self.user else 'Unknown'
+        return f'{who} viewed {self.issuance.issuance_no}'
     
 
 class WikiTag(models.Model):

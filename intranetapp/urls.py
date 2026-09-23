@@ -54,6 +54,8 @@ urlpatterns = [
     path('issuances/<int:pk>/edit/',                  views.issuance_edit,               name='issuance_edit'),
     path('issuances/<int:pk>/delete/',                views.issuance_delete,             name='issuance_delete'),
     path('issuances/<int:pk>/toggle-status/',         views.issuance_toggle_status,      name='issuance_toggle_status'),
+    path('issuances/<int:pk>/log-view/',              views.issuance_view_log,           name='issuance_view_log'),
+    path('issuances/<int:pk>/viewers/',               views.issuance_viewers,            name='issuance_viewers'),
     # Issuance Categories
     path('issuances/categories/add/',                 views.issuance_category_add,       name='issuance_category_add'),
     path('issuances/categories/<int:pk>/edit/',       views.issuance_category_edit,      name='issuance_category_edit'),

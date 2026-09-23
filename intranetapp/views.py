@@ -1701,6 +1701,44 @@ def _can_manage_issuances(user):
     if not user.is_authenticated: return False
     if user.is_superuser: return True
     return hasattr(user, 'profile') and user.profile.can_edit_module('issuances')
+
+
+
+def _attach_recent_issuance_viewers(items, limit=5):
+    """Attaches `.recent_viewers` (capped at `limit`) and `.unique_viewer_count`
+    (full unique count, uncapped) to each item, in one query. Mirrors
+    _attach_recent_downloaders."""
+    from .models import IssuanceView
+
+    item_ids = [i.pk for i in items]
+    if not item_ids:
+        return
+
+    logs = (
+        IssuanceView.objects
+        .filter(issuance_id__in=item_ids)
+        .exclude(user__isnull=True)
+        .select_related('user', 'user__profile')
+        .order_by('issuance_id', '-viewed_at')
+    )
+
+    grouped = defaultdict(list)
+    seen = defaultdict(set)
+    for log in logs:
+        if log.user_id in seen[log.issuance_id]:
+            continue
+        seen[log.issuance_id].add(log.user_id)
+        if len(grouped[log.issuance_id]) < limit:
+            profile = getattr(log.user, 'profile', None)
+            grouped[log.issuance_id].append({
+                'name':     log.user.get_full_name() or log.user.username,
+                'avatar':   profile.avatar.url if profile and profile.avatar else '',
+                'initials': ((log.user.first_name[:1] + log.user.last_name[:1]) or log.user.username[:2]).upper(),
+            })
+
+    for item in items:
+        item.recent_viewers = grouped.get(item.pk, [])
+        item.unique_viewer_count = len(seen.get(item.pk, set()))
  
  
 # ── List view ──────────────────────────────────────────────────────────────────
@@ -1790,6 +1828,7 @@ def issuances(request):
     paginator   = Paginator(qs, per_page)
     page_number = request.GET.get('page', '').strip() or 1
     page_obj    = paginator.get_page(page_number)
+    _attach_recent_issuance_viewers(page_obj)
 
     cat_search = request.GET.get('cat_search', '').strip()
     categories_qs = IssuanceCategory.objects.all()
@@ -2047,6 +2086,81 @@ def issuance_toggle_status(request, pk):
         'success': True,
         'status':  issuance.status,
         'label':   issuance.get_status_display(),
+    })
+
+
+@login_required
+def issuance_view_log(request, pk):
+    """AJAX: logs one detail-view event and returns fresh viewer stats,
+    so the row/modal can update immediately. Mirrors download_log."""
+    from .models import Issuance, IssuanceView
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    issuance = get_object_or_404(Issuance, pk=pk)
+
+    if issuance.status != 'published' and not _can_manage_issuances(request.user):
+        return JsonResponse({'success': False, 'error': 'Not available.'}, status=403)
+
+    IssuanceView.objects.create(issuance=issuance, user=request.user)
+
+    logs = (
+        issuance.views.exclude(user__isnull=True)
+        .select_related('user', 'user__profile')
+        .order_by('-viewed_at')
+    )
+    seen, recent = set(), []
+    for log in logs:
+        if log.user_id in seen:
+            continue
+        seen.add(log.user_id)
+        if len(recent) < 5:
+            profile = getattr(log.user, 'profile', None)
+            recent.append({
+                'name':     log.user.get_full_name() or log.user.username,
+                'avatar':   profile.avatar.url if profile and profile.avatar else '',
+                'initials': ((log.user.first_name[:1] + log.user.last_name[:1]) or log.user.username[:2]).upper(),
+            })
+
+    return JsonResponse({
+        'success':        True,
+        'unique_viewers': len(seen),
+        'recent_viewers': recent,
+    })
+
+
+@login_required
+def issuance_viewers(request, pk):
+    """AJAX: full deduped viewer roster (most recent first) for the
+    dedicated 'Viewed By' list modal. Mirrors download_downloaders."""
+    from .models import Issuance
+
+    issuance = get_object_or_404(Issuance, pk=pk)
+
+    logs = (
+        issuance.views.exclude(user__isnull=True)
+        .select_related('user', 'user__profile')
+        .order_by('-viewed_at')
+    )
+
+    seen, viewers = set(), []
+    for log in logs:
+        if log.user_id in seen:
+            continue
+        seen.add(log.user_id)
+        profile = getattr(log.user, 'profile', None)
+        viewers.append({
+            'name':      log.user.get_full_name() or log.user.username,
+            'avatar':    profile.avatar.url if profile and profile.avatar else '',
+            'initials':  ((log.user.first_name[:1] + log.user.last_name[:1]) or log.user.username[:2]).upper(),
+            'viewed_at': timezone.localtime(log.viewed_at).strftime('%b %d, %Y %I:%M %p'),
+        })
+
+    return JsonResponse({
+        'success':        True,
+        'unique_viewers': len(viewers),
+        'viewers':        viewers,
     })
  
  
