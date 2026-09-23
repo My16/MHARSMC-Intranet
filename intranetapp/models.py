@@ -1187,6 +1187,24 @@ class Download(models.Model):
             if '.' in name:
                 return name.rsplit('.', 1)[1].lower()
         return ''
+
+
+
+class DownloadLog(models.Model):
+    """One row per successful file download — the source of truth for counts and 'who downloaded' bubbles."""
+    download      = models.ForeignKey(Download, on_delete=models.CASCADE, related_name='logs')
+    user          = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='download_logs')
+    downloaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering            = ['-downloaded_at']
+        verbose_name        = 'Download Log'
+        verbose_name_plural = 'Download Logs'
+
+    def __str__(self):
+        who = self.user.get_full_name() or self.user.username if self.user else 'Unknown'
+        return f'{who} downloaded {self.download.title}'
+
     
 
 

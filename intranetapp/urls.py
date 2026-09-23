@@ -8,6 +8,7 @@ urlpatterns = [
     path('login/',  views.login,        name='login'),
     path('logout/', views.logout_view,  name='logout'),
     path('register/', views.register,     name='register'),
+    path('register/check-username/', views.username_check, name='username_check'),
     path('',        views.home,         name='home'),
 
     # User Management
@@ -128,6 +129,9 @@ urlpatterns = [
     path('downloads/<int:pk>/edit/',                views.download_edit,            name='download_edit'),
     path('downloads/<int:pk>/delete/',              views.download_delete,          name='download_delete'),
     path('downloads/<int:pk>/toggle-status/',       views.download_toggle_status,   name='download_toggle_status'),
+    path('downloads/<int:pk>/file/',                views.download_file,            name='download_file'),
+    path('downloads/<int:pk>/log/',                 views.download_log,             name='download_log'),
+    path('downloads/<int:pk>/downloaders/',         views.download_downloaders,     name='download_downloaders'),
     path('downloads/categories/add/',               views.download_category_add,    name='download_category_add'),
     path('downloads/categories/<int:pk>/edit/',     views.download_category_edit,   name='download_category_edit'),
     path('downloads/categories/<int:pk>/delete/',   views.download_category_delete, name='download_category_delete'),

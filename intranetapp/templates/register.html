@@ -1119,12 +1119,17 @@
                         <label>Preferred Username <span class="required-star">*</span></label>
                         <div class="input-wrap">
                             <i class="fa fa-at icon-left"></i>
-                            <input type="text" name="username" id="username" placeholder="e.g. jdelacruz" autocomplete="username" required>
+                            <input type="text" name="username" id="username" placeholder="e.g. jdelacruz"
+                                   pattern="[a-z0-9._]+"
+                                   title="Lowercase letters, numbers, periods, and underscores only — no spaces"
+                                   autocomplete="username" required>
                         </div>
+                        <div id="usernameStatus" style="font-size:12px;margin-top:6px;display:none;"></div>
+                        <div id="usernameSuggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
                     </div>
                     <div class="field" style="display:flex;align-items:flex-end;">
                         <p style="font-size:12px;color:var(--muted);line-height:1.6;padding-bottom:14px;">
-                            Username should be your name in lowercase with no spaces.
+                            Username should be your name in lowercase with no spaces. We'll suggest a few based on your name.
                         </p>
                     </div>
                 </div>
@@ -1297,6 +1302,106 @@
             matchMsg.textContent   = match ? '✓ Passwords match' : '✗ Passwords do not match';
             matchMsg.style.color   = match ? 'var(--success)' : 'var(--error)';
         });
+
+        // ── Username suggestions + live availability check ─────────────
+        (function () {
+            const firstInput    = document.querySelector('input[name="first_name"]');
+            const lastInput     = document.querySelector('input[name="last_name"]');
+            const usernameInput = document.getElementById('username');
+            const suggestBox    = document.getElementById('usernameSuggestions');
+            const statusBox     = document.getElementById('usernameStatus');
+
+            let userEditedManually = false;
+            let debounceTimer = null;
+            let suggestDebounce = null;
+
+            function slugify(str) {
+                return str.toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+                    .replace(/[^a-z0-9]/g, '');
+            }
+
+            function buildCandidates(first, last) {
+                first = slugify(first);
+                last  = slugify(last);
+                if (!first || !last) return [];
+
+                const candidates = [
+                    first + '.' + last,
+                    first.charAt(0) + last,
+                    first + last.charAt(0),
+                    first + '_' + last,
+                ];
+                return [...new Set(candidates)];
+            }
+
+            async function checkAvailability(username) {
+                if (!username) { statusBox.style.display = 'none'; return; }
+                try {
+                    const res  = await fetch(`/register/check-username/?username=${encodeURIComponent(username)}`);
+                    const data = await res.json();
+                    statusBox.style.display = 'block';
+                    if (!data.valid) {
+                        statusBox.textContent = 'Only lowercase letters, numbers, periods, and underscores allowed.';
+                        statusBox.style.color = 'var(--error)';
+                    } else if (!data.available) {
+                        statusBox.textContent = `"${data.username}" is already taken.`;
+                        statusBox.style.color = 'var(--error)';
+                    } else {
+                        statusBox.textContent = `"${data.username}" is available.`;
+                        statusBox.style.color = 'var(--success)';
+                    }
+                } catch (e) {
+                    statusBox.style.display = 'none';
+                }
+            }
+
+            async function renderSuggestions() {
+                if (userEditedManually) return;
+
+                const candidates = buildCandidates(firstInput.value, lastInput.value);
+                suggestBox.innerHTML = '';
+                if (!candidates.length) return;
+
+                for (const c of candidates) {
+                    try {
+                        const res  = await fetch(`/register/check-username/?username=${encodeURIComponent(c)}`);
+                        const data = await res.json();
+                        if (data.valid && data.available) {
+                            const chip = document.createElement('button');
+                            chip.type = 'button';
+                            chip.textContent = c;
+                            chip.style.cssText = 'padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;background:var(--teal-light);color:var(--teal-dark);font-size:12.5px;cursor:pointer;';
+                            chip.addEventListener('click', () => {
+                                usernameInput.value = c;
+                                userEditedManually = true;
+                                checkAvailability(c);
+                                suggestBox.innerHTML = '';
+                            });
+                            suggestBox.appendChild(chip);
+                        }
+                    } catch (e) { /* skip candidate on error */ }
+                }
+            }
+
+            function debounceRenderSuggestions() {
+                clearTimeout(suggestDebounce);
+                suggestDebounce = setTimeout(renderSuggestions, 400);
+            }
+
+            function debounceCheckAvailability() {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => checkAvailability(usernameInput.value.trim().toLowerCase()), 350);
+            }
+
+            usernameInput.addEventListener('input', () => {
+                userEditedManually = true;
+                debounceCheckAvailability();
+            });
+
+            firstInput.addEventListener('input', debounceRenderSuggestions);
+            lastInput.addEventListener('input', debounceRenderSuggestions);
+        })();
 
         // ── Searchable department combobox ─────────────
         (function () {

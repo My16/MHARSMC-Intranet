@@ -1,6 +1,8 @@
 import json
 import datetime
 import os
+import re
+from django.views.decorators.http import require_GET
 
 from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
@@ -19,6 +21,12 @@ from collections import defaultdict
 
 from django.http import JsonResponse
 from .models import Notification
+
+from django.http import FileResponse
+from django.db.models import Count
+from collections import defaultdict
+import os
+from .models import Download, DownloadCategory, DownloadTag, DownloadLog
 
 @login_required
 def notifications_list(request):
@@ -105,6 +113,9 @@ MODULE_CHOICES = [
     ('role_management',  'Role Management'),
 ]
 MODULE_KEYS = [k for k, _ in MODULE_CHOICES]
+
+# Lowercase letters, numbers, periods, and underscores only — no spaces or other symbols
+USERNAME_RE = re.compile(r'^[a-z0-9._]+$')
 
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
@@ -378,6 +389,28 @@ def _notify_admins_new_registration(new_user, profile):
             }
         )
 
+
+@require_GET
+def username_check(request):
+    """
+    AJAX: given a candidate username, return whether it's free and
+    validly formatted. Used by the register form for live suggestions
+    and validation. Public/unauthenticated by design — register itself
+    is only reachable by logged-out users.
+    """
+    username = request.GET.get('username', '').strip().lower()
+
+    if not username:
+        return JsonResponse({'valid': False, 'available': False, 'reason': 'empty'})
+
+    if not USERNAME_RE.match(username):
+        return JsonResponse({'valid': False, 'available': False, 'reason': 'invalid_format'})
+
+    taken = User.objects.filter(username__iexact=username).exists()
+    return JsonResponse({'valid': True, 'available': not taken, 'username': username})
+
+
+
 def register(request):
     if request.user.is_authenticated:
         return redirect('home')
@@ -391,7 +424,7 @@ def register(request):
         department       = request.POST.get('department', '').strip()
         position         = request.POST.get('position', '').strip()
         reason           = request.POST.get('reason', '').strip()
-        username         = request.POST.get('username', '').strip()
+        username         = request.POST.get('username', '').strip().lower()
         password         = request.POST.get('password', '')
         confirm_password = request.POST.get('confirm_password', '')
         is_head_of_office    = request.POST.get('is_head_of_office') == 'on'
@@ -400,6 +433,12 @@ def register(request):
 
         if not all([first_name, last_name, email, department, position, reason, username, password]):
             errors.append('Please fill in all required fields.')
+
+        if username and not USERNAME_RE.match(username):
+            errors.append(
+                'Username can only contain lowercase letters, numbers, periods, '
+                'and underscores — no spaces or special characters.'
+            )
 
         if password != confirm_password:
             errors.append('Passwords do not match.')
@@ -3212,6 +3251,39 @@ def _resolve_download_tags(tags_input):
             pks.append(tag.pk)
     return pks
 
+def _attach_recent_downloaders(items, limit=5):
+    """Attaches `.recent_downloaders` (capped at `limit`) and `.unique_downloader_count`
+    (the full unique count, uncapped) to each item, in one query."""
+    item_ids = [i.pk for i in items]
+    if not item_ids:
+        return
+
+    logs = (
+        DownloadLog.objects
+        .filter(download_id__in=item_ids)
+        .exclude(user__isnull=True)
+        .select_related('user', 'user__profile')
+        .order_by('download_id', '-downloaded_at')
+    )
+
+    grouped = defaultdict(list)
+    seen = defaultdict(set)
+    for log in logs:
+        if log.user_id in seen[log.download_id]:
+            continue
+        seen[log.download_id].add(log.user_id)
+        if len(grouped[log.download_id]) < limit:
+            profile = getattr(log.user, 'profile', None)
+            grouped[log.download_id].append({
+                'name':     log.user.get_full_name() or log.user.username,
+                'avatar':   profile.avatar.url if profile and profile.avatar else '',
+                'initials': ((log.user.first_name[:1] + log.user.last_name[:1]) or log.user.username[:2]).upper(),
+            })
+
+    for item in items:
+        item.recent_downloaders = grouped.get(item.pk, [])
+        item.unique_downloader_count = len(seen.get(item.pk, set()))
+
 
 @login_required
 def downloads(request):
@@ -3246,6 +3318,7 @@ def downloads(request):
             .filter(tab=tab_key)
             .select_related('category', 'author')
             .prefetch_related('tags')
+            .annotate(total_downloads=Count('logs', distinct=True))
             .order_by('-created_at')
         )
 
@@ -3282,6 +3355,8 @@ def downloads(request):
 
         paginator = Paginator(qs, per_page)
         page_obj  = paginator.get_page(request.GET.get(f'page_{tab_key}', '').strip() or 1)
+
+        _attach_recent_downloaders(page_obj)
 
         categories = DownloadCategory.objects.filter(tab=tab_key)
         all_tags   = DownloadTag.objects.all()
@@ -3487,6 +3562,95 @@ def download_toggle_status(request, pk):
     dl.save()
     return JsonResponse({'success': True, 'status': dl.status, 'label': dl.get_status_display()})
 
+
+
+@login_required
+def download_file(request, pk):
+    """Serves the attachment. Logging happens separately via download_log, called by the
+    frontend just before this URL is navigated to, so the UI can update its count live."""
+    dl = get_object_or_404(Download, pk=pk)
+
+    if dl.status != 'published' and not _can_manage_downloads(request.user):
+        messages.error(request, 'This file is not available.')
+        return redirect('downloads')
+
+    if not dl.attachment:
+        messages.error(request, 'No file attached to this item.')
+        return redirect('downloads')
+
+    filename = dl.attachment_name or os.path.basename(dl.attachment.name)
+    return FileResponse(dl.attachment.open('rb'), as_attachment=True, filename=filename)
+
+
+@login_required
+def download_log(request, pk):
+    """AJAX: logs one download event and returns fresh stats, so the card can update
+    its count and bubble stack immediately, before the actual file download happens."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    dl = get_object_or_404(Download, pk=pk)
+    if dl.status != 'published' and not _can_manage_downloads(request.user):
+        return JsonResponse({'success': False, 'error': 'Not available.'}, status=403)
+
+    DownloadLog.objects.create(download=dl, user=request.user)
+
+    logs = (
+        dl.logs.exclude(user__isnull=True)
+        .select_related('user', 'user__profile')
+        .order_by('-downloaded_at')
+    )
+    seen, recent = set(), []
+    for log in logs:
+        if log.user_id in seen:
+            continue
+        seen.add(log.user_id)
+        if len(recent) < 5:
+            profile = getattr(log.user, 'profile', None)
+            recent.append({
+                'name':     log.user.get_full_name() or log.user.username,
+                'avatar':   profile.avatar.url if profile and profile.avatar else '',
+                'initials': ((log.user.first_name[:1] + log.user.last_name[:1]) or log.user.username[:2]).upper(),
+            })
+
+    return JsonResponse({
+        'success':            True,
+        'total_downloads':    dl.logs.count(),
+        'unique_downloaders': len(seen),
+        'recent_downloaders': recent,
+    })
+
+
+@login_required
+def download_downloaders(request, pk):
+    """AJAX: full deduped downloader roster (most recent first) for the detail modal."""
+    dl = get_object_or_404(Download, pk=pk)
+
+    logs = (
+        dl.logs.exclude(user__isnull=True)
+        .select_related('user', 'user__profile')
+        .order_by('-downloaded_at')
+    )
+
+    seen, downloaders = set(), []
+    for log in logs:
+        if log.user_id in seen:
+            continue
+        seen.add(log.user_id)
+        profile = getattr(log.user, 'profile', None)
+        downloaders.append({
+            'name':          log.user.get_full_name() or log.user.username,
+            'avatar':        profile.avatar.url if profile and profile.avatar else '',
+            'initials':      ((log.user.first_name[:1] + log.user.last_name[:1]) or log.user.username[:2]).upper(),
+            'downloaded_at': timezone.localtime(log.downloaded_at).strftime('%b %d, %Y %I:%M %p'),
+        })
+
+    return JsonResponse({
+        'success':            True,
+        'total_downloads':    dl.logs.count(),
+        'unique_downloaders': len(downloaders),
+        'downloaders':        downloaders,
+    })
 
 # ── Category CRUD ──────────────────────────────────────────────────────────────
 

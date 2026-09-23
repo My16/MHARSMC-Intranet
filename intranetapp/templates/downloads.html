@@ -236,6 +236,25 @@
   display: inline-flex; align-items: center; gap: 3px;
   font-size: .72rem; color: var(--text-muted); margin-top: 5px;
 }
+
+
+.downloader-stack { display:inline-flex; align-items:center; margin-left:8px; cursor:pointer; vertical-align:middle; }
+.downloader-avatar, .downloader-more {
+  width:20px; height:20px; border-radius:50%; border:2px solid var(--white);
+  margin-left:-7px; display:flex; align-items:center; justify-content:center;
+  font-size:.56rem; font-weight:700; object-fit:cover; flex-shrink:0;
+}
+.downloader-avatar { background:var(--green-pale); color:var(--green-dark); }
+.downloader-avatar:first-child, .downloader-more:first-child { margin-left:0; }
+.downloader-more { background:var(--text-muted); color:var(--white); }
+.downloaders-list { display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto; }
+.downloaders-list-row { display:flex; align-items:center; gap:10px; font-size:.83rem; }
+.downloaders-list-row img, .downloaders-list-row span.dl-init {
+  width:30px; height:30px; border-radius:50%; object-fit:cover;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--green-pale); color:var(--green-dark); font-weight:700; font-size:.75rem; flex-shrink:0;
+}
+
 .dl-card__tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .tag-pill {
   display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px;
@@ -888,7 +907,12 @@ DL_DATA[{{ item.pk }}] = {
   attachment_url:   "{% if item.attachment %}{{ item.attachment.url|escapejs }}{% endif %}",
   attachment_size:  "{{ item.file_size_display|escapejs }}",
   file_ext:         "{{ item.file_extension|escapejs }}",
-  download_count:   {{ item.download_count|default:0 }},
+  total_downloads:    {{ item.total_downloads|default:0 }},
+  unique_downloader_count: {{ item.unique_downloader_count|default:0 }},
+  download_url:        "{% url 'download_file' item.pk %}",
+  log_url:             "{% url 'download_log' item.pk %}",
+  downloaders_url:     "{% url 'download_downloaders' item.pk %}",
+  recent_downloaders: [{% for d in item.recent_downloaders %}{name:"{{ d.name|escapejs }}",avatar:"{{ d.avatar|escapejs }}",initials:"{{ d.initials|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
   edit_url:         "{% url 'download_edit'   item.pk %}",
   delete_url:       "{% url 'download_delete' item.pk %}",
   toggle_url:       "{% url 'download_toggle_status' item.pk %}"
@@ -914,7 +938,12 @@ DL_DATA[{{ item.pk }}] = {
   attachment_url:   "{% if item.attachment %}{{ item.attachment.url|escapejs }}{% endif %}",
   attachment_size:  "{{ item.file_size_display|escapejs }}",
   file_ext:         "{{ item.file_extension|escapejs }}",
-  download_count:   {{ item.download_count|default:0 }},
+  total_downloads:    {{ item.total_downloads|default:0 }},
+  unique_downloader_count: {{ item.unique_downloader_count|default:0 }},
+  download_url:        "{% url 'download_file' item.pk %}",
+  log_url:             "{% url 'download_log' item.pk %}",
+  downloaders_url:     "{% url 'download_downloaders' item.pk %}",
+  recent_downloaders: [{% for d in item.recent_downloaders %}{name:"{{ d.name|escapejs }}",avatar:"{{ d.avatar|escapejs }}",initials:"{{ d.initials|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
   edit_url:         "{% url 'download_edit'   item.pk %}",
   delete_url:       "{% url 'download_delete' item.pk %}",
   toggle_url:       "{% url 'download_toggle_status' item.pk %}"
@@ -954,6 +983,23 @@ var ALL_TAGS_LIST = [{% for tag in all_tags_list %}{"pk":{{ tag.pk }},"name":"{{
     return {icon:'fa-file', cls:'', label: ext ? ext.toUpperCase() : 'FILE'};
   }
 
+  window.buildDownloadCountInner = function(item) {
+    var h = '<i class="fa-solid fa-arrow-down" style="font-size:.65rem;"></i> ';
+    h += item.total_downloads + ' download' + (item.total_downloads === 1 ? '' : 's');
+    if (item.recent_downloaders && item.recent_downloaders.length) {
+      h += '<span class="downloader-stack" onclick="event.stopPropagation();openDownloadersModal(' + item.pk + ')" title="See who downloaded this">';
+      item.recent_downloaders.forEach(function(d) {
+        h += d.avatar
+          ? '<img class="downloader-avatar" src="' + escHtml(d.avatar) + '" alt="">'
+          : '<span class="downloader-avatar">' + escHtml(d.initials) + '</span>';
+      });
+      var overflow = (item.unique_downloader_count || 0) - item.recent_downloaders.length;
+         if (overflow > 0) h += '<span class="downloader-more">+' + overflow + '</span>';
+      h += '</span>';
+    }
+    return h;
+  };
+
   function buildCard(item) {
     var fi = getFileInfo(item.attachment_name || item.file_ext);
     var bcMap = {published:'status-badge-published', draft:'status-badge-draft', archived:'status-badge-archived'};
@@ -976,10 +1022,8 @@ var ALL_TAGS_LIST = [{% for tag in all_tags_list %}{"pk":{{ tag.pk }},"name":"{{
     h += '&nbsp;·&nbsp;<i class="fa-solid fa-calendar"></i> ' + escHtml(item.created_at);
     h += '</div>';
 
-    // Download count
-    h += '<div class="dl-card__dl-count"><i class="fa-solid fa-arrow-down" style="font-size:.65rem;"></i> ';
-    h += item.download_count + ' download' + (item.download_count === 1 ? '' : 's');
-    h += '</div>';
+        // Download count + downloader bubble stack (id'd so we can live-update it)
+    h += '<div class="dl-card__dl-count" id="dlCount' + item.pk + '">' + buildDownloadCountInner(item) + '</div>';
 
     // Tags
     if (item.tags && item.tags.length) {
@@ -992,9 +1036,13 @@ var ALL_TAGS_LIST = [{% for tag in all_tags_list %}{"pk":{{ tag.pk }},"name":"{{
 
     h += '</div></div>';/* close body + inner */
 
-    // Footer: status + actions
+        // Footer: status + actions
     h += '<div class="dl-card__footer">';
     h += '<span class="status-badge ' + (bcMap[item.status]||'') + '"><i class="fa-solid ' + (siMap[item.status]||'fa-circle') + '"></i>' + escHtml(item.status_label) + '</span>';
+    h += '<div style="display:flex;align-items:center;gap:6px;">';
+    h += canManage
+      ? '<a href="'+escHtml(item.download_url)+'" class="btn-icon" onclick="return triggerDownload(event,'+item.pk+');" title="Download"><i class="fa-solid fa-download"></i></a>'
+      : '<a href="'+escHtml(item.download_url)+'" class="btn btn-outline btn-sm" onclick="return triggerDownload(event,'+item.pk+');" title="Download"><i class="fa-solid fa-download"></i> Download</a>';
 
     if (canManage) {
       h += '<div class="row-actions">';
@@ -1010,8 +1058,9 @@ var ALL_TAGS_LIST = [{% for tag in all_tags_list %}{"pk":{{ tag.pk }},"name":"{{
         h += '<button class="btn-icon" title="Archive" onclick="toggleStatus(' + item.pk + ',\'archive\')"><i class="fa-solid fa-box-archive"></i></button>';
       }
       h += '<button class="btn-icon btn-icon-danger" title="Delete" onclick="openDeleteModal(' + item.pk + ',\'' + escJs(item.title) + '\')"><i class="fa-solid fa-trash"></i></button>';
-      h += '</div>';
+      h += '</div>';/* close row-actions */
     }
+    h += '</div>';/* close footer button/action wrapper */
     h += '</div>';/* footer */
     h += '</div>';/* card */
     return h;
@@ -1273,6 +1322,26 @@ var ALL_TAGS_LIST = [{% for tag in all_tags_list %}{"pk":{{ tag.pk }},"name":"{{
     <div class="modal__body" id="detailDlBody"></div>
     <div class="modal__footer">
       <button class="btn btn-outline" onclick="closeModal('dlDetailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
+     MODALS: DOWNLOADERS (mini)
+     ════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="dlDownloadersModal" role="dialog" aria-modal="true">
+  <div class="modal modal-sm">
+    <div class="modal__header">
+      <div class="modal__header-icon"><i class="fa-solid fa-users"></i></div>
+      <div class="modal__header-title"><h3>Downloaded by</h3><p id="downloadersModalSub"></p></div>
+      <button class="modal__close" onclick="closeModal('dlDownloadersModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="downloadersModalBody">
+      <div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn-outline" onclick="closeModal('dlDownloadersModal')">Close</button>
     </div>
   </div>
 </div>
@@ -1624,6 +1693,72 @@ function openEditModal(pk) {
 function clearEditFile() { document.getElementById('de_clearAttachment').value = '1'; document.getElementById('de_currentFileWrap').style.display = 'none'; }
 
 /* ════════════════════════════════════════
+   DOWNLOADERS MINI MODAL
+   ════════════════════════════════════════ */
+function openDownloadersModal(pk) {
+  var item = getItem(pk); if (!item) return;
+  document.getElementById('downloadersModalSub').textContent = item.title;
+  document.getElementById('downloadersModalBody').innerHTML =
+    '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+  openModal('dlDownloadersModal');
+
+  fetch(item.downloaders_url)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (!data.success) return;
+      var body = document.getElementById('downloadersModalBody');
+      if (!data.downloaders.length) {
+        body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">No downloads yet.</div>';
+        return;
+      }
+      var html = '<div class="downloaders-list">';
+      data.downloaders.forEach(function(d) {
+        html += '<div class="downloaders-list-row">';
+        html += d.avatar ? '<img src="'+escHtml(d.avatar)+'">' : '<span class="dl-init">'+escHtml(d.initials)+'</span>';
+        html += '<span style="flex:1;">'+escHtml(d.name)+'</span>';
+        html += '<span style="color:var(--text-muted);font-size:.73rem;">'+escHtml(d.downloaded_at)+'</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    })
+    .catch(function(){
+      document.getElementById('downloadersModalBody').innerHTML =
+        '<div style="text-align:center;padding:20px;color:#c0392b;">Failed to load.</div>';
+    });
+}
+
+/* ════════════════════════════════════════
+   LIVE DOWNLOAD TRIGGER (logs, updates count, then downloads)
+   ════════════════════════════════════════ */
+function triggerDownload(event, pk) {
+  event.preventDefault();
+  var item = getItem(pk);
+  if (!item) return false;
+
+  fetch(item.log_url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf() }
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (data.success) {
+      item.total_downloads         = data.total_downloads;
+      item.unique_downloader_count = data.unique_downloaders;
+      item.recent_downloaders      = data.recent_downloaders;
+      var countEl = document.getElementById('dlCount' + pk);
+      if (countEl) countEl.innerHTML = buildDownloadCountInner(item);
+    }
+  })
+  .catch(function(){ /* fail silently — the download itself still proceeds */ })
+  .finally(function(){
+    window.location = item.download_url;
+  });
+
+  return false;
+}
+
+/* ════════════════════════════════════════
    DETAIL MODAL
    ════════════════════════════════════════ */
 function openDetailModal(pk) {
@@ -1651,13 +1786,13 @@ function openDetailModal(pk) {
   h += '<div class="detail-grid-item"><span class="detail-grid-label">Category</span><span class="detail-grid-val">'+escHtml(item.category)+'</span></div>';
   h += '<div class="detail-grid-item"><span class="detail-grid-label">Status</span><span class="detail-grid-val">'+escHtml(item.status_label)+'</span></div>';
   h += '<div class="detail-grid-item"><span class="detail-grid-label">Added</span><span class="detail-grid-val">'+escHtml(item.created_at)+'</span></div>';
-  h += '<div class="detail-grid-item"><span class="detail-grid-label">Downloads</span><span class="detail-grid-val">'+item.download_count+'</span></div>';
+  h += '<div class="detail-grid-item"><span class="detail-grid-label">Downloads</span><span class="detail-grid-val">'+item.total_downloads+'</span></div>';
   h += '</div>';
 
   if (item.attachment_url) {
     h += '<div class="detail-section-label"><i class="fa-solid fa-paperclip" style="margin-right:4px;"></i>Attachment</div>';
     h += '<div class="detail-att-box"><i class="fa-solid '+getFileIcon(item.attachment_name)+'"></i>';
-    h += '<a href="'+escHtml(item.attachment_url)+'" target="_blank" rel="noopener">'+escHtml(item.attachment_name)+'</a>';
+    h += '<a href="'+escHtml(item.download_url)+'" onclick="return triggerDownload(event,'+item.pk+');">'+escHtml(item.attachment_name)+'</a>';
     if (item.attachment_size) h += '<span class="att-size">'+escHtml(item.attachment_size)+'</span>';
     h += '</div>';
   }
@@ -1670,6 +1805,8 @@ function openDetailModal(pk) {
 
   document.getElementById('detailDlBody').innerHTML = h;
   openModal('dlDetailModal');
+
+  
 }
 
 /* ════════════════════════════════════════
