@@ -27,6 +27,7 @@ from django.db.models import Count
 from collections import defaultdict
 import os
 from .models import Download, DownloadCategory, DownloadTag, DownloadLog
+from .models import online_cutoff
 
 @login_required
 def notifications_list(request):
@@ -818,6 +819,7 @@ def home(request):
  
     ctx['online_staff'] = UserProfile.objects.filter(
         is_online=True,
+        last_seen__gte=online_cutoff(),
         user__is_superuser=False,
         user__is_active=True,
     ).exclude(user=user).select_related('user')[:50]
@@ -3940,7 +3942,7 @@ def messenger_users(request):
         'department': p.department,
         'bio':        p.bio,
         'mobile':     p.mobile_number,
-        'is_online':  p.is_online,
+        'is_online':  p.is_currently_online,
     } for p in profiles]
     return JsonResponse({'users': users})
 
@@ -3998,7 +4000,7 @@ def messenger_conversations(request):
                 'name':     m.get_full_name() or m.username,
                 'initials': m.first_name[:1].upper() + m.last_name[:1].upper(),
                 'avatar':   m.profile.avatar.url if hasattr(m, 'profile') and m.profile.avatar else None,
-                'is_online': getattr(getattr(m, 'profile', None), 'is_online', False),
+                'is_online': getattr(getattr(m, 'profile', None), 'is_currently_online', False),
             } for m in members]
 
             last_msg   = c.messages.last()
@@ -4067,7 +4069,7 @@ def messenger_conversations(request):
                     'department': profile.department if profile else '',
                     'bio':        profile.bio if profile else '',
                     'mobile':     profile.mobile_number if profile else '',
-                    'is_online':  getattr(profile, 'is_online', False),
+                    'is_online':  getattr(profile, 'is_currently_online', False),
                 },
                 'last_message':      last_preview,
                 'last_message_time': last_msg.created_at.isoformat() if last_msg else None,

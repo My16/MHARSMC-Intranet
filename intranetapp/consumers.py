@@ -1,6 +1,13 @@
+import asyncio
 import json
+import time
+from collections import defaultdict
+
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from django.db.models import Q
+from django.utils import timezone
+
 from .models import Notification
 
 
@@ -208,6 +215,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'reply_to':        None,
         }
 
+# ── Presence state (per server process) ────────────────────────────────────
+_presence_connections = defaultdict(int)   # user_id -> open socket count
+_last_sweep = 0.0
+OFFLINE_GRACE_SECONDS = 5     # lets page-navigation reconnects happen first
+SWEEP_EVERY_SECONDS   = 60
+
 
 class PresenceConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -216,40 +229,46 @@ class PresenceConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        # Resolve the lazy user proxy to a plain int ONCE, here, while the
-        # connection/session context is still fresh. Everything else
-        # (including disconnect(), which can run after the scope/session is
-        # already torn down) uses this plain int instead of touching
-        # self.user again, which is what previously caused:
-        #   TypeError: Field 'id' expected a number but got
-        #   <channels.auth.UserLazyObject object at ...>
+        # Resolve the lazy user proxy to a plain int once (see earlier TypeError fix).
         self.user_id = self.user.pk
-
         self.room = 'presence'
+
         await self.channel_layer.group_add(self.room, self.channel_name)
         await self.accept()
 
-        await self.set_online(True)
-        await self.channel_layer.group_send(self.room, {
-            'type': 'presence_update',
-            'user_id': self.user_id,
-            'is_online': True,
-        })
+        _presence_connections[self.user_id] += 1
+        await self.mark_online()
+        await self._broadcast(self.user_id, True)
 
     async def disconnect(self, code):
-        # Guard in case disconnect() fires before connect() finished setting
-        # self.user_id (e.g. the socket closed immediately on an
-        # unauthenticated attempt above).
         if not hasattr(self, 'user_id'):
             return
 
-        await self.set_online(False)
-        await self.channel_layer.group_send(self.room, {
-            'type': 'presence_update',
-            'user_id': self.user_id,
-            'is_online': False,
-        })
         await self.channel_layer.group_discard(self.room, self.channel_name)
+
+        _presence_connections[self.user_id] = max(0, _presence_connections[self.user_id] - 1)
+        if _presence_connections[self.user_id] > 0:
+            return  # another tab/page is still connected
+
+        # Grace period: a page navigation closes and reopens the socket within
+        # a second or two. Only go offline if nobody reconnected.
+        await asyncio.sleep(OFFLINE_GRACE_SECONDS)
+        if _presence_connections[self.user_id] == 0:
+            _presence_connections.pop(self.user_id, None)
+            await self.mark_offline()
+            await self._broadcast(self.user_id, False)
+
+    async def receive(self, text_data=None, bytes_data=None):
+        try:
+            data = json.loads(text_data or '{}')
+        except ValueError:
+            return
+
+        if data.get('action') == 'ping':
+            came_back = await self.touch()
+            if came_back:                      # a sweep had wrongly flipped us
+                await self._broadcast(self.user_id, True)
+            await self._maybe_sweep()
 
     async def presence_update(self, event):
         await self.send(text_data=json.dumps({
@@ -258,9 +277,61 @@ class PresenceConsumer(AsyncWebsocketConsumer):
             'is_online': event['is_online'],
         }))
 
+    async def _broadcast(self, user_id, is_online):
+        await self.channel_layer.group_send(self.room, {
+            'type': 'presence_update',
+            'user_id': user_id,
+            'is_online': is_online,
+        })
+
+    async def _maybe_sweep(self):
+        """Every ~60s, mark users with no recent heartbeat offline and tell everyone."""
+        global _last_sweep
+        now = time.monotonic()
+        if now - _last_sweep < SWEEP_EVERY_SECONDS:
+            return
+        _last_sweep = now
+
+        live_here = [uid for uid, n in _presence_connections.items() if n > 0]
+        stale_ids = await self.sweep_stale(live_here)
+        for uid in stale_ids:
+            await self._broadcast(uid, False)
+
+    # ── DB helpers ─────────────────────────────────────────────────────────
     @database_sync_to_async
-    def set_online(self, status):
+    def mark_online(self):
         from .models import UserProfile
-        # Filter by the plain int user_id, never by the lazy self.user
-        # object directly — that's what triggered the TypeError.
-        UserProfile.objects.filter(user_id=self.user_id).update(is_online=status)
+        UserProfile.objects.filter(user_id=self.user_id).update(
+            is_online=True, last_seen=timezone.now()
+        )
+
+    @database_sync_to_async
+    def mark_offline(self):
+        from .models import UserProfile
+        UserProfile.objects.filter(user_id=self.user_id).update(is_online=False)
+
+    @database_sync_to_async
+    def touch(self):
+        """Heartbeat. Returns True if this flipped the user back to online."""
+        from .models import UserProfile
+        now = timezone.now()
+        flipped = UserProfile.objects.filter(
+            user_id=self.user_id, is_online=False
+        ).update(is_online=True, last_seen=now)
+        if not flipped:
+            UserProfile.objects.filter(user_id=self.user_id).update(last_seen=now)
+        return bool(flipped)
+
+    @database_sync_to_async
+    def sweep_stale(self, live_user_ids):
+        from .models import UserProfile, online_cutoff
+        stale = list(
+            UserProfile.objects
+            .filter(is_online=True)
+            .filter(Q(last_seen__isnull=True) | Q(last_seen__lt=online_cutoff()))
+            .exclude(user_id__in=live_user_ids)
+            .values_list('user_id', flat=True)
+        )
+        if stale:
+            UserProfile.objects.filter(user_id__in=stale).update(is_online=False)
+        return stale

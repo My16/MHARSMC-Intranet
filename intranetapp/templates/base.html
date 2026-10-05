@@ -1628,17 +1628,40 @@
   <!-- ═══ GLOBAL PRESENCE WS ══════════════════════════════════ -->
   <script>
     (function () {
+      let heartbeat = null;
+
+      function sendPing() {
+        const ws = window._globalPresenceWS;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: 'ping' }));
+        }
+      }
+
       function connectPresenceWS() {
         const proto = location.protocol === 'https:' ? 'wss' : 'ws';
         const ws = new WebSocket(`${proto}://${location.host}/ws/presence/`);
-        ws.onopen  = () => console.log('[Presence WS] connected');
-        ws.onclose = () => setTimeout(connectPresenceWS, 4000);
+        window._globalPresenceWS = ws;
+
+        ws.onopen = () => {
+          console.log('[Presence WS] connected');
+          clearInterval(heartbeat);
+          heartbeat = setInterval(sendPing, 30000);
+        };
+        ws.onclose = () => {
+          clearInterval(heartbeat);
+          setTimeout(connectPresenceWS, 4000);
+        };
         ws.onmessage = (e) => {
           const data = JSON.parse(e.data);
           if (data.type === 'presence' && window.gmHandlePresence) window.gmHandlePresence(data);
         };
-        window._globalPresenceWS = ws;
       }
+
+      // Browsers throttle timers in background tabs; ping right away on return.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') sendPing();
+      });
+
       connectPresenceWS();
     })();
   </script>

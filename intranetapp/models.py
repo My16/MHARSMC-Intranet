@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 import uuid
+from datetime import timedelta
+
+ONLINE_WINDOW_SECONDS = 120   # no heartbeat for this long = offline
 
 
 PERM_NONE = 'none'
@@ -260,6 +263,8 @@ class UserProfile(models.Model):
 
     is_online = models.BooleanField(default=False)
 
+    last_seen = models.DateTimeField(null=True, blank=True)
+
     quick_reactions = models.JSONField(default=default_quick_reactions)
 
     def __str__(self):
@@ -296,6 +301,16 @@ class UserProfile(models.Model):
     def is_pending_registration(self):
         """True if the account was created via self-registration (has access_reason and is inactive)."""
         return not self.user.is_active and bool(self.access_reason)
+
+    @property
+    def is_currently_online(self):
+        """True only if flagged online AND a heartbeat arrived recently."""
+        return bool(
+            self.is_online
+            and self.last_seen
+            and self.last_seen >= online_cutoff()
+        )
+
     
 
 class PressRelease(models.Model):
@@ -1786,4 +1801,8 @@ class ELibraryItem(models.Model):
         if self.publisher:
             parts.append(f'— {self.publisher}')
         return ' '.join(parts)
- 
+
+
+
+def online_cutoff():
+    return timezone.now() - timedelta(seconds=ONLINE_WINDOW_SECONDS)
