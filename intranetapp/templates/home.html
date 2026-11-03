@@ -276,6 +276,31 @@
     .dash-stats { grid-template-columns: 1fr 1fr; }
     .dash-hero__name { font-size: 1.5rem; }
   }
+
+
+  .venue-qr { padding: 18px 20px 20px; text-align: center; }
+  .venue-qr__link {
+    display: inline-block; padding: 12px;
+    background: var(--dash-white);
+    border: 1px solid var(--dash-border);
+    border-radius: 12px;
+    transition: box-shadow .18s, transform .18s, border-color .18s;
+  }
+  .venue-qr__link:hover {
+    box-shadow: var(--dash-shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--dash-green-accent);
+  }
+  .venue-qr__img { display: block; width: 168px; height: 168px; }
+  .venue-qr__hint { font-size: .74rem; color: var(--dash-muted); margin-top: 12px; line-height: 1.4; }
+  .venue-qr__btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px; padding: 8px 16px; border-radius: 8px;
+    background: var(--dash-green-dark); color: var(--dash-white);
+    font-size: .78rem; font-weight: 600; text-decoration: none;
+    transition: background .15s;
+  }
+  .venue-qr__btn:hover { background: var(--dash-green-mid); }
 </style>
 {% endblock %}
 
@@ -427,37 +452,25 @@
           <a href="{% url 'events_trainings' %}" class="dash-card__link">View all →</a>
         </div>
         <div class="dash-card__body">
-          {% if upcoming_events or upcoming_trainings %}
+          {% if upcoming_events %}
             {% for ev in upcoming_events %}
-            <a href="{% url 'events_trainings' %}" class="ev-item">
-              <div class="ev-item__cal">
-                <div class="ev-item__cal-day">{{ ev.start_date|date:"d" }}</div>
-                <div class="ev-item__cal-month">{{ ev.start_date|date:"M" }}</div>
+            <a href="{% url 'events_trainings' %}?event={{ ev.key }}" class="ev-item">
+              <div class="ev-item__cal" style="background:#a21caf;">
+                <div class="ev-item__cal-day">{{ ev.start|date:"d" }}</div>
+                <div class="ev-item__cal-month">{{ ev.start|date:"M" }}</div>
               </div>
               <div>
                 <div class="ev-item__title">{{ ev.title }}</div>
                 <div class="ev-item__meta">
-                  <i class="fa-solid fa-location-dot" style="margin-right:3px;"></i>{{ ev.location }}
-                  {% if ev.start_time %}&middot; {{ ev.start_time }}{% endif %}
+                  <i class="fa-solid fa-building" style="margin-right:3px;"></i>{{ ev.offices|join:", "|truncatechars:45 }}
+                  &middot; {{ ev.start|time:"g:i A" }}
                 </div>
               </div>
-              <span class="ev-item__type">Event</span>
-            </a>
-            {% endfor %}
-            {% for tr in upcoming_trainings %}
-            <a href="{% url 'events_trainings' %}?tab=tr" class="ev-item">
-              <div class="ev-item__cal" style="background:var(--dash-green-mid);">
-                <div class="ev-item__cal-day">{{ tr.start_date|date:"d" }}</div>
-                <div class="ev-item__cal-month">{{ tr.start_date|date:"M" }}</div>
-              </div>
-              <div>
-                <div class="ev-item__title">{{ tr.title }}</div>
-                <div class="ev-item__meta">
-                  <i class="fa-solid fa-chalkboard-teacher" style="margin-right:3px;"></i>{{ tr.organizer }}
-                  {% if tr.start_date %}&middot; {{ tr.start_date|date:"M d, Y" }}{% endif %}
-                </div>
-              </div>
-              <span class="ev-item__type ev-item__type--training">Training</span>
+              {% if ev.ongoing %}
+              <span class="ev-item__type" style="background:rgba(39,174,96,.15);color:#1a7a3c;">Ongoing</span>
+              {% else %}
+              <span class="ev-item__type" style="background:rgba(162,28,175,.1);color:#86198f;">Scheduled</span>
+              {% endif %}
             </a>
             {% endfor %}
           {% else %}
@@ -527,6 +540,27 @@
           </a>
         </div>
       </div>
+
+
+      <!-- Venue Booking QR -->
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <div class="dash-card__title">
+            <i class="fa-solid fa-qrcode"></i>MHARSMC Venue Booking
+          </div>
+        </div>
+        <div class="venue-qr">
+          <a href="{{ venue_booking_url }}" target="_blank" rel="noopener noreferrer"
+             class="venue-qr__link" title="Open the MHARSMC Venue Booking site">
+            <img src="{{ venue_qr }}" alt="QR code for the MHARSMC Venue Booking site" class="venue-qr__img">
+          </a>
+          <div class="venue-qr__hint">Scan with your phone or click the code to reserve a venue.</div>
+          <!-- <a href="{{ venue_booking_url }}" target="_blank" rel="noopener noreferrer" class="venue-qr__btn">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open booking site
+          </a> -->
+        </div>
+      </div>
+      <!-- end Venue Booking QR -->
 
       <!-- Online Now: always rendered, with empty state -->
       <div class="dash-card">

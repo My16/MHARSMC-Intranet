@@ -28,6 +28,23 @@ from collections import defaultdict
 import os
 from .models import Download, DownloadCategory, DownloadTag, DownloadLog
 from .models import online_cutoff
+from .petru import get_petru_events
+
+
+from functools import lru_cache
+import segno
+
+VENUE_BOOKING_URL = 'https://sites.google.com/mharsmc.doh.gov.ph/mharsmc-venue-booking/'
+
+
+@lru_cache(maxsize=1)
+def _venue_qr_data_uri():
+    """The URL never changes, so the QR is generated once per process."""
+    return segno.make(VENUE_BOOKING_URL, error='m').svg_data_uri(
+        scale=8, border=1, dark='#1a4731', light='#ffffff',
+    )
+
+
 
 @login_required
 def notifications_list(request):
@@ -106,6 +123,7 @@ MODULE_CHOICES = [
     ('pgs',              'Performance Governance System'),
     ('wiki',             'Wiki'),
     ('e_library', 'e-Library'),
+    ('employees_corner', "Employees' Corner"),
     ('applications',     'Applications'),
     ('directory',        'Directory'),
     ('downloads',        'Downloads'),
@@ -299,10 +317,11 @@ def user_add(request):
             user.is_active = True
             user.save()
 
-            profile.is_head_of_office = request.POST.get('is_head_of_office') == 'on'
 
             profile      = form_profile.save(commit=False)
             profile.user = user
+
+            profile.is_head_of_office = request.POST.get('is_head_of_office') == 'on'
 
             role_pk = request.POST.get('role')
             if role_pk:
@@ -780,20 +799,9 @@ def home(request):
  
     # ── Events & trainings ──────────────────────────────────────
     if can_access('events_trainings'):
-        from .models import Event, Training
-        ctx['upcoming_events'] = (
-            Event.objects
-            .filter(status='published', start_date__gte=today)
-            .order_by('start_date')[:4]
-        )
-        ctx['upcoming_trainings'] = (
-            Training.objects
-            .filter(status='published', start_date__gte=today)
-            .order_by('start_date')[:3]
-        )
-        ctx['event_count'] = Event.objects.filter(
-            status='published', start_date__gte=today
-        ).count()
+        petru_events, _stale = get_petru_events()
+        ctx['upcoming_events'] = petru_events[:6]
+        ctx['event_count'] = len(petru_events)
  
     # ── Issuances ───────────────────────────────────────────────
     if can_access('issuances'):
@@ -824,6 +832,9 @@ def home(request):
         user__is_active=True,
     ).exclude(user=user).select_related('user')[:50]
     ctx['online_staff_count'] = ctx['online_staff'].count() if hasattr(ctx['online_staff'], 'count') else len(ctx['online_staff'])
+
+    ctx['venue_booking_url'] = VENUE_BOOKING_URL
+    ctx['venue_qr']          = _venue_qr_data_uri()
  
     return render(request, 'home.html', ctx)
 
@@ -1068,633 +1079,49 @@ def press_release_detail(request, pk):
     })
 
 
-# ── Permission helper ──────────────────────────────────────────────────────────
-
-def _can_manage_events(user):
-    if not user.is_authenticated: return False
-    if user.is_superuser: return True
-    return hasattr(user, 'profile') and user.profile.can_edit_module('events_trainings')
-
-
 # ── List view ──────────────────────────────────────────────────────────────────
+# ── Events & Trainings (read-only, data comes from PETRU) ─────────────────────
 
 @login_required
 def events_trainings(request):
-    from .models import Event, Training
-
-    can_manage = _can_manage_events(request.user)
-    active_tab = request.GET.get('tab', 'ev')
-
-    # ── EVENTS ────────────────────────────────────────────────
-    ev_search  = request.GET.get('ev_search', '').strip()
-    ev_status  = request.GET.get('ev_status', '')
-    ev_month   = request.GET.get('ev_month', '')
-
-    try:
-        ev_per_page = int(request.GET.get('ev_per_page', 10))
-    except (ValueError, TypeError):
-        ev_per_page = 10
-    if ev_per_page not in (5, 10, 20, 40, 100):
-        ev_per_page = 10
-
-    ev_qs = (Event.objects.select_related('author')
-             .prefetch_related('attachments')
-             .order_by('-start_date', '-created_at'))
-
-    if not can_manage:
-        ev_qs = ev_qs.filter(status='published')
-        ev_status = ''
-
-    if ev_search:
-        ev_qs = ev_qs.filter(
-            Q(title__icontains=ev_search) | Q(details__icontains=ev_search) |
-            Q(location__icontains=ev_search) | Q(summary__icontains=ev_search))
-
-    if can_manage and ev_status in ('draft', 'published', 'archived'):
-        ev_qs = ev_qs.filter(status=ev_status)
-
-    ev_month_label = ''
-    if ev_month:
-        try:
-            y, m = ev_month.split('-')
-            ev_qs = ev_qs.filter(start_date__year=int(y), start_date__month=int(m))
-            ev_month_label = datetime.date(int(y), int(m), 1).strftime('%B %Y')
-        except (ValueError, AttributeError):
-            ev_month = ''
-
-    ev_available_months = [
-        {'value': d.strftime('%Y-%m'), 'label': d.strftime('%B %Y')}
-        for d in Event.objects.dates('start_date', 'month', order='DESC')
-    ]
-
-    ev_paginator   = Paginator(ev_qs, ev_per_page)
-    ev_page_number = request.GET.get('page_ev', '').strip() or 1
-    ev_page_obj    = ev_paginator.get_page(ev_page_number)
-
-    if can_manage:
-        ev_total_count     = Event.objects.count()
-        ev_published_count = Event.objects.filter(status='published').count()
-        ev_draft_count     = Event.objects.filter(status='draft').count()
-        ev_archived_count  = Event.objects.filter(status='archived').count()
-    else:
-        ev_total_count     = Event.objects.filter(status='published').count()
-        ev_published_count = ev_total_count
-        ev_draft_count     = None
-        ev_archived_count  = None
-
-    # ── TRAININGS ──────────────────────────────────────────────
-    tr_search = request.GET.get('tr_search', '').strip()
-    tr_status = request.GET.get('tr_status', '')
-    tr_month  = request.GET.get('tr_month', '')
-
-    try:
-        tr_per_page = int(request.GET.get('tr_per_page', 10))
-    except (ValueError, TypeError):
-        tr_per_page = 10
-    if tr_per_page not in (5, 10, 20, 40, 100):
-        tr_per_page = 10
-
-    tr_qs = (Training.objects.select_related('author')
-             .prefetch_related('attachments')
-             .order_by('-start_date', '-created_at'))
-
-    if not can_manage:
-        tr_qs = tr_qs.filter(status='published')
-        tr_status = ''
-
-    if tr_search:
-        tr_qs = tr_qs.filter(
-            Q(title__icontains=tr_search) | Q(details__icontains=tr_search) |
-            Q(location__icontains=tr_search) | Q(summary__icontains=tr_search) |
-            Q(organizer__icontains=tr_search) | Q(target_participants__icontains=tr_search))
-
-    if can_manage and tr_status in ('draft', 'published', 'archived'):
-        tr_qs = tr_qs.filter(status=tr_status)
-
-    tr_month_label = ''
-    if tr_month:
-        try:
-            y, m = tr_month.split('-')
-            tr_qs = tr_qs.filter(start_date__year=int(y), start_date__month=int(m))
-            tr_month_label = datetime.date(int(y), int(m), 1).strftime('%B %Y')
-        except (ValueError, AttributeError):
-            tr_month = ''
-
-    tr_available_months = [
-        {'value': d.strftime('%Y-%m'), 'label': d.strftime('%B %Y')}
-        for d in Training.objects.dates('start_date', 'month', order='DESC')
-    ]
-
-    tr_paginator   = Paginator(tr_qs, tr_per_page)
-    tr_page_number = request.GET.get('page_tr', '').strip() or 1
-    tr_page_obj    = tr_paginator.get_page(tr_page_number)
-
-    if can_manage:
-        tr_total_count     = Training.objects.count()
-        tr_published_count = Training.objects.filter(status='published').count()
-        tr_draft_count     = Training.objects.filter(status='draft').count()
-        tr_archived_count  = Training.objects.filter(status='archived').count()
-    else:
-        tr_total_count     = Training.objects.filter(status='published').count()
-        tr_published_count = tr_total_count
-        tr_draft_count     = None
-        tr_archived_count  = None
-
     can_view = request.user.is_superuser or (
         hasattr(request.user, 'profile') and
         request.user.profile.has_module_access('events_trainings')
     )
+    petru_events, petru_stale = get_petru_events()
+
+    try:
+        per_page = int(request.GET.get('per_page', 10))
+    except (ValueError, TypeError):
+        per_page = 10
+    if per_page not in (5, 10, 20, 40, 100):
+        per_page = 10
+
+    page_number = request.GET.get('page', '').strip() or 1
+
+    # Arriving from the home page (?event=<key>): jump to the page holding that event
+    highlight = request.GET.get('event', '').strip()
+    if highlight:
+        for i, e in enumerate(petru_events):
+            if e['key'] == highlight:
+                page_number = i // per_page + 1
+                break
+
+    paginator = Paginator(petru_events, per_page)
+    page_obj = paginator.get_page(page_number)
 
     return render(request, 'events_trainings.html', {
-        'active_tab':            active_tab,
-        'can_manage':            can_manage,
-        'events':                ev_page_obj,
-        'ev_search_query':       ev_search,
-        'ev_status_filter':      ev_status,
-        'ev_month_filter':       ev_month,
-        'ev_month_filter_label': ev_month_label,
-        'ev_available_months':   ev_available_months,
-        'ev_per_page':           ev_per_page,
-        'ev_total_count':        ev_total_count,
-        'ev_published_count':    ev_published_count,
-        'ev_draft_count':        ev_draft_count,
-        'ev_archived_count':     ev_archived_count,
-        'trainings':             tr_page_obj,
-        'tr_search_query':       tr_search,
-        'tr_status_filter':      tr_status,
-        'tr_month_filter':       tr_month,
-        'tr_month_filter_label': tr_month_label,
-        'tr_available_months':   tr_available_months,
-        'tr_per_page':           tr_per_page,
-        'tr_total_count':        tr_total_count,
-        'tr_published_count':    tr_published_count,
-        'tr_draft_count':        tr_draft_count,
-        'tr_archived_count':     tr_archived_count,
-        'can_view':              can_view,
+        'can_view':    can_view,
+        'events':      page_obj,
+        'per_page':    per_page,
+        'petru_stale': petru_stale,
     })
 
-# ── Create ─────────────────────────────────────────────────────────────────────
-
-@login_required
-def event_create(request):
-    from .models import Event, EventAttachment
-
-    if not _can_manage_events(request.user):
-        messages.error(request, 'You do not have permission to create events.')
-        return redirect('events_trainings')
-
-    if request.method == 'POST':
-        title          = request.POST.get('title', '').strip()
-        location       = request.POST.get('location', '').strip()
-        summary        = request.POST.get('summary', '').strip()
-        details        = request.POST.get('details', '').strip()
-        status         = request.POST.get('status', 'draft')
-        start_date     = request.POST.get('start_date', '') or None
-        end_date       = request.POST.get('end_date', '')   or None
-        start_time     = request.POST.get('start_time', '') or None
-        end_time       = request.POST.get('end_time', '')   or None
-        archive_policy = request.POST.get('archive_policy', 'default')
-        archive_date   = request.POST.get('archive_date', '') or None
-
-        # Basic validation
-        errors = []
-        if not title:
-            errors.append('Title is required.')
-        if not location:
-            errors.append('Location is required.')
-        if not details:
-            errors.append('Details are required.')
-        if not start_date:
-            errors.append('Start date is required.')
-        if status not in ('draft', 'published'):
-            status = 'draft'
-
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-            return redirect('events_trainings')
-
-        event = Event(
-            title          = title,
-            location       = location,
-            summary        = summary,
-            details        = details,
-            status         = status,
-            start_date     = start_date,
-            end_date       = end_date,
-            start_time     = start_time,
-            end_time       = end_time,
-            archive_policy = archive_policy,
-            archive_date   = archive_date,
-            author         = request.user,
-        )
-        event.save()
-
-        # Handle multiple file attachments
-        for f in request.FILES.getlist('attachments'):
-            EventAttachment.objects.create(
-                event         = event,
-                file          = f,
-                original_name = f.name,
-            )
-
-        verb = 'published' if status == 'published' else 'saved as draft'
-        messages.success(request, f'Event "{title}" has been {verb}.')
-
-    return redirect('events_trainings')
-
-
-# ── Edit ───────────────────────────────────────────────────────────────────────
-
-@login_required
-def event_edit(request, pk):
-    from .models import Event, EventAttachment
-
-    event = get_object_or_404(Event, pk=pk)
-
-    if not _can_manage_events(request.user):
-        messages.error(request, 'You do not have permission to edit events.')
-        return redirect('events_trainings')
-
-    if request.method == 'POST':
-        title          = request.POST.get('title', '').strip()
-        location       = request.POST.get('location', '').strip()
-        summary        = request.POST.get('summary', '').strip()
-        details        = request.POST.get('details', '').strip()
-        status         = request.POST.get('status', event.status)
-        start_date     = request.POST.get('start_date', '') or None
-        end_date       = request.POST.get('end_date', '')   or None
-        start_time     = request.POST.get('start_time', '') or None
-        end_time       = request.POST.get('end_time', '')   or None
-        archive_policy = request.POST.get('archive_policy', event.archive_policy)
-        archive_date   = request.POST.get('archive_date', '') or None
-
-        errors = []
-        if not title:
-            errors.append('Title is required.')
-        if not location:
-            errors.append('Location is required.')
-        if not details:
-            errors.append('Details are required.')
-        if not start_date:
-            errors.append('Start date is required.')
-        if status not in ('draft', 'published', 'archived'):
-            status = event.status
-
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-            return redirect('events_trainings')
-
-        event.title          = title
-        event.location       = location
-        event.summary        = summary
-        event.details        = details
-        event.status         = status
-        event.start_date     = start_date
-        event.end_date       = end_date
-        event.start_time     = start_time
-        event.end_time       = end_time
-        event.archive_policy = archive_policy
-        event.archive_date   = archive_date
-        event.save()
-
-        # Append any new attachments (existing ones are kept unless deleted separately)
-        new_files = request.FILES.getlist('attachments')
-        for f in new_files:
-            EventAttachment.objects.create(
-                event         = event,
-                file          = f,
-                original_name = f.name,
-            )
-
-        messages.success(request, f'Event "{title}" has been updated.')
-
-    return redirect('events_trainings')
-
-
-# ── Delete ─────────────────────────────────────────────────────────────────────
-
-@login_required
-def event_delete(request, pk):
-    from .models import Event
-
-    event = get_object_or_404(Event, pk=pk)
-
-    if not _can_manage_events(request.user):
-        messages.error(request, 'You do not have permission to delete events.')
-        return redirect('events_trainings')
-
-    if request.method == 'POST':
-        title = event.title
-        # Delete physical attachment files before deleting the record
-        for att in event.attachments.all():
-            att.file.delete(save=False)
-            att.delete()
-        event.delete()
-        messages.success(request, f'Event "{title}" has been deleted.')
-
-    return redirect('events_trainings')
-
-
-# ── Status toggle (AJAX) ───────────────────────────────────────────────────────
-
-@login_required
-def event_toggle_status(request, pk):
-    """
-    AJAX endpoint.
-    Accepted POST actions: publish | draft | archive | unarchive
-    Returns JSON { success, status, label } or { success, error }.
-    """
-    from .models import Event
-
-    if not _can_manage_events(request.user):
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
-
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
-
-    event  = get_object_or_404(Event, pk=pk)
-    action = request.POST.get('action', '')
-
-    if action == 'publish':
-        event.status = Event.STATUS_PUBLISHED
-    elif action == 'draft':
-        event.status = Event.STATUS_DRAFT
-    elif action == 'archive':
-        event.status = Event.STATUS_ARCHIVED
-    elif action == 'unarchive':
-        # Restore to published if it was published before, otherwise draft
-        event.status = Event.STATUS_PUBLISHED if getattr(event, 'published_at', None) else Event.STATUS_DRAFT
-    else:
-        return JsonResponse({'success': False, 'error': 'Unknown action.'})
-
-    event.save()
-    return JsonResponse({
-        'success': True,
-        'status':  event.status,
-        'label':   event.get_status_display(),
-    })
-
-
-# ── Attachment delete (AJAX, optional) ────────────────────────────────────────
-
-@login_required
-def event_attachment_delete(request, pk):
-    """
-    Optional AJAX endpoint to delete a single attachment by its pk.
-    POST { attachment_id: <int> }
-    """
-    from .models import EventAttachment
-
-    if not _can_manage_events(request.user):
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
-
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
-
-    att = get_object_or_404(EventAttachment, pk=pk)
-    att.file.delete(save=False)
-    att.delete()
-    return JsonResponse({'success': True})
-
-
-
-
-
-
-# ── Permission helper ──────────────────────────────────────────────────────────
-
-def _can_manage_trainings(user):
-    if not user.is_authenticated: return False
-    if user.is_superuser: return True
-    return hasattr(user, 'profile') and user.profile.can_edit_module('events_trainings')
-
-
-# ── List view ──────────────────────────────────────────────────────────────────
 
 @login_required
 def trainings(request):
-    # The trainings page has been merged into events_trainings.
-    # Preserve any training-specific filter params and show the trainings tab.
-    params = request.GET.copy()
-    if 'search' in params:
-        params['tr_search'] = params.pop('search')
-    if 'status' in params:
-        params['tr_status'] = params.pop('status')
-    if 'month' in params:
-        params['tr_month'] = params.pop('month')
-    if 'per_page' in params:
-        params['tr_per_page'] = params.pop('per_page')
-    if 'page' in params:
-        params['page_tr'] = params.pop('page')
-    params['tab'] = 'tr'
-    return redirect(f"{reverse('events_trainings')}?{params.urlencode()}")
-
-
-# ── Create ─────────────────────────────────────────────────────────────────────
-
-@login_required
-def training_create(request):
-    from .models import Training, TrainingAttachment
-
-    if not _can_manage_trainings(request.user):
-        messages.error(request, 'You do not have permission to create trainings.')
-        return redirect(f"{reverse('events_trainings')}?tab=tr")
-
-    if request.method == 'POST':
-        title               = request.POST.get('title', '').strip()
-        location            = request.POST.get('location', '').strip()
-        summary             = request.POST.get('summary', '').strip()
-        details             = request.POST.get('details', '').strip()
-        organizer           = request.POST.get('organizer', '').strip()
-        target_participants = request.POST.get('target_participants', '').strip()
-        requirements        = request.POST.get('requirements', '').strip()
-        contact_details     = request.POST.get('contact_details', '').strip()
-        status              = request.POST.get('status', 'draft')
-        start_date          = request.POST.get('start_date', '') or None
-        end_date            = request.POST.get('end_date', '')   or None
-        start_time          = request.POST.get('start_time', '') or None
-        end_time            = request.POST.get('end_time', '')   or None
-        archive_policy      = request.POST.get('archive_policy', 'default')
-        archive_date        = request.POST.get('archive_date', '') or None
-
-        errors = []
-        if not title:               errors.append('Title is required.')
-        if not location:            errors.append('Location is required.')
-        if not details:             errors.append('Details are required.')
-        if not organizer:           errors.append('Organizer is required.')
-        if not target_participants: errors.append('Target participants is required.')
-        if not start_date:          errors.append('Start date is required.')
-        if status not in ('draft', 'published'):
-            status = 'draft'
-
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-            return redirect(f"{reverse('events_trainings')}?tab=tr")
-
-        training = Training(
-            title               = title,
-            location            = location,
-            summary             = summary,
-            details             = details,
-            organizer           = organizer,
-            target_participants = target_participants,
-            requirements        = requirements,
-            contact_details     = contact_details,
-            status              = status,
-            start_date          = start_date,
-            end_date            = end_date,
-            start_time          = start_time,
-            end_time            = end_time,
-            archive_policy      = archive_policy,
-            archive_date        = archive_date,
-            author              = request.user,
-        )
-        training.save()
-
-        for f in request.FILES.getlist('attachments'):
-            TrainingAttachment.objects.create(
-                training      = training,
-                file          = f,
-                original_name = f.name,
-            )
-
-        verb = 'published' if status == 'published' else 'saved as draft'
-        messages.success(request, f'Training "{title}" has been {verb}.')
-
-    return redirect(f"{reverse('events_trainings')}?tab=tr")
-
-
-# ── Edit ───────────────────────────────────────────────────────────────────────
-
-@login_required
-def training_edit(request, pk):
-    from .models import Training, TrainingAttachment
-
-    training = get_object_or_404(Training, pk=pk)
-
-    if not _can_manage_trainings(request.user):
-        messages.error(request, 'You do not have permission to edit trainings.')
-        return redirect(f"{reverse('events_trainings')}?tab=tr")
-
-    if request.method == 'POST':
-        title               = request.POST.get('title', '').strip()
-        location            = request.POST.get('location', '').strip()
-        summary             = request.POST.get('summary', '').strip()
-        details             = request.POST.get('details', '').strip()
-        organizer           = request.POST.get('organizer', '').strip()
-        target_participants = request.POST.get('target_participants', '').strip()
-        requirements        = request.POST.get('requirements', '').strip()
-        contact_details     = request.POST.get('contact_details', '').strip()
-        status              = request.POST.get('status', training.status)
-        start_date          = request.POST.get('start_date', '') or None
-        end_date            = request.POST.get('end_date', '')   or None
-        start_time          = request.POST.get('start_time', '') or None
-        end_time            = request.POST.get('end_time', '')   or None
-        archive_policy      = request.POST.get('archive_policy', training.archive_policy)
-        archive_date        = request.POST.get('archive_date', '') or None
-
-        errors = []
-        if not title:               errors.append('Title is required.')
-        if not location:            errors.append('Location is required.')
-        if not details:             errors.append('Details are required.')
-        if not organizer:           errors.append('Organizer is required.')
-        if not target_participants: errors.append('Target participants is required.')
-        if not start_date:          errors.append('Start date is required.')
-        if status not in ('draft', 'published', 'archived'):
-            status = training.status
-
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-            return redirect(f"{reverse('events_trainings')}?tab=tr")
-
-        training.title               = title
-        training.location            = location
-        training.summary             = summary
-        training.details             = details
-        training.organizer           = organizer
-        training.target_participants = target_participants
-        training.requirements        = requirements
-        training.contact_details     = contact_details
-        training.status              = status
-        training.start_date          = start_date
-        training.end_date            = end_date
-        training.start_time          = start_time
-        training.end_time            = end_time
-        training.archive_policy      = archive_policy
-        training.archive_date        = archive_date
-        training.save()
-
-        for f in request.FILES.getlist('attachments'):
-            TrainingAttachment.objects.create(
-                training      = training,
-                file          = f,
-                original_name = f.name,
-            )
-
-        messages.success(request, f'Training "{title}" has been updated.')
-
-    return redirect(f"{reverse('events_trainings')}?tab=tr")
-
-
-# ── Delete ─────────────────────────────────────────────────────────────────────
-
-@login_required
-def training_delete(request, pk):
-    from .models import Training
-
-    training = get_object_or_404(Training, pk=pk)
-
-    if not _can_manage_trainings(request.user):
-        messages.error(request, 'You do not have permission to delete trainings.')
-        return redirect(f"{reverse('events_trainings')}?tab=tr")
-
-    if request.method == 'POST':
-        title = training.title
-        for att in training.attachments.all():
-            att.file.delete(save=False)
-            att.delete()
-        training.delete()
-        messages.success(request, f'Training "{title}" has been deleted.')
-
-    return redirect(f"{reverse('events_trainings')}?tab=tr")
-
-
-# ── Status toggle (AJAX) ───────────────────────────────────────────────────────
-
-@login_required
-def training_toggle_status(request, pk):
-    from .models import Training
-
-    if not _can_manage_trainings(request.user):
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
-
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
-
-    training = get_object_or_404(Training, pk=pk)
-    action   = request.POST.get('action', '')
-
-    if action == 'publish':
-        training.status = Training.STATUS_PUBLISHED
-    elif action == 'draft':
-        training.status = Training.STATUS_DRAFT
-    elif action == 'archive':
-        training.status = Training.STATUS_ARCHIVED
-    elif action == 'unarchive':
-        training.status = Training.STATUS_PUBLISHED if getattr(training, 'published_at', None) else Training.STATUS_DRAFT
-    else:
-        return JsonResponse({'success': False, 'error': 'Unknown action.'})
-
-    training.save()
-    return JsonResponse({
-        'success': True,
-        'status':  training.status,
-        'label':   training.get_status_display(),
-    })
+    # Old /trainings/ URL, kept so bookmarks still work.
+    return redirect('events_trainings')
 
 
 # ── Permission helper ──────────────────────────────────────────────────────────

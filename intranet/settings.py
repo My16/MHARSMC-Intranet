@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -159,3 +160,12 @@ DEFAULT_FROM_EMAIL = 'MHARSMC Intranet <do-not-reply@mharsmc.doh.gov.ph>'
 
 # Used to build absolute links inside emails (e.g. "View Issuance" button)
 SITE_URL = 'http://intranet.mharsmc.local'   # change to your real domain once deployed
+
+
+
+
+PETRU_API_URL = "https://petru.mharsmc.local/api/upcoming-events"
+PETRU_API_KEY = os.environ.get("PETRU_API_KEY", "")
+# Your curl uses -k (self-signed cert). Best: point this to the CA/cert file.
+# Fallback only if you must: False
+PETRU_VERIFY_SSL = os.environ.get("PETRU_CA_BUNDLE", False) or False

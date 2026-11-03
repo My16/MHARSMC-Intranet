@@ -33,20 +33,9 @@ urlpatterns = [
     path('press-releases/<int:pk>/toggle-status/',    views.press_release_toggle_status,   name='press_release_toggle_status'),
     path('press-releases/<int:pk>/',                  views.press_release_detail,          name='press_release_detail'),
 
-    # Events & Trainings
+    # Events & Trainings (read-only, data from PETRU)
     path('events-trainings/', views.events_trainings, name='events_trainings'),
-    path('events/create/',                   views.event_create,            name='event_create'),
-    path('events/<int:pk>/edit/',            views.event_edit,              name='event_edit'),
-    path('events/<int:pk>/delete/',          views.event_delete,            name='event_delete'),
-    path('events/<int:pk>/toggle-status/',   views.event_toggle_status,     name='event_toggle_status'),
-    path('events/attachment/<int:pk>/delete/', views.event_attachment_delete, name='event_attachment_delete'),
-
-    # ── Trainings ──────────────────────────────────────────────────────────
-    path('trainings/',                          views.trainings,               name='trainings'),
-    path('trainings/create/',                   views.training_create,         name='training_create'),
-    path('trainings/<int:pk>/edit/',            views.training_edit,           name='training_edit'),
-    path('trainings/<int:pk>/delete/',          views.training_delete,         name='training_delete'),
-    path('trainings/<int:pk>/toggle-status/',   views.training_toggle_status,  name='training_toggle_status'),
+    path('trainings/',        views.trainings,        name='trainings'),
 
     # Issuances
     path('issuances/',                                views.issuances,                   name='issuances'),
