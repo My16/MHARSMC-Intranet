@@ -49,11 +49,14 @@
                      style="background:#f0f7f2; border:1px solid #d4e8da; border-radius:6px;">
                 <tr>
                   <td style="padding:14px 16px;">
-                    <div style="font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; color:#1a4731; margin-bottom:5px;">
+                    <div style="font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; color:#1a4731; margin-bottom:8px;">
                       {{ issuance.issuance_no }}
                     </div>
-                    <div style="font-family:Arial, Helvetica, sans-serif; font-size:12.5px; color:#5b7568; line-height:1.6;">
-                      {{ issuance.summary|truncatewords:40 }}
+                    <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#5b7568; margin-bottom:10px;">
+                      {{ issuance.category.name }} &middot; {{ issuance.issuance_date|date:"F j, Y" }}
+                    </div>
+                    <div style="font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#1a2e22; line-height:1.65;">
+                      {{ issuance.summary|linebreaksbr }}
                     </div>
                   </td>
                 </tr>
@@ -61,21 +64,14 @@
             </td>
           </tr>
 
-          <!-- CTA button -->
+          <!-- Attachment notice -->
           <tr>
-            <td style="padding:22px 32px 8px;">
-              <!--[if mso]>
-              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ link }}" style="height:40px;v-text-anchor:middle;width:150px;" arcsize="10%" fillcolor="#2d6a4f" stroke="f">
-              <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;">View Issuance</center>
-              </v:roundrect>
-              <![endif]-->
-              <!--[if !mso]><!-->
-              <a href="{{ link }}"
-                 style="display:inline-block; background:#2d6a4f; color:#ffffff; font-family:Arial, Helvetica, sans-serif;
-                        font-size:13px; font-weight:700; text-decoration:none; padding:10px 24px; border-radius:6px;">
-                View Issuance
-              </a>
-              <!--<![endif]-->
+            <td style="padding:16px 32px 8px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#1a2e22; line-height:1.6;">
+              {% if attachment_name %}
+                &#128206; The full issuance is attached to this email: <strong>{{ attachment_name }}</strong>
+              {% elif attachment_missing %}
+                The attached file was too large to include in this email. Please access it through the intranet while on-site.
+              {% endif %}
             </td>
           </tr>
 
@@ -86,7 +82,7 @@
           <tr>
             <td style="padding:16px 32px 4px; font-family:Arial, Helvetica, sans-serif;">
               <p style="margin:0; font-size:12px; color:#6b8577; line-height:1.6;">
-                Note: This link only opens while connected to the MHARSMC hospital network (on-site).
+                When on-site, you can also <a href="{{ link }}" style="color:#2d6a4f;">view this issuance in the intranet</a> (login required, hospital network only).
               </p>
             </td>
           </tr>

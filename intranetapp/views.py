@@ -115,6 +115,65 @@ def notifications_mark_all_read(request):
         return JsonResponse({'success': True})
     return JsonResponse({'success': False}, status=405)
 
+@login_required
+def notifications_page(request):
+    status = request.GET.get('status', 'all')          # all | unread
+    ntype  = request.GET.get('type', '').strip()
+
+    base_qs = Notification.objects.filter(recipient=request.user)
+    qs = base_qs.select_related('actor').order_by('-created_at')
+
+    if status == 'unread':
+        qs = qs.filter(is_read=False)
+    else:
+        status = 'all'
+    if ntype:
+        qs = qs.filter(notif_type=ntype)
+
+    try:
+        per_page = int(request.GET.get('per_page', 20))
+    except (TypeError, ValueError):
+        per_page = 20
+    if per_page not in (10, 20, 50, 100):
+        per_page = 20
+
+    page_obj = Paginator(qs, per_page).get_page(request.GET.get('page') or 1)
+
+    qd = request.GET.copy()
+    qd.pop('page', None)
+
+    type_values = (
+        base_qs.order_by().values_list('notif_type', flat=True).distinct()
+    )
+    available_types = sorted(
+        [(t, t.replace('_', ' ').title()) for t in type_values if t],
+        key=lambda x: x[1],
+    )
+
+    return render(request, 'notifications.html', {
+        'page_obj':         page_obj,
+        'status':           status,
+        'type_filter':      ntype,
+        'per_page':         per_page,
+        'per_page_choices': [10, 20, 50, 100],
+        'unread_count':     base_qs.filter(is_read=False).count(),
+        'total_count':      base_qs.count(),
+        'available_types':  available_types,
+        'base_querystring': qd.urlencode(),
+    })
+
+
+@login_required
+def notification_mark_read(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False}, status=405)
+    n = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    if not n.is_read:
+        n.is_read = True
+        n.save(update_fields=['is_read'])
+    unread = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    return JsonResponse({'success': True, 'unread_count': unread})
+
 # ── Module registry ────────────────────────────────────────────────────────────
 MODULE_CHOICES = [
     ('press_releases',   'Press Releases'),
@@ -1453,8 +1512,17 @@ def issuance_edit(request, pk):
             else:
                 _notify_issuance_broadcast(request.user, issuance, created=False)
 
-            if tagged_ids:
-                _send_issuance_email_notifications(request.user, issuance, tagged_ids)
+            # Only email people who were newly tagged on this edit.
+            newly_tagged_qs = new_tagged.exclude(pk__in=previously_tagged_ids)
+            new_user_ids = {str(pk) for pk in newly_tagged_qs.values_list('pk', flat=True)}
+            new_depts = set(newly_tagged_qs.values_list('profile__department', flat=True))
+            email_ids = [
+                v for v in tagged_ids
+                if (v.startswith('office:') and v.split(':', 1)[1] in new_depts)
+                or v in new_user_ids
+            ]
+            if email_ids:
+                _send_issuance_email_notifications(request.user, issuance, email_ids)
 
         messages.success(request, f'Issuance "{issuance_no}" has been updated.')
  
@@ -4849,7 +4917,8 @@ def _notify_issuance_broadcast(actor, issuance, created):
 
 import logging
 import threading
-from django.core.mail import send_mail
+import mimetypes
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.db import connections
@@ -4903,37 +4972,66 @@ def _resolve_email_recipients(tagged_ids):
 
 
 
+# Most mail servers reject messages over ~20-25 MB; stay well under.
+MAX_EMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024
+
+
+def _load_issuance_attachment(issuance):
+    """Returns (filename, bytes, mimetype), or None if missing/too large/unreadable.
+    Read once so it isn't re-read for every recipient."""
+    if not issuance.attachment:
+        return None
+    try:
+        if issuance.attachment.size > MAX_EMAIL_ATTACHMENT_BYTES:
+            return None
+        with issuance.attachment.open('rb') as f:
+            data = f.read()
+    except Exception:
+        logger.exception('Could not read issuance attachment for email')
+        return None
+    filename = os.path.basename(issuance.attachment.name)
+    mime = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+    return filename, data, mime
+
+
 @run_in_background
 def _send_issuance_email_notifications(actor, issuance, tagged_ids):
     """
-    Emails everyone resolved by _resolve_email_recipients for this issuance,
-    excluding the actor (no need to notify yourself about your own post).
-    Recipients with no email on file are silently skipped; a failed send
-    never blocks the publish action itself.
+    Emails everyone resolved by _resolve_email_recipients, with the issuance
+    details in the body and the file attached. Excludes the actor. A failed
+    send never blocks the publish action itself.
     """
     try:
         recipients = _resolve_email_recipients(tagged_ids).exclude(pk=actor.pk)
         if not recipients.exists():
             return
 
-        link = f'{settings.SITE_URL}{reverse("issuances")}?highlight={issuance.pk}'
+        attachment = _load_issuance_attachment(issuance)
+        too_large = bool(issuance.attachment) and attachment is None
         actor_name = actor.get_full_name() or actor.username
+        link = f'{settings.SITE_URL}{reverse("issuances")}?highlight={issuance.pk}'
 
         for user in recipients:
             ctx = {
-                'user':       user,
-                'actor_name': actor_name,
-                'issuance':   issuance,
-                'link':       link,
+                'user':               user,
+                'actor_name':         actor_name,
+                'issuance':           issuance,
+                'link':               link,
+                'attachment_name':    attachment[0] if attachment else '',
+                'attachment_missing': too_large,
             }
-            send_mail(
+            msg = EmailMultiAlternatives(
                 subject=f'New Issuance: {issuance.issuance_no}',
-                message=render_to_string('emails/issuance_notification.txt', ctx),
+                body=render_to_string('emails/issuance_notification.txt', ctx),
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=render_to_string('emails/issuance_notification.html', ctx),
-                fail_silently=True,
+                to=[user.email],
             )
+            msg.attach_alternative(
+                render_to_string('emails/issuance_notification.html', ctx), 'text/html'
+            )
+            if attachment:
+                msg.attach(*attachment)
+            msg.send(fail_silently=True)
     except Exception:
         logger.exception('Failed to send issuance email notifications')
 

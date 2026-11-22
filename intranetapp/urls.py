@@ -140,6 +140,9 @@ urlpatterns = [
     # Notifications
     path('notifications/',           views.notifications_list,           name='notifications_list'),
     path('notifications/mark-read/', views.notifications_mark_all_read,  name='notifications_mark_read'),
+    path('notifications/all/', views.notifications_page, name='notifications_page'),
+    path('notifications/<int:pk>/read/', views.notification_mark_read, name='notification_mark_read'),
+
     
     # Messenger
     path('messenger/',                                  views.messenger,                name='messenger'),

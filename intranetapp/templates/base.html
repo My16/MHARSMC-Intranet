@@ -1372,7 +1372,7 @@
           </div>
           <div id="notifList" style="max-height:400px;overflow-y:auto;"></div>
           <div style="padding:10px 16px;border-top:1px solid var(--border);text-align:center;">
-            <a href="/notifications/" style="color:var(--green-mid);font-size:.8rem;font-weight:600;">View all notifications</a>
+            <a href="{% url 'notifications_page' %}" style="color:var(--green-mid);font-size:.8rem;font-weight:600;">View all notifications</a>
           </div>
         </div>
       </div>
@@ -1675,6 +1675,9 @@
         press_release:'fa-newspaper', event:'fa-calendar-days', training:'fa-chalkboard-teacher',
         issuance:'fa-file-circle-check', wiki:'fa-book-open', download:'fa-download',
         application:'fa-window-restore', corner_post:'fa-users',
+        issuance_tagged:'fa-tag', user_registration_pending:'fa-user-clock',
+        pgs_deliverable_deleted:'fa-chart-line', pgs_progress_deleted:'fa-chart-line',
+        library_item_deleted:'fa-book',
       };
 
       const badge      = document.getElementById('notifBadge');

@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block title %}Notifications · MHARSMC Intranet{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block breadcrumb %}Notifications{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nt-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .nt-tabs{display:flex;gap:4px;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:3px}
+  .nt-tab{padding:6px 14px;border-radius:8px;font-size:.84rem;font-weight:600;color:var(--text-muted)}
+  .nt-tab.active{background:var(--green-mid);color:#fff}
+  .nt-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .nt-tools select{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:.82rem}
+  .nt-btn{padding:7px 14px;border:1px solid var(--border);background:var(--white);border-radius:8px;font-size:.82rem;font-weight:600;color:var(--green-mid);cursor:pointer}
+  .nt-btn:hover{background:var(--green-pale)}
+  .nt-card{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .nt-row{display:flex;gap:14px;align-items:flex-start;padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+  .nt-row:last-child{border-bottom:none}
+  .nt-row:hover{background:var(--green-pale)}
+  .nt-row.unread{background:var(--green-pale)}
+  .nt-ico{width:38px;height:38px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--green-dark)}
+  .nt-body{flex:1;min-width:0}
+  .nt-title{font-size:.9rem;color:var(--text-primary)}
+  .nt-row.unread .nt-title{font-weight:600}
+  .nt-msg{font-size:.82rem;color:var(--text-muted);margin-top:2px}
+  .nt-meta{font-size:.72rem;color:var(--green-mid);margin-top:4px}
+  .nt-dot{width:9px;height:9px;border-radius:50%;background:var(--green-accent);margin-top:6px;flex-shrink:0}
+  .nt-row:not(.unread) .nt-dot{visibility:hidden}
+  .nt-empty{padding:60px 20px;text-align:center;color:var(--text-muted)}
+  .nt-empty i{font-size:2rem;color:var(--green-light);margin-bottom:10px;display:block}
+  .nt-pager{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:.82rem;color:var(--text-muted)}
+  .nt-pager a{padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white);margin-left:6px}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="nt-bar">
+  <div class="nt-tabs">
+    <a class="nt-tab {% if status == 'all' %}active{% endif %}"
+       href="?status=all&type={{ type_filter }}&per_page={{ per_page }}">All ({{ total_count }})</a>
+    <a class="nt-tab {% if status == 'unread' %}active{% endif %}"
+       href="?status=unread&type={{ type_filter }}&per_page={{ per_page }}">Unread ({{ unread_count }})</a>
+  </div>
+
+  <form class="nt-tools" method="get">
+    <input type="hidden" name="status" value="{{ status }}">
+    <select name="type" onchange="this.form.submit()">
+      <option value="">All types</option>
+      {% for value, label in available_types %}
+        <option value="{{ value }}" {% if value == type_filter %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="per_page" onchange="this.form.submit()">
+      {% for n in per_page_choices %}
+        <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }} / page</option>
+      {% endfor %}
+    </select>
+    <button type="button" class="nt-btn" id="ntMarkAll">
+      <i class="fa-solid fa-check-double"></i> Mark all read
+    </button>
+  </form>
+</div>
+
+<div class="nt-card">
+  {% for n in page_obj %}
+    <div class="nt-row {% if not n.is_read %}unread{% endif %}"
+         data-id="{{ n.pk }}" data-url="{{ n.url }}">
+      <div class="nt-ico"><i class="fa-solid fa-bell"></i></div>
+      <div class="nt-body">
+        <div class="nt-title">{{ n.title }}</div>
+        <div class="nt-msg">{{ n.message }}</div>
+        <div class="nt-meta">
+          {% if n.actor %}{{ n.actor.get_full_name|default:n.actor.username }}{% else %}System{% endif %}
+          · {{ n.created_at|timesince }} ago
+        </div>
+      </div>
+      <div class="nt-dot"></div>
+    </div>
+  {% empty %}
+    <div class="nt-empty">
+      <i class="fa-regular fa-bell-slash"></i>
+      No notifications {% if status == 'unread' %}to catch up on{% else %}yet{% endif %}.
+    </div>
+  {% endfor %}
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="nt-pager">
+  <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  <span>
+    {% if page_obj.has_previous %}<a href="?{{ base_querystring }}&page={{ page_obj.previous_page_number }}">Prev</a>{% endif %}
+    {% if page_obj.has_next %}<a href="?{{ base_querystring }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+  </span>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const csrf = () => (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)') || [])[2] || '';
+
+  document.querySelectorAll('.nt-row').forEach(row => {
+    row.addEventListener('click', async () => {
+      if (row.classList.contains('unread')) {
+        try {
+          const r = await fetch(`/notifications/${row.dataset.id}/read/`, {
+            method: 'POST', headers: { 'X-CSRFToken': csrf() },
+          });
+          const d = await r.json();
+          if (d.success) {
+            row.classList.remove('unread');
+            const b = document.getElementById('notifBadge');
+            b.classList.toggle('show', d.unread_count > 0);
+            b.textContent = d.unread_count > 99 ? '99+' : d.unread_count;
+          }
+        } catch (_) {}
+      }
+      if (row.dataset.url) window.location.href = row.dataset.url;
+    });
+  });
+
+  document.getElementById('ntMarkAll').addEventListener('click', () => {
+    fetch('/notifications/mark-read/', { method: 'POST', headers: { 'X-CSRFToken': csrf() } })
+      .then(() => window.location.reload());
+  });
+})();
+</script>
+{% endblock %}

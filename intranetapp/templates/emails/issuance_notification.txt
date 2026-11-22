@@ -1,12 +1,15 @@
 Hi {{ user.first_name|default:user.username }},
 
-{{ actor_name }} published a new issuance: {{ issuance.issuance_no }}
+{{ actor_name }} published a new issuance you're tagged on:
 
-Summary: {{ issuance.summary|truncatewords:40 }}
+{{ issuance.issuance_no }}
+{{ issuance.category.name }} - {{ issuance.issuance_date|date:"F j, Y" }}
 
-View it here: {{ link }}
+{{ issuance.summary }}
 
-Note: This link only works while connected to the MHARSMC hospital network
-(on-site). It will not open from outside the network.
+{% if attachment_name %}The full issuance is attached: {{ attachment_name }}{% elif attachment_missing %}The attached file was too large to include. Please access it through the intranet while on-site.{% endif %}
 
-— MHARSMC Intranet
+When on-site: {{ link }}
+
+You're receiving this because you were tagged, or you're the head of a tagged office, on this issuance.
+Mayor Hilarion A. Ramiro Sr. Medical Center - Intranet Portal. This is an automated message. Please do not reply.
