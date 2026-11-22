@@ -5506,6 +5506,180 @@ def e_library_material_type_add(request):
             messages.success(request, f'Material type "{name}" has been created.')
  
     return redirect('/e-library/?manage=material_types')
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  FORGOT PASSWORD  (email one-time code)
+# ═══════════════════════════════════════════════════════════════════════════════
+import hmac
+import hashlib
+import secrets
+from datetime import timedelta
+from .models import PasswordResetOTP
+
+OTP_TTL_MINUTES    = 10
+OTP_MAX_ATTEMPTS   = 5
+OTP_RESEND_SECONDS = 60
+
+
+def _digits(value):
+    return re.sub(r'\D', '', value or '')
+
+
+def _hash_otp(user_id, code):
+    return hmac.new(
+        settings.SECRET_KEY.encode(),
+        f'{user_id}:{code}'.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _find_user_for_reset(identifier):
+    """Look up an ACTIVE user by email or username."""
+    identifier = (identifier or '').strip()
+    if not identifier:
+        return None
+    if '@' in identifier:
+        return User.objects.filter(email__iexact=identifier, is_active=True).first()
+    return User.objects.filter(username__iexact=identifier, is_active=True).first()
+
+
+@run_in_background
+def _send_reset_code(user, code):
+    """Runs in a background thread so the request returns instantly."""
+    try:
+        if not user.email:
+            return
+
+        ctx = {
+            'user':        user,
+            'code':        code,
+            'ttl_minutes': OTP_TTL_MINUTES,
+        }
+        send_mail(
+            subject='Your MHARSMC Intranet password reset code',
+            message=render_to_string('emails/password_reset_code.txt', ctx),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=render_to_string('emails/password_reset_code.html', ctx),
+            fail_silently=True,
+        )
+    except Exception:
+        logger.exception('Failed to send password reset email')
+
+
+def forgot_password(request):
+    """Step 1: ask for username or email, then email a 6-digit code."""
+    if request.user.is_authenticated:
+        return redirect('home')
+
+    if request.method == 'POST':
+        identifier = request.POST.get('identifier', '').strip()
+
+        if not identifier:
+            messages.error(request, 'Please enter your username or email.')
+            return render(request, 'forgot_password.html', {'step': 'request'})
+
+        user = _find_user_for_reset(identifier)
+        request.session['fp_user_id']  = user.pk if user else 0
+        request.session['fp_verified'] = False
+
+        if user and user.email:
+            recently_sent = PasswordResetOTP.objects.filter(
+                user=user,
+                created_at__gte=timezone.now() - timedelta(seconds=OTP_RESEND_SECONDS),
+            ).exists()
+
+            if not recently_sent:
+                code = f'{secrets.randbelow(10**6):06d}'
+                PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
+                PasswordResetOTP.objects.create(
+                    user=user,
+                    code_hash=_hash_otp(user.pk, code),
+                    expires_at=timezone.now() + timedelta(minutes=OTP_TTL_MINUTES),
+                )
+                _send_reset_code(user, code)
+
+        # Same response whether or not the account exists.
+        messages.success(
+            request,
+            'If an account matches, a 6-digit code has been sent to its email. '
+            f'It expires in {OTP_TTL_MINUTES} minutes.'
+        )
+        return redirect('forgot_password_verify')
+
+    return render(request, 'forgot_password.html', {'step': 'request'})
+
+
+def forgot_password_verify(request):
+    """Step 2: check the 6-digit code."""
+    if request.user.is_authenticated:
+        return redirect('home')
+    if 'fp_user_id' not in request.session:
+        return redirect('forgot_password')
+
+    if request.method == 'POST':
+        uid  = request.session.get('fp_user_id') or 0
+        code = _digits(request.POST.get('code', ''))
+
+        otp = None
+        if uid:
+            otp = (
+                PasswordResetOTP.objects
+                .filter(user_id=uid, is_used=False, expires_at__gt=timezone.now())
+                .order_by('-created_at')
+                .first()
+            )
+
+        if otp is None or otp.attempts >= OTP_MAX_ATTEMPTS:
+            messages.error(request, 'That code is invalid or has expired. Please request a new one.')
+            return render(request, 'forgot_password.html', {'step': 'verify'})
+
+        otp.attempts += 1
+        otp.save(update_fields=['attempts'])
+
+        if len(code) == 6 and hmac.compare_digest(otp.code_hash, _hash_otp(uid, code)):
+            otp.is_used = True
+            otp.save(update_fields=['is_used'])
+            request.session['fp_verified'] = True
+            return redirect('forgot_password_reset')
+
+        messages.error(request, 'Incorrect code. Please try again.')
+
+    return render(request, 'forgot_password.html', {'step': 'verify'})
+
+
+def forgot_password_reset(request):
+    """Step 3: set the new password (only reachable after a verified code)."""
+    if request.user.is_authenticated:
+        return redirect('home')
+
+    uid = request.session.get('fp_user_id')
+    if not uid or not request.session.get('fp_verified'):
+        return redirect('forgot_password')
+
+    user = get_object_or_404(User, pk=uid, is_active=True)
+
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        confirm  = request.POST.get('confirm_password', '')
+
+        if len(password) < 8:
+            messages.error(request, 'Password must be at least 8 characters.')
+        elif password != confirm:
+            messages.error(request, 'Passwords do not match.')
+        else:
+            user.set_password(password)
+            user.save()
+            PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
+            request.session.pop('fp_user_id', None)
+            request.session.pop('fp_verified', None)
+            messages.success(request, 'Your password has been reset. You can now sign in.')
+            return redirect('login')
+
+    return render(request, 'forgot_password.html', {'step': 'reset'})
  
  
 @login_required

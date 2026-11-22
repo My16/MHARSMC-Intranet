@@ -1806,3 +1806,21 @@ class ELibraryItem(models.Model):
 
 def online_cutoff():
     return timezone.now() - timedelta(seconds=ONLINE_WINDOW_SECONDS)
+
+
+
+
+class PasswordResetOTP(models.Model):
+    """One-time code for the forgot-password flow. Only a hash is stored."""
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_otps')
+    code_hash  = models.CharField(max_length=64)
+    attempts   = models.PositiveSmallIntegerField(default=0)
+    is_used    = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Reset code for {self.user.username}'
